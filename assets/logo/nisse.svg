@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
-<!-- Nisse logo, draft 1: front-facing silhouette. Negative space = gap under the cap brim. -->
+<!-- Nisse logo, draft 2: front-facing silhouette. The nose bridges cap and beard, so the
+     two crescent gaps either side of it read as the eyes in shadow under the cap. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Nisse">
   <title>Nisse</title>
   <g fill="#1b2330">
     <!-- body / coat -->
-    <path d="M178 372 C122 392 108 450 126 492 L386 492 C404 450 390 392 334 372 Z"/>
+    <path d="M182 388 C128 404 112 454 126 496 L386 496 C400 454 384 404 330 388 Z"/>
     <!-- beard with mustache -->
-    <path d="M166 254 C190 278 226 288 256 288 C286 288 322 278 346 254 C364 332 342 414 256 462 C170 414 148 332 166 254 Z"/>
-    <!-- nose, poking out between cap and mustache -->
-    <circle cx="256" cy="268" r="21"/>
+    <path d="M164 272 C186 294 226 302 256 302 C286 302 326 294 348 272 C366 346 344 422 256 468 C168 422 146 346 164 272 Z"/>
+    <!-- nose, bridging cap cuff and mustache -->
+    <ellipse cx="256" cy="277" rx="25" ry="27"/>
     <!-- cap cuff -->
-    <rect x="146" y="206" width="220" height="34" rx="17"/>
+    <rect x="144" y="218" width="224" height="36" rx="18"/>
     <!-- tall pointed cap, tip flopped to the right -->
-    <path d="M158 212 C170 150 204 98 252 62 C282 40 326 40 346 66 C322 56 298 66 288 90 C316 138 346 176 354 212 Z"/>
+    <path d="M156 228 C166 152 200 92 250 54 C278 32 328 30 350 60 C324 52 300 64 292 90 C322 142 352 188 358 228 Z"/>
   </g>
 </svg>
