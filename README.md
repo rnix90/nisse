@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo/nisse-lockup.svg" alt="Nisse" width="420"></p>
+<p align="center"><img src="assets/logo/svg/nisse-lockup-horizontal.svg" alt="Nisse" width="420"></p>
 
 # Nisse
 
@@ -20,6 +20,9 @@ Day zero. No build system, base, or package set chosen yet.
 ## License
 
 GPL-2.0-or-later. See [LICENSE](LICENSE).
+
+Third-party assets keep their own licenses. The bundled Nunito font (`assets/fonts/Nunito/`) is
+SIL OFL 1.1.
 
 Source files should carry an SPDX header where the format allows it:
 

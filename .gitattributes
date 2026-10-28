@@ -3,3 +3,6 @@
 *.iso binary
 *.img binary
 *.png binary
+*.ico binary
+*.ttf binary
+*.woff2 binary
