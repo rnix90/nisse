@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- Nisse logo, draft 1: front-facing silhouette. Negative space = gap under the cap brim. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Nisse">
+  <title>Nisse</title>
+  <g fill="#1b2330">
+    <!-- body / coat -->
+    <path d="M178 372 C122 392 108 450 126 492 L386 492 C404 450 390 392 334 372 Z"/>
+    <!-- beard with mustache -->
+    <path d="M166 254 C190 278 226 288 256 288 C286 288 322 278 346 254 C364 332 342 414 256 462 C170 414 148 332 166 254 Z"/>
+    <!-- nose, poking out between cap and mustache -->
+    <circle cx="256" cy="268" r="21"/>
+    <!-- cap cuff -->
+    <rect x="146" y="206" width="220" height="34" rx="17"/>
+    <!-- tall pointed cap, tip flopped to the right -->
+    <path d="M158 212 C170 150 204 98 252 62 C282 40 326 40 346 66 C322 56 298 66 288 90 C316 138 346 176 354 212 Z"/>
+  </g>
+</svg>
