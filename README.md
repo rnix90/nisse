@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo/nisse-lockup.svg" alt="Nisse" width="420"></p>
+
 # Nisse
 
 A custom Linux distribution, assembled step by step.
