@@ -12,3 +12,6 @@
 *.swp
 Thumbs.db
 desktop.ini
+
+# Local scratch for plan execution
+.superpowers/
