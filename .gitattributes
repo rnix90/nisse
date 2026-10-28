@@ -1,0 +1,5 @@
+# Linux distro tooling: always LF, even when checked out on Windows
+* text=auto eol=lf
+*.iso binary
+*.img binary
+*.png binary

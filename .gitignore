@@ -1,0 +1,14 @@
+# Build output
+/build/
+/out/
+/work/
+*.iso
+*.img
+*.qcow2
+*.tar.zst
+
+# Editors / OS
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
