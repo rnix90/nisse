@@ -1,0 +1,62 @@
+<image>
+  <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+  <!-- The Nisse live/install ISO. Fedora's KDE-Desktop-Live profile is not used because it pulls in
+       fedora-release-kde and Fedora's volume id and publisher. This profile asks for the same building blocks
+       (KDE-Desktop and BootCoreLive) and carries the live-install package set and ISO settings itself.
+       Fedora's config.sh decides on the live KDE session by looking for "Live" and "KDE" in the selected
+       profile names; KDE-Desktop supplies "KDE" and this profile's own name supplies "Live". -->
+  <profiles>
+    <profile name="Nisse-Live" description="Nisse KDE Plasma live and install ISO">
+      <requires profile="KDE-Desktop"/>
+      <requires profile="BootCoreLive"/>
+    </profile>
+  </profiles>
+  <preferences profiles="Nisse-Live" arch="x86_64">
+    <type image="iso"
+      publisher="Nisse" volid="Nisse-@RELEASE@" application_id="Nisse-@RELEASE@"
+      primary="true" flags="dmsquash" filesystem="erofs" erofscompression="lzma,level=6" mediacheck="true"
+      firmware="uefi" efiparttable="gpt" efifatimagesize="30" kernelcmdline="@KERNELCMDLINE@"
+      fscreateoptions="-Efragments -C 1048576"
+      >
+      <bootloader name="grub2" grub_template="grub-x86.cfg.iso-template" console="console" timeout="10"/>
+    </type>
+  </preferences>
+  <!-- The release package that provides system-release and the Nisse identity. -->
+  <packages type="bootstrap" patternType="plusRecommended" profiles="Nisse-Live">
+    <package name="nisse-release"/>
+  </packages>
+  <packages type="image" patternType="plusRecommended" profiles="Nisse-Live">
+    <package name="nisse-release-common"/>
+    <package name="nisse-branding"/>
+    <package name="nisse-fonts-nunito"/>
+    <package name="nisse-hw"/>
+    <package name="nisse-firstboot"/>
+    <package name="nisse-daemon"/>
+    <package name="nisse-panel"/>
+    <package name="plasma-welcome-fedora"/>
+    <package name="generic-logos"/>
+    <ignore name="fedora-release"/>
+    <ignore name="fedora-release-*"/>
+    <ignore name="fedora-logos"/>
+  </packages>
+  <!-- The live-install set, copied from Fedora's components/liveinstall.xml: the point of a live image is to install. -->
+  <packages type="iso" patternType="plusRecommended" profiles="Nisse-Live">
+    <file name="iso-esp-excludes.yaml" target="image/exclude_files_efifatimage.yaml"/>
+    <namedCollection name="anaconda-tools"/>
+    <package name="anaconda-install-env-deps"/>
+    <package name="anaconda-live"/>
+    <package name="aajohan-comfortaa-fonts"/>
+    <package name="dracut-live"/>
+    <package name="glibc-all-langpacks"/>
+    <package name="isomd5sum"/>
+    <package name="kernel"/>
+    <package name="kernel-modules"/>
+    <package name="kernel-modules-extra"/>
+    <package name="livesys-scripts"/>
+    <package name="btrfs-progs"/>
+    <package name="udisks2-btrfs"/>
+    <ignore name="device-mapper-multipath"/>
+    <ignore name="fcoe-utils"/>
+    <ignore name="gfs2-utils"/>
+  </packages>
+</image>

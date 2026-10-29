@@ -50,4 +50,35 @@ else
     bad "vendor-kiwi.sh failed: $(tail -2 "$tmp/vendor.log" | tr '\n' ' ')"
 fi
 
-if [ "$fail" -eq 0 ]; then echo "PASS: kiwi description (vendored copy)"; else echo "$fail failure(s)"; exit 1; fi
+# ---- part 2: the rendered Nisse description (needs kiwi-ng, so it runs in the build VM)
+if command -v kiwi-ng >/dev/null 2>&1; then
+    D=out/kiwi-description
+    if bash build/render-kiwi.sh >"$tmp/render.log" 2>&1; then ok "render-kiwi.sh renders $D"
+    else bad "render-kiwi.sh failed: $(tail -2 "$tmp/render.log" | tr '\n' ' ')"; fi
+
+    # Selecting the profile makes kiwi resolve its "requires"; Fedora's config.sh keys off "Live" and "KDE" in that list.
+    profiles="$(kiwi-ng --profile Nisse-Live --type iso image info --description "$D" --list-profiles 2>&1)"
+    case "$profiles" in
+        *"Selected profiles: Nisse-Live,"*KDE-Desktop*BootCoreLive*) ok "kiwi resolves Nisse-Live to KDE-Desktop + BootCoreLive";;
+        *) bad "profile Nisse-Live did not resolve: $(echo "$profiles" | grep -E 'ERROR|Selected' | tail -2 | tr '\n' ' ')";;
+    esac
+
+    live="$D/nisse/components/nisse-live.xml"
+    for p in nisse-release nisse-release-common nisse-branding nisse-fonts-nunito nisse-hw nisse-firstboot nisse-daemon nisse-panel anaconda-live; do
+        grep -q "<package name=\"$p\"/>" "$live" && ok "Nisse-Live installs $p" || bad "Nisse-Live lacks $p"
+    done
+    for p in fedora-release-kde fedora-release; do
+        if grep -q "<package name=\"$p\"/>" "$live"; then bad "Nisse-Live installs $p"; else ok "Nisse-Live does not install $p"; fi
+    done
+
+    repos="$D/nisse/repositories/nisse.xml"
+    grep -q 'alias="fedora"' "$repos" && ok "repository alias fedora" || bad "no repository alias fedora"
+    grep -q 'alias="nisse"' "$repos" && ok "repository alias nisse" || bad "no repository alias nisse"
+    grep -q 'alias="updates"' "$repos" && bad "an updates repository is configured (release repo only)" || ok "no updates repository"
+    grep -q 'volid="Nisse-44"' "$live" && ok "volid is Nisse-44" || bad "volid is not Nisse-44"
+    if grep -rn '@[A-Z_]*@' "$D/Nisse.kiwi" "$D/nisse" >/dev/null 2>&1; then bad "unfilled @...@ placeholder"; else ok "no unfilled placeholder"; fi
+else
+    echo "skip part 2 (rendered description): kiwi-ng not installed; run this test in the build VM"
+fi
+
+if [ "$fail" -eq 0 ]; then echo "PASS: kiwi description"; else echo "$fail failure(s)"; exit 1; fi
