@@ -15,3 +15,10 @@ desktop.ini
 
 # Local scratch for plan execution
 .superpowers/
+
+# Python / Rust / Qt build output
+__pycache__/
+*.pyc
+.pytest_cache/
+/services/target/
+/panel/build/
