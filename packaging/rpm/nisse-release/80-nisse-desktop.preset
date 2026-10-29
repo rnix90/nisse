@@ -1,2 +1,6 @@
 # Nisse desktop: Fedora 44 KDE uses the Plasma Login Manager, which fedora-release-kde used to enable.
 enable plasmalogin.service
+# Live media: livesys creates the live user and sets up autologin. Fedora enables these through its own (much
+# larger) preset file, which nisse-release replaced. Anaconda's install removes livesys-scripts from the target.
+enable livesys.service
+enable livesys-late.service

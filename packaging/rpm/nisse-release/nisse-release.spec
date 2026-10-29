@@ -5,7 +5,7 @@
 
 Name:           nisse-release
 Version:        %{fedora_release}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Nisse release files
 License:        MIT
 BuildArch:      noarch
@@ -134,5 +134,8 @@ install -Dm0644 %{SOURCE6} %{SOURCE7} -t %{buildroot}%{_sysconfdir}/yum.repos.d/
 %config(noreplace) %{_sysconfdir}/yum.repos.d/nisse-daily.repo
 
 %changelog
+* Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-2
+- Enable livesys.service and livesys-late.service so live media gets a live user and autologin
+
 * Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-1
 - Initial Nisse release package, derived from generic-release 44-0.2

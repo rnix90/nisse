@@ -32,6 +32,8 @@ for ch in stable daily; do
 done
 
 member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -qx 'enable plasmalogin.service'     || fail "common lacks a preset enabling plasmalogin.service (the KDE display manager)"
+member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -qx 'enable livesys.service'          || fail "common lacks a preset enabling livesys.service (live user and autologin)"
+member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -qx 'enable livesys-late.service'     || fail "common lacks a preset enabling livesys-late.service"
 
 # dnf5's copr plugin builds the COPR chroot name from os-release ID ("nisse-44"), which does not exist.
 # This vendor config tells it to use Fedora's chroots (verified in the VM with a fake ID=nisse os-release).

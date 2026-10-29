@@ -34,6 +34,13 @@ fi
 [ -f "$root/usr/share/anaconda/post-scripts/90-nisse-hwroute.ks" ] \
     || fail "Anaconda post-script 90-nisse-hwroute.ks is missing"
 
+# The live session itself: livesys creates the live user and sets up autologin; without these units the ISO boots to
+# a login prompt instead of the desktop (Fedora enables them through its own preset file, which nisse-release replaced).
+for u in livesys.service livesys-late.service; do
+    # -L, not -e: the enable symlink's target is absolute (/usr/lib/...), so -e would resolve it on the host
+    [ -L "$root/etc/systemd/system/multi-user.target.wants/$u" ] || fail "$u is not enabled in the image"
+done
+
 # Package database checks: the release-repo-only decision (Qt 6.10) and Fedora's KDE release package is gone.
 rpmq() { rpm --dbpath "$root/usr/lib/sysimage/rpm" "$@"; }
 qt="$(rpmq -q --qf '%{version}' qt6-qtbase 2>/dev/null)" || fail "qt6-qtbase is not installed in the image"

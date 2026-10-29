@@ -5,7 +5,7 @@
 #
 #   tools/vm/smoke-boot.sh ISO [--vendor V] [--product P] [--family F]
 #                              [--wait-for TEXT] [--timeout SECS] [--out DIR]
-#                              [--screenshot FILE.png] [--settle SECS] [--linger SECS] [--no-marker]
+#                              [--screenshot FILE.png] [--settle SECS] [--linger SECS] [--no-marker] [--mediacheck]
 #
 # --vendor/--product/--family spoof SMBIOS type 1 so hardware detection can be tested without the machine.
 # Exit 0 if TEXT shows up within the timeout (default TEXT: "login:", 300 s), 1 otherwise. systemd stops
@@ -17,7 +17,7 @@
 set -euo pipefail
 
 iso="${1:?usage: smoke-boot.sh ISO [options]}"; shift
-vendor="" product="" family="" want="login:" timeout=300 outdir="out/vm" shot="" settle=90 linger=0 nomarker=0
+vendor="" product="" family="" want="login:" timeout=300 outdir="out/vm" shot="" settle=90 linger=0 nomarker=0 mediacheck=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --vendor) vendor="$2"; shift 2 ;;
@@ -30,6 +30,7 @@ while [ $# -gt 0 ]; do
         --settle) settle="$2"; shift 2 ;;
         --linger) linger="$2"; shift 2 ;;
         --no-marker) nomarker=1; shift ;;
+        --mediacheck) mediacheck=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 64 ;;
     esac
 done
@@ -65,6 +66,22 @@ fi
 qpid=$!
 cleanup() { kill "$qpid" 2>/dev/null || true; taskkill //F //PID "$(cat "$pidfile" 2>/dev/null)" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
+
+# Fedora's live ISO menu defaults to "Test this media & start" (a checksum of the whole ISO, very slow under
+# emulation). Once the firmware starts GRUB (BdsDxe line on the serial console), press Up every second for 15 s: Up
+# selects "Start Nisse" and stops the menu countdown, and is harmless before the menu exists. Then press Enter once.
+# Enter alone would boot the default entry, so it must never be sent before an Up has reached the menu (a slow, loaded
+# host once let the old Up/Enter alternation race and boot the media check). --mediacheck keeps the default.
+if [ "$mediacheck" = 0 ]; then
+    (
+        exec 4<>"/dev/tcp/127.0.0.1/$monport" || exit 0
+        for _ in $(seq 1 60); do grep -qF 'BdsDxe: starting' "$log" 2>/dev/null && break; sleep 1; done
+        for _ in $(seq 1 15); do echo 'sendkey up' >&4; sleep 1; done
+        echo 'sendkey ret' >&4
+        sleep 1
+        exec 4>&-
+    ) 2>/dev/null &
+fi
 
 if [ "$nomarker" = 1 ]; then
     sleep "$settle"
