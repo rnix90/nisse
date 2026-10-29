@@ -30,6 +30,11 @@ for f in sys.argv[1:]:
         print(f, e)')"
 [ -z "$xmlbad" ] && ok "every vendored .xml is well-formed" || bad "malformed xml: $xmlbad"
 
+# Windows line endings would break config.sh and the other scripts inside the Linux build VM.
+cr="$(printf '\r')"
+crlf="$(grep -rlI "$cr" "$V" 2>/dev/null | head -3 | tr '\n' ' ')"
+[ -z "$crlf" ] && ok "vendored files have Unix line endings" || bad "CRLF line endings in: $crlf"
+
 grep -q "$PIN" "$V/VENDORED.md" 2>/dev/null && ok "VENDORED.md records the pinned commit" || bad "VENDORED.md lacks commit $PIN"
 head -3 "$V/COPYING" 2>/dev/null | grep -q "GNU GENERAL PUBLIC LICENSE" && ok "COPYING is the GPL text" || bad "COPYING missing or not the GPL"
 for d in teams scripts repositories; do

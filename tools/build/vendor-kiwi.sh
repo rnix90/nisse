@@ -33,7 +33,7 @@ FILES=(
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-git clone -q "$url" "$work/src"
+git -c core.autocrlf=false clone -q "$url" "$work/src"
 git -C "$work/src" checkout -q "$commit"
 [ "$(git -C "$work/src" rev-parse HEAD)" = "$commit" ] || { echo "commit $commit not found (give the full hash)" >&2; exit 1; }
 
