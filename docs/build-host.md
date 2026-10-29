@@ -37,3 +37,17 @@ squashfs-tools, pykickstart, rpmlint, edk2-ovmf) and working loop devices.
    and pass `-smbios type=1,serial=ds=nocloud-net;s=http://10.0.2.2:8000/`. The user-data creates
    `builder`, grants sudo, and installs the public half of `~/.ssh/nisse_build`.
 4. Install the packages listed above with `dnf`.
+
+## Building and boot-testing the ISO
+
+    bash tools/build/vm.sh sync
+    bash tools/build/vm.sh ssh 'cd ~/nisse && for p in nisse-release nisse-branding nisse-fonts-nunito; do tools/rpm/build-rpm.sh $p; done && tools/rpm/make-repo.sh'
+    bash tools/build/vm.sh ssh 'cd ~/nisse && setsid nohup bash build/build-iso.sh > out/build-iso.log 2>&1 < /dev/null &'   # about 25 min
+    bash tools/build/vm.sh ssh 'cd ~/nisse && bash tests/iso/test_iso_contents.sh out/nisse-live.iso'
+    mkdir -p /d/nisse-build-vm/out && bash tools/build/vm.sh pull out/nisse-live.iso /d/nisse-build-vm/out/nisse-live.iso
+    bash tools/vm/smoke-boot.sh /d/nisse-build-vm/out/nisse-live.iso --out /d/nisse-build-vm/out/vm \
+        --screenshot /d/nisse-build-vm/out/vm/desktop.png        # boots on the Windows host
+
+Keep the ISO on a local drive, not on the T: share. Never run two builds at once, and never `pkill -f anaconda`
+over SSH (the pattern matches your own shell). A hung build can be cleared with `sudo kill -9` on the
+`anaconda` and `livemedia-creat` PIDs, then `sudo rm -f /run/anaconda.pid` and `sudo losetup -D`.

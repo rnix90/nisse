@@ -18,6 +18,7 @@ Source4:        90-default-user.preset
 Source5:        channel
 Source6:        nisse-stable.repo
 Source7:        nisse-daily.repo
+Source8:        80-nisse-desktop.preset
 
 Provides:       nisse-release = %{version}-%{release}
 Provides:       nisse-release-variant = %{version}-%{release}
@@ -87,7 +88,7 @@ cat > %{buildroot}%{_rpmconfigdir}/macros.d/macros.dist <<EOF
 %%fc%{fedora_release}                1
 EOF
 
-install -Dm0644 %{SOURCE1} %{SOURCE2} %{SOURCE3} -t %{buildroot}%{_prefix}/lib/systemd/system-preset/
+install -Dm0644 %{SOURCE1} %{SOURCE2} %{SOURCE3} %{SOURCE8} -t %{buildroot}%{_prefix}/lib/systemd/system-preset/
 install -Dm0644 %{SOURCE4} -t %{buildroot}%{_prefix}/lib/systemd/user-preset/
 
 install -Dm0644 %{SOURCE5} %{buildroot}%{_sysconfdir}/nisse/channel
@@ -117,6 +118,7 @@ install -Dm0644 %{SOURCE6} %{SOURCE7} -t %{buildroot}%{_sysconfdir}/yum.repos.d/
 %{_prefix}/lib/systemd/system-preset/85-display-manager.preset
 %{_prefix}/lib/systemd/system-preset/90-default.preset
 %{_prefix}/lib/systemd/system-preset/99-default-disable.preset
+%{_prefix}/lib/systemd/system-preset/80-nisse-desktop.preset
 %dir %{_sysconfdir}/nisse
 %config(noreplace) %{_sysconfdir}/nisse/channel
 %config(noreplace) %{_sysconfdir}/yum.repos.d/nisse-stable.repo

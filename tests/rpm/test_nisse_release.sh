@@ -31,6 +31,8 @@ for ch in stable daily; do
     printf '%s\n' "$repo" | grep -qx 'enabled=0' || fail "nisse-$ch.repo must contain enabled=0"
 done
 
+member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -qx 'enable plasmalogin.service'     || fail "common lacks a preset enabling plasmalogin.service (the KDE display manager)"
+
 out="$(rpmlint "$main" "$common" 2>&1 || true)"
 echo "$out" | tail -3
 errors="$(echo "$out" | grep -oE '[0-9]+ errors' | tail -1 | cut -d' ' -f1)"

@@ -1,0 +1,2 @@
+# Nisse desktop: Fedora 44 KDE uses the Plasma Login Manager, which fedora-release-kde used to enable.
+enable plasmalogin.service
