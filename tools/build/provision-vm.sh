@@ -6,8 +6,8 @@
 set -euo pipefail
 
 sudo dnf install -y \
-    rpm-build rpmlint createrepo_c xorriso squashfs-tools erofs-utils pykickstart edk2-ovmf git desktop-file-utils \
-    python3-devel python3-pytest systemd-rpm-macros dnf5-plugins gawk \
+    rpm-build rpmlint createrepo_c xorriso erofs-utils edk2-ovmf git desktop-file-utils \
+    python3-devel python3-pytest systemd-rpm-macros dnf5-plugins gawk dbus-daemon \
     cargo rust clippy rustfmt gcc gcc-c++ cmake ninja-build \
     qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools qt6-qtdeclarative \
     kiwi kiwi-systemdeps distribution-gpg-keys

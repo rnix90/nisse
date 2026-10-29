@@ -12,7 +12,7 @@ kernel selection. Most of it is checked by scripts. A few things need a person, 
 | Services | `cd services && cargo test --workspace` | audit log, config, runner and D-Bus API |
 | Panel | `ctest --test-dir panel/build`, `tests/e2e/panel_daemon.sh` | chat behaviour, and panel plus daemon on a real bus |
 | First-boot fetch | `tests/shell/test_fetch_claude.sh` | Claude Code is fetched, never bundled, and retried offline |
-| ISO contents | `tests/iso/test_iso_contents.sh out/nisse-live.iso` | os-release says Nisse, Nunito is there, our programs are in, no `claude` file |
+| ISO contents | `tests/iso/test_iso_contents.sh out/nisse-live.iso` | os-release says Nisse, Nunito is there, our programs and the Anaconda post-script are in, the live-session units are enabled, Qt is 6.10, no `claude` file |
 | Boot | `tools/vm/smoke-boot.sh ISO --screenshot ...` | the ISO boots to Plasma with "Welcome to Nisse!" |
 | Hardware in VMs | `tests/e2e/test_hw_in_vm.sh ISO` | spoofed Surface, T2, pre-T2 and plain QEMU print the expected profile and commands |
 
@@ -26,8 +26,9 @@ kernel selection. Most of it is checked by scripts. A few things need a person, 
    Run "Install to Hard Drive", finish, shut down, then boot the installed system with the same command
    without `--iso`.
    - [ ] `cat /var/lib/nisse/hw-profile.json` shows `"profile": "surface"` and a status of `done` or `pending`.
-   - [ ] `cat /var/log/nisse-hwroute-install.log` exists (it proves the installer ran our post-script; the
-         Anaconda hook is confirmed from its source, this is the end-to-end proof).
+   - [ ] `cat /var/log/nisse-hwroute-install.log` exists. It proves the installer ran our post-script, which the
+         kiwi-built image ships at `/usr/share/anaconda/post-scripts/90-nisse-hwroute.ks` (the ISO contents test checks
+         the file; this is the end-to-end proof that Anaconda runs it from that image).
    - [ ] After network is up, `rpm -q kernel-surface` finds the package and `uname -r` after a reboot contains `surface`.
    On a real Surface, turn Secure Boot off in the firmware first. While it is on, `nisse-hwroute` installs nothing
    and `/var/lib/nisse/hw-profile.json` says `waiting-for-secure-boot-off` (the linux-surface kernel is not trusted by
@@ -55,5 +56,6 @@ kernel selection. Most of it is checked by scripts. A few things need a person, 
 - The FaceTime HD camera driver on pre-T2 MacBooks (no verified package source yet).
 - The Nisse repositories are placeholders (disabled) until the GitHub-hosted channels exist.
 - Rollback and safe update (snapper), approvals queue, multiple tabs, Plasma widget, mediated root tools.
-- Fedora retired its kickstart repository; Nisse vendors the last kickstart (f43) and patches it in
-  `build/build-iso.sh`. Fedora's maintained path is now kiwi. See the ledger note in the commit history.
+- The ISO is built with kiwi from Fedora's vendored live-image description (`build/kiwi/fedora/`, pinned commit in
+  `VENDORED.md`) plus the Nisse overlay; see `docs/build-host.md`. It uses Fedora's release repository only, so it is
+  a frozen snapshot (Plasma 6.6, Qt 6.10) until the updates repository is added.

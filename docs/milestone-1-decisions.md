@@ -81,3 +81,17 @@ Final: minor (deferred): os-release lacks HOME_URL/BUG_REPORT_URL/SUPPORT_URL/DE
 Final: minor (deferred): no per-session in-flight guard in the daemon (two SendMessage calls on one session start two CLIs).
 Final: Ruling: reviewer recommendations not acted on - gpgcheck=1 for the Nisse repos (do it when the repos have a host), a "reboot to use the new kernel" notice, a VM test that really executes the T2 route, and a reverse-reading tail() - cost if wrong: none now; all belong to later plans.
 ```
+
+## Addendum 2026-10-29: the build moved from kickstart to kiwi
+
+Rulings and evidence for this change are in `docs/superpowers/specs/2026-10-29-kiwi-build-design.md` and
+`docs/superpowers/plans/2026-10-29-kiwi-build.md`; `docs/kiwi-spike.md` has the spike results.
+
+- The ISO is built with kiwi-ng from Fedora's vendored live-image description (`build/kiwi/fedora/`, pinned commit in
+  `VENDORED.md`) plus a Nisse overlay. The kickstart, `build/kickstart/` and the `lorax`/`livemedia-creator` tooling are gone.
+- The ISO uses Fedora's release repository only (frozen snapshot: Plasma 6.6, Qt 6.10). The VM's Qt pin stays so
+  that the panel is built against the same Qt.
+- Found while testing the kiwi image: the live session needs `livesys.service` and `livesys-late.service` enabled, which
+  `nisse-release` had to add to its own preset (the old kickstart enabled them by hand); Fedora's GRUB menu defaults to
+  the slow media check, which the boot tests now skip.
+- Open: whether Nisse should adopt Fedora's fuller preset (tuned, thermald, systemd-oomd, flatpak-add-fedora-repos).

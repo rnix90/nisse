@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Check that this machine can build Nisse images.
-# Exit 0: ready. Exit 1: not Fedora. Exit 2: tools missing. Exit 3: loop devices unavailable.
+# Check that this machine can build Nisse images (kiwi-ng, see docs/build-host.md).
+# Exit 0: ready. Exit 1: not Fedora. Exit 2: tools missing. Exit 3: SELinux is enforcing (kiwi bootstrap fails).
 set -u
 
 if ! grep -qx 'ID=fedora' /etc/os-release 2>/dev/null; then
@@ -10,12 +10,11 @@ if ! grep -qx 'ID=fedora' /etc/os-release 2>/dev/null; then
 fi
 
 declare -A PKG=(
-    [livemedia-creator]=lorax-lmc-novirt
+    [kiwi-ng]=kiwi
     [rpmbuild]=rpm-build
     [createrepo_c]=createrepo_c
     [xorriso]=xorriso
-    [unsquashfs]=squashfs-tools
-    [ksflatten]=pykickstart
+    [mkfs.erofs]=erofs-utils
     [rpmlint]=rpmlint
 )
 missing=()
@@ -30,8 +29,9 @@ if [ "${#missing[@]}" -gt 0 ]; then
     exit 2
 fi
 
-if ! sudo losetup -f >/dev/null 2>&1; then
-    echo "loop devices are unavailable: livemedia-creator --no-virt cannot run here"
+# kiwi's bootstrap fails under SELinux enforcing ("%sysusers scriptlet failed, exit status 127"); docs/kiwi-spike.md.
+if [ "$(getenforce 2>/dev/null)" = "Enforcing" ]; then
+    echo "SELinux is enforcing: run  sudo setenforce 0  (tools/build/provision-vm.sh makes it permanent)"
     exit 3
 fi
 
