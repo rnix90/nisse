@@ -33,6 +33,13 @@ done
 
 member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -qx 'enable plasmalogin.service'     || fail "common lacks a preset enabling plasmalogin.service (the KDE display manager)"
 
+# dnf5's copr plugin builds the COPR chroot name from os-release ID ("nisse-44"), which does not exist.
+# This vendor config tells it to use Fedora's chroots (verified in the VM with a fake ID=nisse os-release).
+vendor="$(member "$common" etc/dnf/plugins/copr.vendor.conf)"
+for want in '[main]' 'distribution = fedora' "releasever = $REL"; do
+    grep -qxF "$want" <<< "$vendor" || fail "copr.vendor.conf lacks line: $want"
+done
+
 out="$(rpmlint "$main" "$common" 2>&1 || true)"
 echo "$out" | tail -3
 errors="$(echo "$out" | grep -oE '[0-9]+ errors' | tail -1 | cut -d' ' -f1)"

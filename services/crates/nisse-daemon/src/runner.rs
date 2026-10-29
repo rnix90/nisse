@@ -7,12 +7,15 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use async_trait::async_trait;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc::Sender;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunEvent {
+    /// Claude Code created the session (its `init` line). From here on the session exists, even if the turn
+    /// later fails, and must be continued with `--resume`.
+    Started,
     Text(String),
     Done,
     Error(String),
@@ -49,6 +52,7 @@ pub fn parse_line(line: &str) -> Vec<RunEvent> {
             .filter_map(|item| item["text"].as_str())
             .map(|text| RunEvent::Text(text.to_string()))
             .collect(),
+        Some("system") if value["subtype"] == "init" => vec![RunEvent::Started],
         Some("result") if value["is_error"] == true => {
             let message = value["result"].as_str().unwrap_or("Claude Code reported an error");
             vec![RunEvent::Error(message.to_string())]
@@ -131,7 +135,7 @@ impl AgentRunner for ClaudeCliRunner {
         // A closed stdin: the CLI otherwise waits 3 seconds for piped data.
         cmd.stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .kill_on_drop(true);
 
         let mut child = match cmd.spawn() {
@@ -141,6 +145,15 @@ impl AgentRunner for ClaudeCliRunner {
             }
             Err(e) => return finish_with_error(&tx, format!("cannot start Claude Code: {e}")).await,
         };
+
+        // Read stderr alongside stdout so a chatty CLI cannot fill the pipe and stall; keep its tail for errors.
+        let stderr_tail = child.stderr.take().map(|err| {
+            tokio::spawn(async move {
+                let mut bytes = Vec::new();
+                let _ = err.take(1_000_000).read_to_end(&mut bytes).await;
+                tail_of(&bytes)
+            })
+        });
 
         if let Some(stdout) = child.stdout.take() {
             let mut lines = BufReader::new(stdout).lines();
@@ -162,11 +175,28 @@ impl AgentRunner for ClaudeCliRunner {
                     || "was killed by a signal".to_string(),
                     |c| format!("exited with status {c}"),
                 );
-                finish_with_error(&tx, format!("Claude Code {how}")).await;
+                let tail = match stderr_tail {
+                    Some(handle) => handle.await.unwrap_or_default(),
+                    None => String::new(),
+                };
+                let detail = if tail.is_empty() {
+                    String::new()
+                } else {
+                    format!(": {tail}")
+                };
+                finish_with_error(&tx, format!("Claude Code {how}{detail}")).await;
             }
             Err(e) => finish_with_error(&tx, format!("lost track of Claude Code: {e}")).await,
         }
     }
+}
+
+/// The last few hundred characters of a process's stderr, for showing why it failed.
+fn tail_of(bytes: &[u8]) -> String {
+    let text = String::from_utf8_lossy(bytes);
+    let text = text.trim();
+    let skip = text.chars().count().saturating_sub(300);
+    text.chars().skip(skip).collect()
 }
 
 /// Echoes the prompt. Used by tests and by `NISSE_FAKE_RUNNER=1`.

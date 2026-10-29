@@ -92,6 +92,14 @@ install -Dm0644 %{SOURCE1} %{SOURCE2} %{SOURCE3} %{SOURCE8} -t %{buildroot}%{_pr
 install -Dm0644 %{SOURCE4} -t %{buildroot}%{_prefix}/lib/systemd/user-preset/
 
 install -Dm0644 %{SOURCE5} %{buildroot}%{_sysconfdir}/nisse/channel
+
+# dnf5's copr plugin derives the COPR chroot from os-release ID ("nisse-44"); point it at Fedora's chroots instead.
+install -d %{buildroot}%{_sysconfdir}/dnf/plugins
+cat > %{buildroot}%{_sysconfdir}/dnf/plugins/copr.vendor.conf <<EOF
+[main]
+distribution = fedora
+releasever = %{fedora_release}
+EOF
 install -Dm0644 %{SOURCE6} %{SOURCE7} -t %{buildroot}%{_sysconfdir}/yum.repos.d/
 
 %files
@@ -121,6 +129,7 @@ install -Dm0644 %{SOURCE6} %{SOURCE7} -t %{buildroot}%{_sysconfdir}/yum.repos.d/
 %{_prefix}/lib/systemd/system-preset/80-nisse-desktop.preset
 %dir %{_sysconfdir}/nisse
 %config(noreplace) %{_sysconfdir}/nisse/channel
+%config(noreplace) %{_sysconfdir}/dnf/plugins/copr.vendor.conf
 %config(noreplace) %{_sysconfdir}/yum.repos.d/nisse-stable.repo
 %config(noreplace) %{_sysconfdir}/yum.repos.d/nisse-daily.repo
 

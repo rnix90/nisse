@@ -15,7 +15,11 @@ commands = [
     ["dnf", "config-manager", "addrepo", "--overwrite", "--from-repofile=https://pkg.surfacelinux.com/fedora/linux-surface.repo"],
     ["dnf", "install", "-y", "--allowerasing", "kernel-surface", "iptsd", "libwacom-surface"],
 ]
-notes = ["Secure Boot: the surface-secureboot package enrolls the linux-surface signing key (MOK). Not automated yet."]
+# The linux-surface kernel is signed with its own key, which the stock shim does not trust until that key is enrolled
+# (the surface-secureboot package, an interactive MOK step, not automated yet). As the newest kernel it would become
+# the default boot entry and the machine would not start it. So wait until Secure Boot is turned off.
+needs_secure_boot_off = true
+notes = ["Secure Boot must be off until the linux-surface key is enrolled (surface-secureboot, MOK). nisse-hwroute waits."]
 
 [apple-t2]
 commands = [

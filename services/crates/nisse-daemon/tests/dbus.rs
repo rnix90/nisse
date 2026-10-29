@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -166,4 +166,56 @@ async fn a_runner_that_stops_silently_still_ends_the_session_with_an_error() {
     let (_, message): (String, String) = next_signal(&mut errors).await.body().deserialize().unwrap();
     assert!(message.contains("stopped unexpectedly"), "{message}");
     next_signal(&mut done).await;
+}
+
+/// Records each request's `resume` flag and answers with the scripted events.
+struct ScriptedRunner {
+    events: Vec<RunEvent>,
+    seen: Arc<Mutex<Vec<bool>>>,
+}
+
+#[async_trait]
+impl AgentRunner for ScriptedRunner {
+    async fn run(&self, req: RunRequest, tx: Sender<RunEvent>) {
+        self.seen.lock().unwrap().push(req.resume);
+        for event in &self.events {
+            let _ = tx.send(event.clone()).await;
+        }
+    }
+}
+
+async fn send_and_wait(s: &Setup, id: &str, text: &str) {
+    let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+    let _: () = s.proxy.call("SendMessage", &(id, text)).await.unwrap();
+    next_signal(&mut done).await;
+}
+
+#[tokio::test]
+async fn a_session_that_started_but_then_failed_is_resumed_not_restarted() {
+    // Claude Code rejects --session-id for a session that already exists, so after a turn that got as far as
+    // init, the next message must use --resume even though that turn ended in an error.
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let runner = ScriptedRunner {
+        events: vec![RunEvent::Started, RunEvent::Error("boom".into()), RunEvent::Done],
+        seen: Arc::clone(&seen),
+    };
+    let s = setup("resume-after-failure", Arc::new(runner)).await;
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    send_and_wait(&s, &id, "one").await;
+    send_and_wait(&s, &id, "two").await;
+    assert_eq!(*seen.lock().unwrap(), vec![false, true]);
+}
+
+#[tokio::test]
+async fn a_session_that_never_started_is_started_again() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let runner = ScriptedRunner {
+        events: vec![RunEvent::Error("not installed".into()), RunEvent::Done],
+        seen: Arc::clone(&seen),
+    };
+    let s = setup("restart-if-never-started", Arc::new(runner)).await;
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    send_and_wait(&s, &id, "one").await;
+    send_and_wait(&s, &id, "two").await;
+    assert_eq!(*seen.lock().unwrap(), vec![false, false]);
 }

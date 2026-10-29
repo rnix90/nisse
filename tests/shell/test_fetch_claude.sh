@@ -57,6 +57,32 @@ export NISSE_CLAUDE_INSTALLER="true"
 sh "$script" >/dev/null 2>&1; rc=$?
 check "installer exits 0 but installs nothing" 1 failed
 
+# A server that answers every request with HTTP 403, like claude.ai does for bare HEAD requests, is still "online".
+py="$(command -v python3 || command -v python || true)"
+if [ -n "$py" ]; then
+    fresh
+    "$py" -c '
+import http.server
+class H(http.server.BaseHTTPRequestHandler):
+    def do_HEAD(self):
+        self.send_response(403)
+        self.end_headers()
+    do_GET = do_HEAD
+    def log_message(self, *args):
+        pass
+s = http.server.HTTPServer(("127.0.0.1", 0), H)
+print(s.server_address[1], flush=True)
+s.serve_forever()' > "$work/port" &
+    server_pid=$!
+    for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$work/port" ] && break; sleep 0.3; done
+    export NISSE_PROBE_URL="http://127.0.0.1:$(cat "$work/port")/"
+    sh "$script" >/dev/null 2>&1; rc=$?
+    kill "$server_pid" 2>/dev/null
+    check "online even when the probe URL answers 403" 0 installed
+else
+    echo "skip online-despite-403 (no python on PATH)"
+fi
+
 for line in "ConditionPathExists=!%h/.local/bin/claude" "Type=oneshot" "ExecStart=/usr/bin/nisse-fetch-claude" \
             "Restart=on-failure" "RestartForceExitStatus=75" "RestartSec=120" \
             "WantedBy=default.target"; do

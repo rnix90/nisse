@@ -16,6 +16,11 @@ for f in /usr/bin/nisse-daemon /usr/bin/nisse-audit-hook /usr/lib/systemd/user/n
 done
 
 member usr/share/nisse/claude-settings.json | grep -q '/usr/bin/nisse-audit-hook' || fail "settings must register nisse-audit-hook"
+settings="$(member usr/share/nisse/claude-settings.json)"
+for event in PreToolUse PostToolUse; do
+    grep -q "\"$event\"" <<< "$settings" || fail "settings must hook $event (a command that wedges the machine never reaches PostToolUse)"
+done
+python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); assert all(d["hooks"][e][0]["hooks"][0]["command"]=="/usr/bin/nisse-audit-hook" for e in ("PreToolUse","PostToolUse"))' <<< "$settings" || fail "both hooks must run /usr/bin/nisse-audit-hook"
 member usr/share/dbus-1/services/org.nisse.Daemon1.service | grep -qx 'SystemdService=nisse-daemon.service' || fail "D-Bus service must activate the user unit"
 member usr/lib/systemd/user/nisse-daemon.service | grep -qx 'BusName=org.nisse.Daemon1' || fail "unit must claim org.nisse.Daemon1"
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpmf")" = "GPL-2.0-or-later" ] || fail "License must be GPL-2.0-or-later"

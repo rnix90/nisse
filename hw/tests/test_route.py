@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from nisse_hw.detect import Profile
-from nisse_hw.route import Plan, execute, main, plan
+from nisse_hw.route import Plan, execute, main, plan, secure_boot_enabled
 
 PROFILES = Path(__file__).resolve().parents[1] / "nisse_hw" / "profiles.toml"
 UNIT = Path(__file__).resolve().parents[2] / "packaging" / "rpm" / "nisse-hw" / "nisse-hwroute.service"
@@ -124,3 +124,75 @@ def test_service_unit_skips_live_sessions_and_retries_until_done():
     for line in ("Type=oneshot", "Restart=on-failure", "RestartSec=300", "RestartForceExitStatus=75"):
         assert line in sections["Service"], line
     assert "StartLimitIntervalSec=0" not in sections["Service"], "systemd ignores it in [Service]"
+
+
+SB_VAR = "SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+
+
+def efivars(tmp_path: Path, value: bytes | None) -> Path:
+    """A fake /sys/firmware/efi/efivars; the variable is 4 attribute bytes followed by the value."""
+    d = tmp_path / "efivars"
+    d.mkdir()
+    if value is not None:
+        (d / SB_VAR).write_bytes(b"\x07\x00\x00\x00" + value)
+    return d
+
+
+def test_secure_boot_enabled_reads_the_efi_variable(tmp_path):
+    assert secure_boot_enabled(efivars(tmp_path, b"\x01")) is True
+
+
+def test_secure_boot_disabled_is_false(tmp_path):
+    assert secure_boot_enabled(efivars(tmp_path, b"\x00")) is False
+
+
+def test_no_efi_variable_means_no_secure_boot(tmp_path):
+    assert secure_boot_enabled(tmp_path / "no-efi-here") is False
+    assert secure_boot_enabled(efivars(tmp_path, None)) is False
+
+
+def test_an_empty_or_garbage_variable_is_treated_as_off(tmp_path):
+    d = efivars(tmp_path, None)
+    (d / SB_VAR).write_bytes(b"")
+    assert secure_boot_enabled(d) is False
+
+
+def test_only_the_surface_profile_needs_secure_boot_off():
+    assert plan(Profile.SURFACE, PROFILES, release="44").needs_secure_boot_off is True
+    for other in (Profile.GENERIC, Profile.APPLE_T2, Profile.APPLE_PRE_T2):
+        assert plan(other, PROFILES, release="44").needs_secure_boot_off is False
+
+
+def test_the_surface_kernel_waits_while_secure_boot_is_on(tmp_path):
+    # linux-surface kernels are not signed for the stock shim until MOK enrollment exists; as the newest kernel
+    # it would become the default boot entry and the machine would not start it.
+    p = plan(Profile.SURFACE, PROFILES, release="44")
+    rc = execute(p, lambda argv: pytest.fail("no command may run while Secure Boot is on"), tmp_path, secure_boot=True)
+    assert rc == 75
+    state = json.loads((tmp_path / "hw-profile.json").read_text())
+    assert state["status"] == "waiting-for-secure-boot-off" and state["attempts"] == 1
+    assert not (tmp_path / "hwroute.done").exists()
+
+
+def test_the_surface_kernel_installs_once_secure_boot_is_off(tmp_path):
+    p = plan(Profile.SURFACE, PROFILES, release="44")
+    calls = []
+    assert execute(p, lambda argv: calls.append(tuple(argv)) or 0, tmp_path, secure_boot=False) == 0
+    assert tuple(calls) == p.commands
+
+
+def test_secure_boot_does_not_block_profiles_that_do_not_need_it_off(tmp_path):
+    for profile in (Profile.GENERIC, Profile.APPLE_PRE_T2):
+        state = tmp_path / profile.value
+        assert execute(plan(profile, PROFILES, release="44"), lambda argv: 0, state, secure_boot=True) == 0
+
+
+def test_cli_waits_on_a_surface_with_secure_boot_on(tmp_path):
+    dmi = tmp_path / "dmi"
+    dmi.mkdir()
+    (dmi / "sys_vendor").write_text("Microsoft Corporation\n")
+    (dmi / "product_name").write_text("Surface Go\n")
+    rc = main(["--dmi-root", str(dmi), "--pci-root", str(tmp_path / "none"), "--profiles", str(PROFILES),
+               "--efivars-root", str(efivars(tmp_path, b"\x01")), "--state-dir", str(tmp_path / "state")])
+    assert rc == 75
+    assert json.loads((tmp_path / "state" / "hw-profile.json").read_text())["status"] == "waiting-for-secure-boot-off"

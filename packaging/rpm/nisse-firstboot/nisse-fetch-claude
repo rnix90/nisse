@@ -26,7 +26,9 @@ if have_claude; then
     exit 0
 fi
 
-if ! curl -fsI --max-time 10 "$probe_url" >/dev/null 2>&1; then
+# Any HTTP answer means we are online. No -f: claude.ai answers a bare HEAD request with 403, which -f turns into
+# a failure and made the script wait for a network it already had.
+if ! curl -sI --max-time 10 -o /dev/null "$probe_url" 2>/dev/null; then
     set_status waiting-for-network
     exit 75
 fi

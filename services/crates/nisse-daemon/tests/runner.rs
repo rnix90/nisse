@@ -53,7 +53,7 @@ fn fixture_lines_yield_text_and_ignore_the_rest() {
         .lines()
         .flat_map(parse_line)
         .collect();
-    assert_eq!(events, vec![RunEvent::Text("hi".into())]);
+    assert_eq!(events, vec![RunEvent::Started, RunEvent::Text("hi".into())]);
 }
 
 #[test]
@@ -79,7 +79,10 @@ fn a_malformed_line_is_an_error_not_a_panic() {
 async fn a_good_run_streams_the_reply_then_done() {
     let (bin, _dir) = fake_claude("good", &format!("cat > /dev/null\ncat {FIXTURE}"));
     let events = collect(&ClaudeCliRunner::new().with_binary(bin), request(false)).await;
-    assert_eq!(events, vec![RunEvent::Text("hi".into()), RunEvent::Done]);
+    assert_eq!(
+        events,
+        vec![RunEvent::Started, RunEvent::Text("hi".into()), RunEvent::Done]
+    );
 }
 
 #[tokio::test]
@@ -144,4 +147,50 @@ async fn the_backend_environment_reaches_claude() {
     req.env = vec![("ANTHROPIC_MODEL".into(), "gpt-oss:20b".into())];
     collect(&ClaudeCliRunner::new().with_binary(bin), req).await;
     assert_eq!(fs::read_to_string(dir.join("model.txt")).unwrap().trim(), "gpt-oss:20b");
+}
+
+#[tokio::test]
+async fn a_failed_turn_after_init_still_reports_started_so_the_session_gets_resumed() {
+    // Claude Code creates the session at init; a later failure must not make the next message start it again.
+    let init = r#"{"type":"system","subtype":"init","session_id":"s"}"#;
+    let (bin, _dir) = fake_claude("init-then-fail", &format!("cat > /dev/null\necho '{init}'\nexit 3"));
+    let events = collect(&ClaudeCliRunner::new().with_binary(bin), request(false)).await;
+    assert_eq!(events[0], RunEvent::Started);
+    assert!(
+        matches!(&events[1], RunEvent::Error(m) if m.contains('3')),
+        "{events:?}"
+    );
+    assert_eq!(events.last(), Some(&RunEvent::Done));
+}
+
+#[tokio::test]
+async fn a_run_that_never_starts_does_not_report_started() {
+    let events = collect(
+        &ClaudeCliRunner::new().with_binary("/nonexistent/dir/claude"),
+        request(false),
+    )
+    .await;
+    assert!(!events.contains(&RunEvent::Started));
+}
+
+#[tokio::test]
+async fn the_cli_stderr_reaches_the_error_message() {
+    let (bin, _dir) = fake_claude("stderr", "echo 'Not logged in. Run claude and sign in.' >&2\nexit 1");
+    let events = collect(&ClaudeCliRunner::new().with_binary(bin), request(false)).await;
+    assert!(
+        matches!(&events[0], RunEvent::Error(m) if m.contains("status 1") && m.contains("Not logged in")),
+        "{events:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_chatty_stderr_does_not_block_the_run() {
+    // 300 KB on stderr is far more than a pipe buffer: the run must not stall while we read stdout.
+    let reply = r#"{"type":"assistant","message":{"content":[{"type":"text","text":"done"}]}}"#;
+    let (bin, _dir) = fake_claude(
+        "chatty",
+        &format!("yes xxxxxxxxx | head -c 300000 >&2\ncat > /dev/null\necho '{reply}'"),
+    );
+    let events = collect(&ClaudeCliRunner::new().with_binary(bin), request(false)).await;
+    assert_eq!(events, vec![RunEvent::Text("done".into()), RunEvent::Done]);
 }

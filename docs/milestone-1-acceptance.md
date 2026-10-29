@@ -29,6 +29,10 @@ kernel selection. Most of it is checked by scripts. A few things need a person, 
    - [ ] `cat /var/log/nisse-hwroute-install.log` exists (it proves the installer ran our post-script; the
          Anaconda hook is confirmed from its source, this is the end-to-end proof).
    - [ ] After network is up, `rpm -q kernel-surface` finds the package and `uname -r` after a reboot contains `surface`.
+   On a real Surface, turn Secure Boot off in the firmware first. While it is on, `nisse-hwroute` installs nothing
+   and `/var/lib/nisse/hw-profile.json` says `waiting-for-secure-boot-off` (the linux-surface kernel is not trusted by
+   the stock shim until its key is enrolled, and as the newest kernel it would become the default boot entry).
+   The QEMU test VM has Secure Boot off, so this does not show up there.
    If the log file is missing, the first-boot service `nisse-hwroute.service` is the fallback: check
    `systemctl status nisse-hwroute`.
 2. **First login.**
@@ -46,7 +50,8 @@ kernel selection. Most of it is checked by scripts. A few things need a person, 
 
 ## Known gaps (planned for later plans)
 
-- Secure Boot signing and MOK enrollment for the Surface kernel, so Secure Boot must be off for now.
+- Secure Boot signing and MOK enrollment for the Surface kernel. Until then Secure Boot must be off on a Surface
+  (nisse-hwroute waits for that), and T2 MacBooks need it off anyway.
 - The FaceTime HD camera driver on pre-T2 MacBooks (no verified package source yet).
 - The Nisse repositories are placeholders (disabled) until the GitHub-hosted channels exist.
 - Rollback and safe update (snapper), approvals queue, multiple tabs, Plasma widget, mediated root tools.

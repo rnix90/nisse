@@ -96,25 +96,24 @@ impl Daemon {
         let sessions = Arc::clone(&self.sessions);
         let emitter = emitter.to_owned();
         tokio::spawn(async move {
-            let (mut saw_done, mut failed) = (false, false);
+            let mut saw_done = false;
             while let Some(event) = rx.recv().await {
                 match event {
+                    RunEvent::Started => {
+                        // The session exists from here on, even if this turn fails: continue it with --resume.
+                        sessions.lock().await.insert(session_id.clone(), true);
+                    }
                     RunEvent::Text(chunk) => {
                         let _ = Daemon::message_chunk(&emitter, &session_id, &chunk).await;
                     }
                     RunEvent::Error(message) => {
-                        failed = true;
                         let _ = Daemon::session_error(&emitter, &session_id, &message).await;
                     }
                     RunEvent::Done => saw_done = true,
                 }
             }
             if !saw_done {
-                failed = true;
                 let _ = Daemon::session_error(&emitter, &session_id, "the agent stopped unexpectedly").await;
-            }
-            if !failed {
-                sessions.lock().await.insert(session_id.clone(), true);
             }
             let _ = Daemon::session_done(&emitter, &session_id).await;
         });
