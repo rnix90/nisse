@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Nisse
+GenericName=AI assistant
+Comment=Talk to the AI that looks after this computer
+Exec=nisse-panel
+Icon=distributor-logo-nisse
+Terminal=false
+Categories=Utility;
+StartupWMClass=nisse-panel
