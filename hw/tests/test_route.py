@@ -104,9 +104,23 @@ def test_cli_dry_run_prints_one_command_per_line(tmp_path, capsys):
     assert not (tmp_path / "state").exists()
 
 
+def unit_sections(text: str) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {}
+    current = ""
+    for line in text.splitlines():
+        if line.startswith("[") and line.endswith("]"):
+            current = line[1:-1]
+            sections[current] = []
+        elif line and current:
+            sections[current].append(line)
+    return sections
+
+
 def test_service_unit_skips_live_sessions_and_retries_until_done():
-    text = UNIT.read_text()
+    sections = unit_sections(UNIT.read_text())
     for line in ("ConditionPathExists=!/var/lib/nisse/hwroute.done", "ConditionKernelCommandLine=!rd.live.image",
-                 "After=network-online.target", "Type=oneshot", "Restart=on-failure", "RestartSec=300",
-                 "RestartForceExitStatus=75", "StartLimitIntervalSec=0"):
-        assert line in text.splitlines(), line
+                 "After=network-online.target", "StartLimitIntervalSec=0"):
+        assert line in sections["Unit"], line
+    for line in ("Type=oneshot", "Restart=on-failure", "RestartSec=300", "RestartForceExitStatus=75"):
+        assert line in sections["Service"], line
+    assert "StartLimitIntervalSec=0" not in sections["Service"], "systemd ignores it in [Service]"

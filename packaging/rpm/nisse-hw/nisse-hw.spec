@@ -15,11 +15,14 @@ Requires:       dnf5-plugins
 
 Source1:        nisse-hwroute.service
 Source2:        81-nisse-hw.preset
+Source3:        nisse-hwroute-report.service
+Source4:        90-nisse-hwroute.ks
 
 %description
 Detects Surface and Intel MacBook hardware from DMI and PCI data and installs
-the matching kernel and drivers. A service on installed systems retries until
-the packages are in.
+the matching kernel and drivers. The Anaconda installer runs it after an
+install, a service on installed systems retries until the packages are in, and
+live sessions print what would be installed.
 
 %prep
 
@@ -43,12 +46,14 @@ PY
 chmod 0755 %{buildroot}%{_bindir}/nisse-hwroute
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_unitdir}/nisse-hwroute.service
 install -Dpm 0644 %{SOURCE2} %{buildroot}%{_presetdir}/81-nisse-hw.preset
+install -Dpm 0644 %{SOURCE3} %{buildroot}%{_unitdir}/nisse-hwroute-report.service
+install -Dpm 0644 %{SOURCE4} %{buildroot}%{_datadir}/anaconda/post-scripts/90-nisse-hwroute.ks
 
 %post
-%systemd_post nisse-hwroute.service
+%systemd_post nisse-hwroute.service nisse-hwroute-report.service
 
 %preun
-%systemd_preun nisse-hwroute.service
+%systemd_preun nisse-hwroute.service nisse-hwroute-report.service
 
 %files
 %license licenses/LICENSE
@@ -56,7 +61,9 @@ install -Dpm 0644 %{SOURCE2} %{buildroot}%{_presetdir}/81-nisse-hw.preset
 %{_datadir}/nisse/
 %{_bindir}/nisse-hwroute
 %{_unitdir}/nisse-hwroute.service
+%{_unitdir}/nisse-hwroute-report.service
 %{_presetdir}/81-nisse-hw.preset
+%{_datadir}/anaconda/post-scripts/90-nisse-hwroute.ks
 
 %changelog
 * Thu Oct 29 2026 Bert <rnix90@gmail.com> - 0.1-1

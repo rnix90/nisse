@@ -58,9 +58,16 @@ sh "$script" >/dev/null 2>&1; rc=$?
 check "installer exits 0 but installs nothing" 1 failed
 
 for line in "ConditionPathExists=!%h/.local/bin/claude" "Type=oneshot" "ExecStart=/usr/bin/nisse-fetch-claude" \
-            "Restart=on-failure" "RestartForceExitStatus=75" "RestartSec=120" "StartLimitIntervalSec=0" \
+            "Restart=on-failure" "RestartForceExitStatus=75" "RestartSec=120" \
             "WantedBy=default.target"; do
     if grep -qxF "$line" "$unit" 2>/dev/null; then echo "ok   unit has $line"; else echo "FAIL unit lacks $line"; failures=$((failures + 1)); fi
 done
+
+# StartLimitIntervalSec is a [Unit] key; systemd ignores it in [Service]
+if awk '/^\[Unit\]/{f=1;next} /^\[/{f=0} f' "$unit" | grep -qxF "StartLimitIntervalSec=0"; then
+    echo "ok   unit has StartLimitIntervalSec=0 in [Unit]"
+else
+    echo "FAIL StartLimitIntervalSec=0 must be in the [Unit] section"; failures=$((failures + 1))
+fi
 
 if [ "$failures" -eq 0 ]; then echo "PASS: fetch-claude"; else echo "$failures failure(s)"; exit 1; fi

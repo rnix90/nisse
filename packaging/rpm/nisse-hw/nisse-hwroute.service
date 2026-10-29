@@ -4,6 +4,7 @@ After=network-online.target
 Wants=network-online.target
 ConditionPathExists=!/var/lib/nisse/hwroute.done
 ConditionKernelCommandLine=!rd.live.image
+StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
@@ -11,7 +12,6 @@ ExecStart=/usr/bin/nisse-hwroute
 Restart=on-failure
 RestartForceExitStatus=75
 RestartSec=300
-StartLimitIntervalSec=0
 
 [Install]
 WantedBy=multi-user.target

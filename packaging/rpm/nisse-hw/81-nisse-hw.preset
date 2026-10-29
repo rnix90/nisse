@@ -1,2 +1,4 @@
 # Run the hardware routing service on installed systems (it skips live sessions itself).
 enable nisse-hwroute.service
+# Live sessions print the detected profile and what would be installed.
+enable nisse-hwroute-report.service

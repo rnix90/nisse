@@ -51,3 +51,15 @@ squashfs-tools, pykickstart, rpmlint, edk2-ovmf) and working loop devices.
 Keep the ISO on a local drive, not on the T: share. Never run two builds at once, and never `pkill -f anaconda`
 over SSH (the pattern matches your own shell). A hung build can be cleared with `sudo kill -9` on the
 `anaconda` and `livemedia-creat` PIDs, then `sudo rm -f /run/anaconda.pid` and `sudo losetup -D`.
+
+## Build the panel against the same Qt as the ISO
+
+The ISO is built from Fedora's release repository only (the installer does not pick up the `updates` repository),
+so it ships Qt 6.10 and Plasma 6.6 while a freshly updated build VM has Qt 6.11. An RPM built against Qt 6.11
+cannot be installed into the ISO ("nothing provides libQt6Core.so.6(Qt_6.11)"). Keep the VM's Qt at the release
+version:
+
+    sudo dnf --repo=fedora distro-sync -y 'qt6-*'
+
+Re-run it after any `dnf upgrade` in the VM, and rebuild `nisse-panel`. When the ISO starts using the updates
+repository, remove this section. `build/build-all.sh` rebuilds every package and the ISO in one go.

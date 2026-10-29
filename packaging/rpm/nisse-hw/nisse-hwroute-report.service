@@ -1,0 +1,12 @@
+[Unit]
+Description=Report the hardware profile Nisse detected (live sessions only)
+ConditionKernelCommandLine=rd.live.image
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nisse-hwroute --dry-run
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

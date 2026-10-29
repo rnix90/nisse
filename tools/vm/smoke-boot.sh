@@ -5,17 +5,18 @@
 #
 #   tools/vm/smoke-boot.sh ISO [--vendor V] [--product P] [--family F]
 #                              [--wait-for TEXT] [--timeout SECS] [--out DIR]
-#                              [--screenshot FILE.png] [--settle SECS]
+#                              [--screenshot FILE.png] [--settle SECS] [--linger SECS]
 #
 # --vendor/--product/--family spoof SMBIOS type 1 so hardware detection can be tested without the machine.
 # Exit 0 if TEXT shows up within the timeout (default TEXT: "login:", 300 s), 1 otherwise. systemd stops
 # printing target status once the display manager takes the console, so the serial getty prompt is the marker.
 # --screenshot waits --settle seconds after the marker (default 90) and saves the screen as a PNG.
+# --linger keeps the VM running that many seconds after the marker, so later console output is captured too.
 # The serial log is kept in DIR (default out/vm/serial.log).
 set -euo pipefail
 
 iso="${1:?usage: smoke-boot.sh ISO [options]}"; shift
-vendor="" product="" family="" want="login:" timeout=300 outdir="out/vm" shot="" settle=90
+vendor="" product="" family="" want="login:" timeout=300 outdir="out/vm" shot="" settle=90 linger=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --vendor) vendor="$2"; shift 2 ;;
@@ -26,6 +27,7 @@ while [ $# -gt 0 ]; do
         --out) outdir="$2"; shift 2 ;;
         --screenshot) shot="$2"; shift 2 ;;
         --settle) settle="$2"; shift 2 ;;
+        --linger) linger="$2"; shift 2 ;;
         *) echo "unknown option: $1" >&2; exit 64 ;;
     esac
 done
@@ -44,10 +46,11 @@ monport=$((20000 + RANDOM % 20000))
 
 smbios=()
 if [ -n "$vendor$product$family" ]; then
+    esc() { printf '%s' "${1//,/,,}"; }
     spec="type=1"
-    [ -n "$vendor" ] && spec="$spec,manufacturer=$vendor"
-    [ -n "$product" ] && spec="$spec,product=$product"
-    [ -n "$family" ] && spec="$spec,family=$family"
+    [ -n "$vendor" ] && spec="$spec,manufacturer=$(esc "$vendor")"
+    [ -n "$product" ] && spec="$spec,product=$(esc "$product")"
+    [ -n "$family" ] && spec="$spec,family=$(esc "$family")"
     smbios=(-smbios "$spec")
 fi
 
@@ -65,6 +68,7 @@ end=$((SECONDS + timeout))
 while [ "$SECONDS" -lt "$end" ]; do
     if grep -qF "$want" "$log" 2>/dev/null; then
         echo "PASS: saw '$want' after $((timeout - (end - SECONDS))) s ($log)"
+        sleep "$linger"
         if [ -n "$shot" ]; then
             sleep "$settle"
             exec 3<>"/dev/tcp/127.0.0.1/$monport"

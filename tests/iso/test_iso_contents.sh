@@ -29,7 +29,11 @@ fi
 
 grep -qx 'ID=nisse' "$root/usr/lib/os-release" || fail "root filesystem os-release lacks ID=nisse"
 [ -d "$root/usr/share/fonts/nunito" ] || fail "Nunito font directory missing"
-if printf '%s\n' "$listing" | grep -E '(^|/)claude$'; then
+for prog in nisse-hwroute nisse-daemon nisse-audit-hook nisse-panel nisse-fetch-claude; do
+    # a here-string, not a pipe: under pipefail, grep -q exits early and printf dies of SIGPIPE on a long listing
+    grep -qE "(^|/)usr/bin/$prog$" <<< "$listing" || fail "/usr/bin/$prog is missing from the ISO"
+done
+if grep -E '(^|/)claude$' <<< "$listing"; then
     fail "a file named claude is inside the ISO (Claude Code must not be bundled)"
 fi
 echo "PASS: ISO contents ($iso)"
