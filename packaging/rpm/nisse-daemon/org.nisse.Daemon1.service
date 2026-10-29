@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.nisse.Daemon1
+Exec=/usr/bin/nisse-daemon
+SystemdService=nisse-daemon.service

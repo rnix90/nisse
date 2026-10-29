@@ -1,0 +1,4 @@
+{"type": "system", "subtype": "init", "session_id": "00000000-0000-0000-0000-000000000000", "model": "claude-sonnet-5-5", "claude_code_version": "2.1.312"}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "hi"}]}, "session_id": "00000000-0000-0000-0000-000000000000"}
+{"type": "rate_limit_event", "session_id": "00000000-0000-0000-0000-000000000000"}
+{"type": "result", "subtype": "success", "is_error": false, "result": "hi", "num_turns": 1, "session_id": "00000000-0000-0000-0000-000000000000"}

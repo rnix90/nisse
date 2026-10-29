@@ -1,0 +1,8 @@
+[Unit]
+Description=Nisse daemon (AI sessions for the Nisse panel)
+
+[Service]
+Type=dbus
+BusName=org.nisse.Daemon1
+ExecStart=/usr/bin/nisse-daemon
+Restart=on-failure

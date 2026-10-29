@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
@@ -105,4 +105,28 @@ pub fn claude_env(backend: &Backend) -> Vec<(String, String)> {
             ("ANTHROPIC_MODEL".into(), backend.model.clone().unwrap_or_default()),
         ],
     }
+}
+
+/// Where backends.toml lives: `NISSE_CONFIG`, else `$XDG_CONFIG_HOME/nisse/`, else `~/.config/nisse/`.
+pub fn config_path_from(override_path: Option<&str>, xdg_config: Option<&str>, home: Option<&str>) -> PathBuf {
+    let set = |v: Option<&str>| v.filter(|s| !s.is_empty()).map(PathBuf::from);
+    if let Some(path) = set(override_path) {
+        return path;
+    }
+    if let Some(dir) = set(xdg_config) {
+        return dir.join("nisse").join("backends.toml");
+    }
+    if let Some(dir) = set(home) {
+        return dir.join(".config").join("nisse").join("backends.toml");
+    }
+    PathBuf::from("backends.toml")
+}
+
+pub fn default_config_path() -> PathBuf {
+    let get = |k: &str| std::env::var(k).ok();
+    config_path_from(
+        get("NISSE_CONFIG").as_deref(),
+        get("XDG_CONFIG_HOME").as_deref(),
+        get("HOME").as_deref(),
+    )
 }

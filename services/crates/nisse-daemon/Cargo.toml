@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+[package]
+name = "nisse-daemon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+async-trait = "0.1"
+nisse-audit = { path = "../nisse-audit" }
+nisse-config = { path = "../nisse-config" }
+serde_json.workspace = true
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "net"] }
+uuid = { version = "1", features = ["v4"] }
+zbus = { version = "5", default-features = false, features = ["tokio", "p2p"] }
+
+[dev-dependencies]
+futures-util = "0.3"

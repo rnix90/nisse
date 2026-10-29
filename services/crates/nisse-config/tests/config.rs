@@ -2,7 +2,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use nisse_config::{claude_env, load, Backend, BackendKind, Config, ConfigError};
+use nisse_config::{claude_env, config_path_from, load, Backend, BackendKind, Config, ConfigError};
 
 const SAMPLE: &str = r#"
 main = "max"
@@ -88,4 +88,24 @@ fn a_route_to_an_unknown_backend_is_rejected() {
 #[test]
 fn malformed_toml_is_a_parse_error_not_a_panic() {
     assert!(matches!(load(&write("bad", "main = [")), Err(ConfigError::Parse(_))));
+}
+
+#[test]
+fn config_path_prefers_the_override_then_xdg_config_then_home() {
+    assert_eq!(
+        config_path_from(Some("/x/b.toml"), Some("/c"), Some("/h")),
+        PathBuf::from("/x/b.toml")
+    );
+    assert_eq!(
+        config_path_from(None, Some("/c"), Some("/h")),
+        PathBuf::from("/c/nisse/backends.toml")
+    );
+    assert_eq!(
+        config_path_from(None, None, Some("/h")),
+        PathBuf::from("/h/.config/nisse/backends.toml")
+    );
+    assert_eq!(
+        config_path_from(Some(""), Some(""), None),
+        PathBuf::from("backends.toml")
+    );
 }
