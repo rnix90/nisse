@@ -5,18 +5,19 @@
 #
 #   tools/vm/smoke-boot.sh ISO [--vendor V] [--product P] [--family F]
 #                              [--wait-for TEXT] [--timeout SECS] [--out DIR]
-#                              [--screenshot FILE.png] [--settle SECS] [--linger SECS]
+#                              [--screenshot FILE.png] [--settle SECS] [--linger SECS] [--no-marker]
 #
 # --vendor/--product/--family spoof SMBIOS type 1 so hardware detection can be tested without the machine.
 # Exit 0 if TEXT shows up within the timeout (default TEXT: "login:", 300 s), 1 otherwise. systemd stops
 # printing target status once the display manager takes the console, so the serial getty prompt is the marker.
 # --screenshot waits --settle seconds after the marker (default 90) and saves the screen as a PNG.
+# --no-marker skips the serial wait (for images with no serial console): boot, wait --settle seconds, screenshot.
 # --linger keeps the VM running that many seconds after the marker, so later console output is captured too.
 # The serial log is kept in DIR (default out/vm/serial.log).
 set -euo pipefail
 
 iso="${1:?usage: smoke-boot.sh ISO [options]}"; shift
-vendor="" product="" family="" want="login:" timeout=300 outdir="out/vm" shot="" settle=90 linger=0
+vendor="" product="" family="" want="login:" timeout=300 outdir="out/vm" shot="" settle=90 linger=0 nomarker=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --vendor) vendor="$2"; shift 2 ;;
@@ -28,6 +29,7 @@ while [ $# -gt 0 ]; do
         --screenshot) shot="$2"; shift 2 ;;
         --settle) settle="$2"; shift 2 ;;
         --linger) linger="$2"; shift 2 ;;
+        --no-marker) nomarker=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 64 ;;
     esac
 done
@@ -63,6 +65,18 @@ fi
 qpid=$!
 cleanup() { kill "$qpid" 2>/dev/null || true; taskkill //F //PID "$(cat "$pidfile" 2>/dev/null)" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
+
+if [ "$nomarker" = 1 ]; then
+    sleep "$settle"
+    if [ -n "$shot" ]; then
+        exec 3<>"/dev/tcp/127.0.0.1/$monport"
+        printf 'screendump %s -f png\n' "$(w "$shot")" >&3
+        sleep 3
+        exec 3>&-
+        echo "screenshot: $shot"
+    fi
+    exit 0
+fi
 
 end=$((SECONDS + timeout))
 while [ "$SECONDS" -lt "$end" ]; do
