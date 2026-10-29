@@ -66,5 +66,5 @@ install -Dpm 0644 %{SOURCE4} %{buildroot}%{_datadir}/anaconda/post-scripts/90-ni
 %{_datadir}/anaconda/post-scripts/90-nisse-hwroute.ks
 
 %changelog
-* Thu Oct 29 2026 Bert <rnix90@gmail.com> - 0.1-1
+* Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1
 - Initial package

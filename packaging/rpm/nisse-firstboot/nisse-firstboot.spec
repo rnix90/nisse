@@ -44,5 +44,5 @@ install -Dpm 0644 %{SOURCE2} %{buildroot}%{_userpresetdir}/81-nisse-firstboot.pr
 %{_userpresetdir}/81-nisse-firstboot.preset
 
 %changelog
-* Thu Oct 29 2026 Bert <rnix90@gmail.com> - 0.1-1
+* Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1
 - Initial package
