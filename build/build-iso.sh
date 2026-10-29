@@ -1,27 +1,36 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Build out/nisse-live.iso from the vendored Fedora KDE kickstart plus our overlay.
-# Run in the Fedora build VM, after tools/rpm/build-rpm.sh for each package and tools/rpm/make-repo.sh.
+# Build out/nisse-live.iso with kiwi from the vendored Fedora description plus the Nisse overlay.
+# Run in the Fedora build VM (SELinux permissive, see docs/build-host.md) after tools/rpm/build-rpm.sh for each
+# package and tools/rpm/make-repo.sh. out/nisse-live.iso exists only if this script succeeded.
+#   NISSE_REPO_URL=dir:///path/to/repo   use another local repo (default: out/repo)
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
-rel="$(cat build/FEDORA_RELEASE)"
-[ -f out/repo/repodata/repomd.xml ] || { echo "no local repo: run tools/rpm/make-repo.sh first" >&2; exit 1; }
 
-ks=out/nisse-live.ks
-{
-    sed -e '/^fedora-release-kde$/d' -e '/^@kde-spin-initial-setup$/d' -e 's/^rootpw .*/rootpw --lock/' build/kickstart/fedora-live-kde.flat.ks
-    sed "s|@NISSE_REPO@|file://$root/out/repo|" build/kickstart/nisse-live.ks
-} > "$ks"
-ksflatten --version "F$rel" -c "$ks" -o /dev/null 2>/dev/null   # fails on real kickstart errors; upstream has a harmless duplicate "part /" warning
+repo_dir="${NISSE_REPO_URL:-dir://$root/out/repo}"
+repo_dir="${repo_dir#dir://}"
+[ -f "$repo_dir/repodata/repomd.xml" ] || { echo "no local repo at $repo_dir: run tools/rpm/make-repo.sh first" >&2; exit 1; }
 
-sudo rm -rf out/iso out/lmc-tmp
-mkdir -p out/lmc-tmp
-sudo livemedia-creator --ks "$ks" --no-virt --make-iso \
-    --project Nisse --releasever "$rel" --volid "Nisse-$rel" \
-    --iso-only --iso-name nisse-live.iso \
-    --extra-boot-args "console=ttyS0 systemd.log_target=console" \
-    --tmp "$root/out/lmc-tmp" --resultdir "$root/out/iso" --logfile "$root/out/lmc.log"
-sudo chown -R "$(id -u):$(id -g)" out/iso
-cp out/iso/nisse-live.iso out/nisse-live.iso
+# Never leave a stale ISO behind: a failed build must not look like a successful one.
+rm -f out/nisse-live.iso
+
+bash build/render-kiwi.sh
+
+# kiwi mounts /proc, /dev and /sys inside its target tree; clear an old target only through kiwi's own unmounting, and
+# refuse to rm -rf anything that is still a mount point (see docs/kiwi-spike.md).
+if findmnt -rn -o TARGET | grep -q "^$root/out/kiwi-build"; then
+    echo "out/kiwi-build still has mounts; unmount them first (findmnt | grep kiwi-build)" >&2
+    exit 1
+fi
+sudo rm -rf out/kiwi-build
+
+sudo kiwi-ng --profile Nisse-Live --type iso system build \
+    --description out/kiwi-description --target-dir out/kiwi-build
+
+iso="$(ls out/kiwi-build/*.iso 2>/dev/null | head -1)"
+[ -n "$iso" ] && [ -s "$iso" ] || { echo "kiwi finished but produced no ISO in out/kiwi-build" >&2; exit 1; }
+sudo chown "$(id -u):$(id -g)" "$iso"
+cp "$iso" out/nisse-live.iso.partial
+mv out/nisse-live.iso.partial out/nisse-live.iso
 ls -la out/nisse-live.iso
