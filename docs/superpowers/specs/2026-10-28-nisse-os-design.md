@@ -67,6 +67,7 @@ conditions, but both machines remain in scope.
 - Base: Fedora, latest stable release, upgraded to each new release as it ships (about every
   six months). Fedora KDE is the starting point.
 - Image built with kickstart and the Anaconda installer (classic RPM remix).
+  AMENDED 2026-10-29: the image is now built with kiwi, see `2026-10-29-kiwi-build-design.md`. Anaconda stays.
 - Claude Code is proprietary. Decided: it is fetched from Anthropic's own installer at first boot
   and kept updated there. It is never shipped inside the ISO. (Claude's note: current Anthropic
   terms should be re-checked before this is relied on.)
