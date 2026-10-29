@@ -1,0 +1,17 @@
+[Unit]
+Description=Nisse hardware routing (install the kernel and drivers for this machine)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/nisse/hwroute.done
+ConditionKernelCommandLine=!rd.live.image
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nisse-hwroute
+Restart=on-failure
+RestartForceExitStatus=75
+RestartSec=300
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=multi-user.target

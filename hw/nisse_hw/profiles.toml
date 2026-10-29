@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# What nisse-hwroute runs for each hardware profile. {release} is the Fedora release number.
+# Commands must be safe to run again: the service retries until every one succeeds.
+# Sources, checked 2026-10-29:
+#   surface:      github.com/linux-surface/linux-surface wiki, "Installation and Setup", Fedora (dnf5 syntax)
+#   apple-t2:     wiki.t2linux.org/distributions/fedora/installation (COPR sharpenedblade/t2linux)
+#   apple-pre-t2: RPM Fusion nonfree (broadcom-wl, built by akmods against the running kernel)
+
+[generic]
+commands = []
+notes = []
+
+[surface]
+commands = [
+    ["dnf", "config-manager", "addrepo", "--overwrite", "--from-repofile=https://pkg.surfacelinux.com/fedora/linux-surface.repo"],
+    ["dnf", "install", "-y", "--allowerasing", "kernel-surface", "iptsd", "libwacom-surface"],
+]
+notes = ["Secure Boot: the surface-secureboot package enrolls the linux-surface signing key (MOK). Not automated yet."]
+
+[apple-t2]
+commands = [
+    ["dnf", "copr", "enable", "-y", "sharpenedblade/t2linux"],
+    ["dnf", "swap", "-y", "--from-repo=copr:copr.fedorainfracloud.org:sharpenedblade:t2linux", "kernel", "kernel"],
+]
+notes = ["T2 Macs need Secure Boot turned off for Linux. Nisse does not change firmware settings."]
+
+[apple-pre-t2]
+commands = [
+    ["dnf", "install", "-y", "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{release}.noarch.rpm"],
+    ["dnf", "install", "-y", "broadcom-wl"],
+]
+notes = ["The FaceTime HD camera needs facetimehd (DKMS module plus firmware from github.com/patjak). No RPM source is verified, so it is not installed automatically yet."]
