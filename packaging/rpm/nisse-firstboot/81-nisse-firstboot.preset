@@ -1,0 +1,2 @@
+# Fetch Claude Code on first login for every user.
+enable nisse-fetch-claude.service

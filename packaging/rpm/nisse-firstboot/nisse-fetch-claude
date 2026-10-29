@@ -1,0 +1,41 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Fetch Claude Code from Anthropic's own installer at first login. Claude Code is proprietary and is never
+# shipped inside the Nisse image.
+#
+# Exit 0: installed. Exit 75 (EX_TEMPFAIL): no network yet, try again later. Exit 1: the installer failed.
+# The state is also written to $XDG_STATE_HOME/nisse/claude-fetch.status for the panel to show.
+#
+# NISSE_PROBE_URL and NISSE_CLAUDE_INSTALLER exist for tests.
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/nisse"
+status_file="$state_dir/claude-fetch.status"
+probe_url="${NISSE_PROBE_URL:-https://claude.ai}"
+installer="${NISSE_CLAUDE_INSTALLER:-curl -fsSL https://claude.ai/install.sh | bash}"
+
+set_status() {
+    mkdir -p "$state_dir" && printf '%s\n' "$1" > "$status_file"
+}
+
+have_claude() {
+    command -v claude >/dev/null 2>&1 || [ -x "$HOME/.local/bin/claude" ]
+}
+
+if have_claude; then
+    set_status installed
+    exit 0
+fi
+
+if ! curl -fsI --max-time 10 "$probe_url" >/dev/null 2>&1; then
+    set_status waiting-for-network
+    exit 75
+fi
+
+# A pipeline reports the last command's status, so also check that the binary really arrived.
+if sh -c "$installer" && have_claude; then
+    set_status installed
+    exit 0
+fi
+
+set_status failed
+exit 1

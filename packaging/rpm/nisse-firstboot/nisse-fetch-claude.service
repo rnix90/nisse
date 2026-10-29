@@ -1,0 +1,14 @@
+[Unit]
+Description=Fetch Claude Code from Anthropic
+ConditionPathExists=!%h/.local/bin/claude
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nisse-fetch-claude
+Restart=on-failure
+RestartForceExitStatus=75
+RestartSec=120
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=default.target
