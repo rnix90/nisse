@@ -1,0 +1,6 @@
+[nisse-daily]
+name=Nisse daily - $basearch
+baseurl=https://REPO_HOST_TBD/nisse/daily/$basearch
+enabled=0
+gpgcheck=0
+metadata_expire=1h

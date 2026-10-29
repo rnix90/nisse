@@ -1,0 +1,6 @@
+[nisse-stable]
+name=Nisse stable - $basearch
+baseurl=https://REPO_HOST_TBD/nisse/stable/$basearch
+enabled=0
+gpgcheck=0
+metadata_expire=6h
