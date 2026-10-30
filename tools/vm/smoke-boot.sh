@@ -74,10 +74,18 @@ trap cleanup EXIT
 # host once let the old Up/Enter alternation race and boot the media check). --mediacheck keeps the default.
 if [ "$mediacheck" = 0 ]; then
     (
-        exec 4<>"/dev/tcp/127.0.0.1/$monport" || exit 0
-        for _ in $(seq 1 60); do grep -qF 'BdsDxe: starting' "$log" 2>/dev/null && break; sleep 1; done
+        keylog="$outdir/keys.log"; : > "$keylog"
+        seen=0
+        for _ in $(seq 1 60); do grep -qF 'BdsDxe: starting' "$log" 2>/dev/null && { seen=1; break; }; sleep 1; done
+        [ "$seen" = 1 ] || echo "warning: no 'BdsDxe: starting' line on the serial console after 60 s; sending keys anyway" >> "$keylog"
+        # QEMU may not have bound the monitor port yet: wait for it instead of silently sending nothing
+        up=0
+        for _ in $(seq 1 100); do (exec 3<>"/dev/tcp/127.0.0.1/$monport") 2>/dev/null && { up=1; break; }; sleep 0.2; done
+        [ "$up" = 1 ] || { echo "error: the QEMU monitor on port $monport never accepted a connection; no keys sent" >> "$keylog"; exit 0; }
+        exec 4<>"/dev/tcp/127.0.0.1/$monport"
         for _ in $(seq 1 15); do echo 'sendkey up' >&4; sleep 1; done
         echo 'sendkey ret' >&4
+        echo "sent 15 x Up, then Enter" >> "$keylog"
         sleep 1
         exec 4>&-
     ) 2>/dev/null &

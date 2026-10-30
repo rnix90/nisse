@@ -9,6 +9,12 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 iso="${1:?usage: test_iso_contents.sh ISO}"
 [ -f "$iso" ] || fail "ISO not found: $iso"
 
+# The volume id comes from the kiwi description, but a wrapper or a set-type-attr option could override it, so read it
+# from the ISO itself.
+release="$(tr -d '[:space:]' < "$(dirname "$0")/../../build/FEDORA_RELEASE")"
+xorriso -indev "$iso" -pvd_info 2>/dev/null | grep -q "^Volume Id *: *Nisse-$release\$" \
+    || fail "the ISO volume id is not Nisse-$release"
+
 work="$(mktemp -d)"
 cleanup() { sudo umount "$work/mnt" 2>/dev/null || true; sudo rm -rf "$work"; }
 trap cleanup EXIT

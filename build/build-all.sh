@@ -6,6 +6,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 mkdir -p out
+rm -f out/nisse-live.iso   # a failed RPM build must not leave an old ISO that looks current
 
 for pkg in nisse-release nisse-branding nisse-fonts-nunito nisse-hw nisse-firstboot nisse-daemon nisse-panel; do
     echo "== building $pkg"

@@ -8,12 +8,12 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
+# Never leave a stale ISO behind: a failed build (including a failed pre-check) must not look like a successful one.
+rm -f out/nisse-live.iso
+
 repo_dir="${NISSE_REPO_URL:-dir://$root/out/repo}"
 repo_dir="${repo_dir#dir://}"
 [ -f "$repo_dir/repodata/repomd.xml" ] || { echo "no local repo at $repo_dir: run tools/rpm/make-repo.sh first" >&2; exit 1; }
-
-# Never leave a stale ISO behind: a failed build must not look like a successful one.
-rm -f out/nisse-live.iso
 
 bash build/render-kiwi.sh
 

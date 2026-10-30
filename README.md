@@ -22,7 +22,7 @@ Day zero. No build system, base, or package set chosen yet.
 GPL-2.0-or-later. See [LICENSE](LICENSE).
 
 Third-party assets keep their own licenses. The bundled Nunito font (`assets/fonts/Nunito/`) is
-SIL OFL 1.1.
+SIL OFL 1.1. The vendored Fedora kiwi description (`build/kiwi/fedora/`) is GPL-3.0 (see its `COPYING`).
 
 Source files should carry an SPDX header where the format allows it:
 

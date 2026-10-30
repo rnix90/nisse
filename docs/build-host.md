@@ -87,7 +87,9 @@ To move to a new release or pick up fixes:
     bash tools/build/vendor-kiwi.sh COMMIT [BRANCH]    # e.g. a commit on branch f45; rewrites build/kiwi/fedora/
     # update PIN in tests/build/test_kiwi_description.sh, set build/FEDORA_RELEASE, run the tests, rebuild the ISO
 
-`build/kiwi/fedora/VENDORED.md` records the pinned commit. The files are GPL-3.0-or-later; `COPYING` stays with them.
+`build/kiwi/fedora/VENDORED.md` records the pinned commit. `nisse-live.xml` holds a hand-copy of the `<packages type="iso">`
+block of `components/liveinstall.xml`; after a refresh the description test fails if that block changed, and you re-merge
+it into `nisse-live.xml` on purpose. The files are GPL-3.0 (upstream ships the GPL-3.0 text as `COPYING`, which stays with them), and `build/kiwi/nisse/components/nisse-live.xml`, which copies a block from them, is labelled GPL-3.0-only.
 
 ## Build the panel against the same Qt as the ISO
 

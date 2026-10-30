@@ -1,6 +1,7 @@
 <image>
-  <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
-  <!-- The Nisse live/install ISO. Fedora's KDE-Desktop-Live profile is not used because it pulls in
+  <!-- SPDX-License-Identifier: GPL-3.0-only -->
+  <!-- The Nisse live/install ISO. GPL-3.0-only because the iso type block and package set are copied from Fedora's
+       GPL-3.0 liveinstall.xml (build/kiwi/fedora/COPYING). Fedora's KDE-Desktop-Live profile is not used because it pulls in
        fedora-release-kde and Fedora's volume id and publisher. This profile asks for the same building blocks
        (KDE-Desktop and BootCoreLive) and carries the live-install package set and ISO settings itself.
        Fedora's config.sh decides on the live KDE session by looking for "Live" and "KDE" in the selected

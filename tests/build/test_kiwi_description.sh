@@ -50,6 +50,29 @@ else
     bad "vendor-kiwi.sh failed: $(tail -2 "$tmp/vendor.log" | tr '\n' ' ')"
 fi
 
+# nisse-live.xml carries a hand-copy of Fedora's LiveInstall <packages type="iso"> block (the profile cannot be
+# required without Fedora's volume id and publisher). This fails when a refresh of the vendored copy changes that
+# block, so the copy gets re-merged on purpose instead of drifting.
+iso_block() { # FILE : one line per child of every <packages type="iso">: tag, name, target
+    "$py" -c '
+import sys, xml.etree.ElementTree as E
+for p in E.parse(sys.argv[1]).getroot().iter("packages"):
+    if p.get("type") == "iso":
+        for c in p:
+            print(p.get("patternType"), c.tag, c.get("name"), c.get("target"))' "$1"
+}
+if diff <(iso_block "$V/components/liveinstall.xml") <(iso_block build/kiwi/nisse/components/nisse-live.xml) >"$tmp/isoblock.diff" 2>&1; then
+    ok "nisse-live.xml's iso package block matches Fedora's liveinstall.xml"
+else
+    bad "nisse-live.xml's iso package block drifted from the vendored liveinstall.xml (re-merge it): $(head -4 "$tmp/isoblock.diff" | tr '\n' ' ')"
+fi
+
+# Licenses: the vendored XML files carry no header and upstream's COPYING is the GPL-3.0, so the Nisse file that copies a
+# block from them is labelled GPL-3.0-only (never relabelled GPL-2.0-or-later), and the docs say the same thing.
+grep -q 'SPDX-License-Identifier: GPL-3.0-only' build/kiwi/nisse/components/nisse-live.xml     && ok "nisse-live.xml is labelled GPL-3.0-only (it copies Fedora's GPL-3.0 block)"     || bad "nisse-live.xml must be labelled GPL-3.0-only (it copies Fedora's GPL-3.0 liveinstall.xml)"
+grep -q 'build/kiwi/fedora' README.md && ok "README names build/kiwi/fedora as third-party" || bad "README does not list build/kiwi/fedora under third-party licenses"
+if grep -q 'GPL-3.0-or-later' docs/build-host.md; then bad "docs/build-host.md claims GPL-3.0-or-later for the vendored files (upstream states GPL-3.0 in COPYING)"; else ok "build-host.md does not overstate the vendored license"; fi
+
 # ---- part 2: the rendered Nisse description (needs kiwi-ng, so it runs in the build VM)
 if command -v kiwi-ng >/dev/null 2>&1; then
     D=out/kiwi-description
