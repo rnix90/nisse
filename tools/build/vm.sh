@@ -19,7 +19,7 @@ case "${1:-}" in
         ;;
     sync)
         tar -C "$REPO" --exclude=.git --exclude=out --exclude=.superpowers --exclude=target -cf - . |
-            ssh "${OPTS[@]}" -p "$PORT" builder@127.0.0.1 'mkdir -p ~/nisse && tar -C ~/nisse -xf -'
+            ssh "${OPTS[@]}" -p "$PORT" builder@127.0.0.1 'mkdir -p ~/nisse && tar -C ~/nisse -xmf -'   # -m: new mtimes, or cargo/cmake trust stale build output
         ;;
     pull)
         scp "${OPTS[@]}" -P "$PORT" "builder@127.0.0.1:nisse/$2" "$3"
