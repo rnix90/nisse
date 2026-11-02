@@ -338,3 +338,197 @@ async fn a_corrupt_state_file_is_set_aside_and_audited() {
     let lines: Vec<String> = s.proxy.call("AuditTail", &(10u32,)).await.unwrap();
     assert!(lines.iter().any(|l| l.contains("state-warning")), "{lines:?}");
 }
+
+// ---- the per-session queue and Cancel
+
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+/// Waits (up to 5 s) until `cond` holds.
+async fn wait_until(what: &str, cond: impl Fn() -> bool) {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !cond() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("timed out waiting for {what}"));
+}
+
+/// Answers `reply:<prompt>` after 100 ms and records how many turns ever ran at the same time.
+struct ConcurrencySpy {
+    current: AtomicUsize,
+    max: AtomicUsize,
+    order: Mutex<Vec<String>>,
+}
+
+#[async_trait]
+impl AgentRunner for ConcurrencySpy {
+    async fn run(&self, req: RunRequest, tx: Sender<RunEvent>) {
+        let now = self.current.fetch_add(1, Ordering::SeqCst) + 1;
+        self.max.fetch_max(now, Ordering::SeqCst);
+        self.order.lock().unwrap().push(req.prompt.clone());
+        let _ = tx.send(RunEvent::Text(format!("reply:{}", req.prompt))).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        self.current.fetch_sub(1, Ordering::SeqCst);
+        let _ = tx.send(RunEvent::Done).await;
+    }
+}
+
+#[tokio::test]
+async fn two_messages_on_one_session_never_run_at_once() {
+    let spy = Arc::new(ConcurrencySpy {
+        current: AtomicUsize::new(0),
+        max: AtomicUsize::new(0),
+        order: Mutex::new(Vec::new()),
+    });
+    let s = setup("queue", Arc::clone(&spy) as Arc<dyn AgentRunner>).await;
+    let mut chunks = s.proxy.receive_signal("MessageChunk").await.unwrap();
+    let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let _: () = s.proxy.call("SendMessage", &(id.as_str(), "one")).await.unwrap();
+    let _: () = s.proxy.call("SendMessage", &(id.as_str(), "two")).await.unwrap();
+
+    for want in ["reply:one", "reply:two"] {
+        let (_, text): (String, String) = next_signal(&mut chunks).await.body().deserialize().unwrap();
+        assert_eq!(text, want);
+        next_signal(&mut done).await; // each turn ends with its own SessionDone
+    }
+    assert_eq!(spy.max.load(Ordering::SeqCst), 1, "two turns ran at the same time");
+    assert_eq!(*spy.order.lock().unwrap(), vec!["one", "two"]);
+}
+
+/// Holds every turn open until it is dropped; records the prompts and whether a turn was dropped.
+struct HangingRunner {
+    started: AtomicBool,
+    dropped: Arc<AtomicBool>,
+    seen: Mutex<Vec<String>>,
+}
+
+struct DropFlag(Arc<AtomicBool>);
+
+impl Drop for DropFlag {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+}
+
+#[async_trait]
+impl AgentRunner for HangingRunner {
+    async fn run(&self, req: RunRequest, _tx: Sender<RunEvent>) {
+        let _guard = DropFlag(Arc::clone(&self.dropped));
+        self.seen.lock().unwrap().push(req.prompt);
+        self.started.store(true, Ordering::SeqCst);
+        tokio::time::sleep(Duration::from_secs(3600)).await;
+    }
+}
+
+fn hanging() -> Arc<HangingRunner> {
+    Arc::new(HangingRunner {
+        started: AtomicBool::new(false),
+        dropped: Arc::new(AtomicBool::new(false)),
+        seen: Mutex::new(Vec::new()),
+    })
+}
+
+#[tokio::test]
+async fn cancel_stops_the_running_turn_and_signals_done_once() {
+    let runner = hanging();
+    let s = setup("cancel", Arc::clone(&runner) as Arc<dyn AgentRunner>).await;
+    let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+    let mut errors = s.proxy.receive_signal("SessionError").await.unwrap();
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let _: () = s.proxy.call("SendMessage", &(id.as_str(), "work")).await.unwrap();
+    wait_until("the turn to start", || runner.started.load(Ordering::SeqCst)).await;
+
+    let cancelled: bool = s.proxy.call("Cancel", &(id.as_str(),)).await.unwrap();
+    assert!(cancelled);
+    let done_id: String = next_signal(&mut done).await.body().deserialize().unwrap();
+    assert_eq!(done_id, id);
+    wait_until("the runner future to be dropped (kill_on_drop stops the CLI)", || {
+        runner.dropped.load(Ordering::SeqCst)
+    })
+    .await;
+
+    // exactly one SessionDone, and no "stopped unexpectedly" error
+    assert!(
+        tokio::time::timeout(Duration::from_millis(400), done.next())
+            .await
+            .is_err(),
+        "a second SessionDone"
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), errors.next())
+            .await
+            .is_err(),
+        "a SessionError"
+    );
+}
+
+#[tokio::test]
+async fn cancel_also_drops_queued_messages_and_the_session_stays_usable() {
+    let runner = hanging();
+    let s = setup("cancel-queue", Arc::clone(&runner) as Arc<dyn AgentRunner>).await;
+    let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let _: () = s.proxy.call("SendMessage", &(id.as_str(), "first")).await.unwrap();
+    let _: () = s.proxy.call("SendMessage", &(id.as_str(), "second")).await.unwrap();
+    wait_until("the first turn to start", || runner.started.load(Ordering::SeqCst)).await;
+
+    let cancelled: bool = s.proxy.call("Cancel", &(id.as_str(),)).await.unwrap();
+    assert!(cancelled);
+    next_signal(&mut done).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(
+        *runner.seen.lock().unwrap(),
+        vec!["first"],
+        "the queued message must not run"
+    );
+
+    let _: () = s.proxy.call("SendMessage", &(id.as_str(), "third")).await.unwrap();
+    wait_until("a new turn after the cancel", || runner.seen.lock().unwrap().len() == 2).await;
+    assert_eq!(*runner.seen.lock().unwrap(), vec!["first", "third"]);
+}
+
+#[tokio::test]
+async fn cancel_on_an_idle_or_unknown_session_returns_false() {
+    let s = setup("cancel-idle", Arc::new(FakeRunner)).await;
+    let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let idle: bool = s.proxy.call("Cancel", &(id.as_str(),)).await.unwrap();
+    let unknown: bool = s.proxy.call("Cancel", &("no-such-session",)).await.unwrap();
+    assert!(!idle && !unknown);
+    assert!(tokio::time::timeout(Duration::from_millis(300), done.next())
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn cancel_kills_the_real_cli_process() {
+    use std::os::unix::fs::PermissionsExt;
+    // A stand-in `claude` that records its pid and then sleeps; Cancel must leave no process behind.
+    let dir = scratch("cancel-real");
+    let bin = dir.join("claude");
+    fs::write(
+        &bin,
+        "#!/bin/sh\necho $$ > \"$(dirname \"$0\")/pid.txt\"\nexec sleep 300\n",
+    )
+    .unwrap();
+    fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
+    let runner = nisse_daemon::runner::ClaudeCliRunner::new().with_binary(bin);
+    let s = start(dir.clone(), Arc::new(runner), false).await;
+    let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let _: () = s.proxy.call("SendMessage", &(id.as_str(), "work")).await.unwrap();
+    let pid_file = dir.join("pid.txt");
+    wait_until("the CLI to start", || pid_file.exists()).await;
+    let pid = fs::read_to_string(&pid_file).unwrap().trim().to_string();
+    assert!(std::path::Path::new(&format!("/proc/{pid}")).exists());
+
+    let cancelled: bool = s.proxy.call("Cancel", &(id.as_str(),)).await.unwrap();
+    assert!(cancelled);
+    next_signal(&mut done).await;
+    wait_until("the CLI process to exit", || {
+        !std::path::Path::new(&format!("/proc/{pid}")).exists()
+    })
+    .await;
+}
