@@ -62,6 +62,7 @@ preset set is adopted except `plasma-setup.service`; Flatpak remotes are Fedora'
 | 1.13 | Look-and-feel regression test | Screenshot checks of the live desktop, login, splash and panel in the VM |
 | 1.15 | SSH as an install-time option | Decided (Bert, 2026-11-02): sshd is an OPTION AT INSTALL, off by default until then. Anaconda has no checkbox for it, so it needs our own installer step or the first-boot welcome flow (1.12); the image ships `disable sshd.service` today |
 | 1.0 | Branding foundations | Replace Fedora's placeholder art (generic-logos, the hot dog on the start button, About page and installer) with Nisse's; Nisse's own product version starting at 0.2, no alpha label, no tracking of Fedora's number (VERSION_ID stays the Fedora base). Plan `docs/superpowers/plans/2026-11-02-branding-foundations.md` |
+| 1.16 | Own artwork for KDE and Fedora surfaces, with a local review page | Decided (Bert, 2026-11-02): create Nisse's own graphics for the identity and the desktop theme (scope: identity + theme layer, about 150-400 items). First a locally hosted review page showing every graphic with a comment box, exporting one big submission brief of what to draw. PLAN ONLY for now: `docs/superpowers/plans/2026-11-02-brand-art-review-page.md` |
 
 ## Phase 2: the AI layer, core
 
