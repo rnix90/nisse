@@ -11,12 +11,12 @@ async fn main() -> zbus::Result<()> {
         Arc::new(FakeRunner)
     } else {
         let mut runner = ClaudeCliRunner::new();
-        if let Some(secs) = std::env::var("NISSE_CLI_TIMEOUT_SECS")
+        if let Some(secs) = std::env::var("NISSE_CLI_HUNG_SECS")
             .ok()
             .and_then(|v| v.trim().parse::<u64>().ok())
             .filter(|s| *s > 0)
         {
-            runner = runner.with_timeout(Duration::from_secs(secs));
+            runner = runner.with_hung_after(Duration::from_secs(secs));
         }
         if let Some(settings) = default_settings_path() {
             runner = runner.with_settings(settings);

@@ -38,14 +38,23 @@ pub trait AgentRunner: Send + Sync {
     async fn run(&self, req: RunRequest, tx: Sender<RunEvent>);
 }
 
-/// How long one turn may take before the CLI is killed (a hung CLI must not leave the panel busy forever).
-pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(600);
+/// The CLI is checked for a sign of life every 30 seconds (hard-coded; see `ClaudeCliRunner`).
+pub const CHECK_IN_INTERVAL: Duration = Duration::from_secs(30);
 
-/// The error shown when a turn is stopped at the timeout; the time is rounded up to whole minutes.
-pub fn timeout_message(timeout: Duration) -> String {
-    let minutes = timeout.as_secs().div_ceil(60).max(1);
+/// A CLI with no sign of life for this long is flagged hung, killed and restarted once.
+pub const DEFAULT_HUNG_AFTER: Duration = Duration::from_secs(600);
+
+/// How long a killed process group gets to exit on SIGTERM before it receives SIGKILL.
+const KILL_GRACE: Duration = Duration::from_secs(2);
+
+/// Sent when a hung turn is restarted after the CLI had already started the session.
+pub const CONTINUE_PROMPT: &str = "Your previous turn stopped responding and was restarted. Continue where you left off: first check what is already done, do not repeat completed steps, then finish the request.";
+
+/// The error shown when the CLI is flagged hung; the time is rounded up to whole minutes.
+pub fn hung_message(after: Duration) -> String {
+    let minutes = after.as_secs().div_ceil(60).max(1);
     let unit = if minutes == 1 { "minute" } else { "minutes" };
-    format!("Claude Code did not finish within {minutes} {unit} and was stopped")
+    format!("Claude Code did not respond for {minutes} {unit} and was stopped")
 }
 
 pub const NOT_INSTALLED: &str = "Claude Code is not installed yet; waiting for first-boot download";
@@ -75,10 +84,17 @@ pub fn parse_line(line: &str) -> Vec<RunEvent> {
 }
 
 /// Runs the `claude` CLI once per message.
+///
+/// Check-in watchdog: every `check_in` (30 s) the runner looks for a sign of life, which is a new line on stdout or
+/// growth in the CPU time of the CLI or any process descended from it (so a long, silent `dnf` counts). With none for
+/// `hung_after` (10 min) the CLI is flagged hung: it and everything it started are stopped (SIGTERM, then SIGKILL), an error
+/// is reported, and the turn is restarted once. If the CLI had already started the session it is resumed with
+/// `CONTINUE_PROMPT`; if not, nothing had happened yet and the original request is run again. A second hang gives up.
 pub struct ClaudeCliRunner {
     binary: Option<PathBuf>,
     settings: Option<PathBuf>,
-    timeout: Duration,
+    hung_after: Duration,
+    check_in: Duration,
 }
 
 impl Default for ClaudeCliRunner {
@@ -89,11 +105,11 @@ impl Default for ClaudeCliRunner {
 
 impl ClaudeCliRunner {
     pub fn new() -> Self {
-        // Autonomous mode, as the design asks (docs/superpowers/specs, section 6.4).
         Self {
             binary: None,
             settings: None,
-            timeout: DEFAULT_TIMEOUT,
+            hung_after: DEFAULT_HUNG_AFTER,
+            check_in: CHECK_IN_INTERVAL,
         }
     }
 
@@ -102,8 +118,13 @@ impl ClaudeCliRunner {
         self
     }
 
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = timeout;
+    pub fn with_hung_after(mut self, after: Duration) -> Self {
+        self.hung_after = after;
+        self
+    }
+
+    pub fn with_check_in(mut self, interval: Duration) -> Self {
+        self.check_in = interval;
         self
     }
 
@@ -138,9 +159,143 @@ async fn finish_with_error(tx: &Sender<RunEvent>, message: String) {
     let _ = tx.send(RunEvent::Done).await;
 }
 
-#[async_trait]
-impl AgentRunner for ClaudeCliRunner {
-    async fn run(&self, req: RunRequest, tx: Sender<RunEvent>) {
+/// How one CLI process ended.
+enum Attempt {
+    /// The process ended and its own `Done` (and any errors) were sent.
+    Finished,
+    /// No sign of life for `hung_after`: the process group was stopped; nothing was sent after the last output.
+    Hung { started: bool },
+    /// Nobody is listening for events any more.
+    Gone,
+}
+
+/// Stops the CLI and everything it started if the run future is dropped (Cancel): SIGTERM now, SIGKILL after a grace.
+struct TreeGuard(Option<i32>);
+
+impl TreeGuard {
+    fn disarm(&mut self) {
+        self.0 = None;
+    }
+}
+
+impl Drop for TreeGuard {
+    fn drop(&mut self) {
+        if let Some(root) = self.0 {
+            let victims = signal_tree(root, libc::SIGTERM);
+            std::thread::spawn(move || {
+                std::thread::sleep(KILL_GRACE);
+                kill_if_alive(&victims);
+            });
+        }
+    }
+}
+
+/// One process as read from /proc/<pid>/stat.
+struct Proc {
+    pid: i32,
+    ppid: i32,
+    /// User + system CPU ticks, including reaped children.
+    ticks: u64,
+    /// Start time in ticks since boot: with the pid it identifies a process even if the pid is later reused.
+    start: u64,
+}
+
+fn process_table() -> Vec<Proc> {
+    let Ok(dir) = std::fs::read_dir("/proc") else {
+        return Vec::new();
+    };
+    dir.filter_map(|entry| {
+        let entry = entry.ok()?;
+        let pid = entry.file_name().to_str()?.parse::<i32>().ok()?;
+        let stat = std::fs::read_to_string(entry.path().join("stat")).ok()?;
+        // pid (comm) state ppid pgrp ...: comm may contain spaces and parentheses, so split after the last ')'.
+        let rest = &stat[stat.rfind(')')? + 1..];
+        let fields: Vec<&str> = rest.split_whitespace().collect();
+        let ppid = fields.get(1)?.parse::<i32>().ok()?;
+        let ticks: u64 = (11..=14).filter_map(|i| fields.get(i)?.parse::<u64>().ok()).sum();
+        let start = fields.get(19)?.parse::<u64>().ok()?;
+        Some(Proc {
+            pid,
+            ppid,
+            ticks,
+            start,
+        })
+    })
+    .collect()
+}
+
+/// `root` and every process descended from it (by parent pid), whatever process group or session it moved to.
+fn tree_of(root: i32, table: &[Proc]) -> Vec<&Proc> {
+    let mut found: Vec<&Proc> = table.iter().filter(|p| p.pid == root).collect();
+    let mut next = 0;
+    while next < found.len() {
+        let parent = found[next].pid;
+        next += 1;
+        for child in table.iter().filter(|p| p.ppid == parent && p.pid != root) {
+            if !found.iter().any(|seen| seen.pid == child.pid) {
+                found.push(child);
+            }
+        }
+    }
+    found
+}
+
+/// Total CPU ticks used by the CLI and its descendants; 0 where /proc is unavailable (then only stdout counts).
+fn tree_cpu(root: i32) -> u64 {
+    let table = process_table();
+    tree_of(root, &table).iter().map(|p| p.ticks).sum()
+}
+
+/// Sends `signal` to the CLI's whole process group and to every process in its tree. Returns their identities so a
+/// later SIGKILL still finds the ones that were re-parented when their parent died.
+fn signal_tree(root: i32, signal: i32) -> Vec<(i32, u64)> {
+    let table = process_table();
+    let victims: Vec<(i32, u64)> = tree_of(root, &table).iter().map(|p| (p.pid, p.start)).collect();
+    // SAFETY: kill/killpg only send a signal; a stale id yields ESRCH, which is ignored.
+    unsafe {
+        libc::killpg(root, signal);
+        for (pid, _) in &victims {
+            libc::kill(*pid, signal);
+        }
+    }
+    victims
+}
+
+/// SIGKILL for each of `victims` that is still the same process.
+fn kill_if_alive(victims: &[(i32, u64)]) {
+    let table = process_table();
+    for (pid, start) in victims {
+        if table.iter().any(|p| p.pid == *pid && p.start == *start) {
+            // SAFETY: as above.
+            unsafe {
+                libc::kill(*pid, libc::SIGKILL);
+            }
+        }
+    }
+}
+
+/// Stops the CLI and its tree and reaps the child: SIGTERM, a grace period, then SIGKILL for whatever is left.
+async fn kill_tree(child: &mut tokio::process::Child, root: i32) {
+    let victims = signal_tree(root, libc::SIGTERM);
+    if tokio::time::timeout(KILL_GRACE, child.wait()).await.is_err() {
+        let _ = child.start_kill();
+        let _ = child.wait().await;
+    }
+    kill_if_alive(&victims);
+}
+
+type StdoutLines = tokio::io::Lines<BufReader<tokio::process::ChildStdout>>;
+
+async fn next_line(lines: &mut Option<StdoutLines>) -> std::io::Result<Option<String>> {
+    match lines {
+        Some(lines) => lines.next_line().await,
+        None => Ok(None),
+    }
+}
+
+impl ClaudeCliRunner {
+    /// Runs the CLI once for `req` under the watchdog.
+    async fn attempt(&self, req: &RunRequest, tx: &Sender<RunEvent>) -> Attempt {
         let mut cmd = Command::new(self.find_binary());
         cmd.args(["-p", &req.prompt, "--output-format", "stream-json", "--verbose"]);
         let session_flag = if req.resume { "--resume" } else { "--session-id" };
@@ -153,19 +308,26 @@ impl AgentRunner for ClaudeCliRunner {
             Authority::Supervised => cmd.args(["--permission-mode", "default"]),
         };
         cmd.envs(req.env.iter().map(|(k, v)| (k.as_str(), v.as_str())));
-        // A closed stdin: the CLI otherwise waits 3 seconds for piped data.
+        // A closed stdin: the CLI otherwise waits 3 seconds for piped data. Its own process group, so that stopping
+        // it also stops the tools it started.
         cmd.stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .kill_on_drop(true);
+            .process_group(0);
 
         let mut child = match cmd.spawn() {
             Ok(child) => child,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                return finish_with_error(&tx, NOT_INSTALLED.to_string()).await;
+                finish_with_error(tx, NOT_INSTALLED.to_string()).await;
+                return Attempt::Finished;
             }
-            Err(e) => return finish_with_error(&tx, format!("cannot start Claude Code: {e}")).await,
+            Err(e) => {
+                finish_with_error(tx, format!("cannot start Claude Code: {e}")).await;
+                return Attempt::Finished;
+            }
         };
+        let pgid = child.id().map_or(0, |pid| pid as i32);
+        let mut guard = TreeGuard((pgid > 0).then_some(pgid));
 
         // Read stderr alongside stdout so a chatty CLI cannot fill the pipe and stall; keep its tail for errors.
         let stderr_tail = child.stderr.take().map(|err| {
@@ -176,30 +338,43 @@ impl AgentRunner for ClaudeCliRunner {
             })
         });
 
-        // Read stdout and wait for the exit under one deadline; on expiry the child is killed and reaped.
-        let stdout = child.stdout.take();
-        let turn = async {
-            if let Some(stdout) = stdout {
-                let mut lines = BufReader::new(stdout).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    for event in parse_line(&line) {
-                        if tx.send(event).await.is_err() {
-                            return None; // nobody is listening any more; kill_on_drop stops the child
+        let mut lines: Option<StdoutLines> = child.stdout.take().map(|out| BufReader::new(out).lines());
+        let mut eof = lines.is_none();
+        let mut started = false;
+        let mut last_alive = tokio::time::Instant::now();
+        let mut last_cpu = tree_cpu(pgid);
+        let mut ticker = tokio::time::interval(self.check_in);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        let exit = loop {
+            tokio::select! {
+                line = next_line(&mut lines), if !eof => match line {
+                    Ok(Some(line)) => {
+                        last_alive = tokio::time::Instant::now();
+                        for event in parse_line(&line) {
+                            started |= event == RunEvent::Started;
+                            if tx.send(event).await.is_err() {
+                                return Attempt::Gone; // the guard stops the process group
+                            }
                         }
+                    }
+                    _ => eof = true,
+                },
+                status = child.wait(), if eof => break status,
+                _ = ticker.tick() => {
+                    let cpu = tree_cpu(pgid);
+                    if cpu != last_cpu {
+                        last_cpu = cpu;
+                        last_alive = tokio::time::Instant::now();
+                    } else if last_alive.elapsed() >= self.hung_after {
+                        kill_tree(&mut child, pgid).await;
+                        guard.disarm();
+                        return Attempt::Hung { started };
                     }
                 }
             }
-            Some(child.wait().await)
         };
-        let exit = match tokio::time::timeout(self.timeout, turn).await {
-            Ok(Some(exit)) => exit,
-            Ok(None) => return,
-            Err(_) => {
-                let _ = child.start_kill();
-                let _ = child.wait().await;
-                return finish_with_error(&tx, timeout_message(self.timeout)).await;
-            }
-        };
+        guard.disarm();
 
         match exit {
             Ok(status) if status.success() => {
@@ -219,9 +394,39 @@ impl AgentRunner for ClaudeCliRunner {
                 } else {
                     format!(": {tail}")
                 };
-                finish_with_error(&tx, format!("Claude Code {how}{detail}")).await;
+                finish_with_error(tx, format!("Claude Code {how}{detail}")).await;
             }
-            Err(e) => finish_with_error(&tx, format!("lost track of Claude Code: {e}")).await,
+            Err(e) => finish_with_error(tx, format!("lost track of Claude Code: {e}")).await,
+        }
+        Attempt::Finished
+    }
+}
+
+#[async_trait]
+impl AgentRunner for ClaudeCliRunner {
+    async fn run(&self, req: RunRequest, tx: Sender<RunEvent>) {
+        let mut req = req;
+        for attempt in 0..2 {
+            match self.attempt(&req, &tx).await {
+                Attempt::Finished | Attempt::Gone => return,
+                Attempt::Hung { started } => {
+                    let said = hung_message(self.hung_after);
+                    if attempt == 1 {
+                        return finish_with_error(&tx, format!("{said}; giving up")).await;
+                    }
+                    if tx
+                        .send(RunEvent::Error(format!("{said}; restarting it")))
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
+                    if started {
+                        req.resume = true;
+                        req.prompt = CONTINUE_PROMPT.to_string();
+                    }
+                }
+            }
         }
     }
 }

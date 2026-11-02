@@ -6,7 +6,8 @@ use std::time::Duration;
 
 use nisse_config::Authority;
 use nisse_daemon::runner::{
-    parse_line, timeout_message, AgentRunner, ClaudeCliRunner, RunEvent, RunRequest, DEFAULT_TIMEOUT, NOT_INSTALLED,
+    hung_message, parse_line, AgentRunner, ClaudeCliRunner, RunEvent, RunRequest, CONTINUE_PROMPT, DEFAULT_HUNG_AFTER,
+    NOT_INSTALLED,
 };
 use tokio::sync::mpsc;
 
@@ -235,40 +236,131 @@ async fn a_chatty_stderr_does_not_block_the_run() {
     assert_eq!(events, vec![RunEvent::Text("done".into()), RunEvent::Done]);
 }
 
-#[tokio::test]
-async fn a_hung_cli_is_stopped_at_the_timeout() {
-    let (bin, dir) = fake_claude("hung", "echo $$ > \"$(dirname \"$0\")/pid.txt\"\nexec sleep 30");
-    let runner = ClaudeCliRunner::new()
-        .with_binary(bin)
-        .with_timeout(Duration::from_millis(300));
-    let events = collect(&runner, request(false)).await;
-    let n = events.len();
-    assert!(
-        matches!(&events[n - 2], RunEvent::Error(m) if m.contains("did not finish") && m.contains("stopped")),
-        "{events:?}"
-    );
-    assert_eq!(events[n - 1], RunEvent::Done);
+// ---- the check-in watchdog: a CLI that shows no sign of life is flagged hung, killed with everything it started, and
+// restarted once
 
-    // No orphan: the killed process must be gone.
-    let pid = fs::read_to_string(dir.join("pid.txt")).unwrap().trim().to_string();
+async fn assert_gone(pid_file: &std::path::Path, what: &str) {
+    let pid = fs::read_to_string(pid_file).unwrap().trim().to_string();
     let proc_dir = format!("/proc/{pid}");
-    let mut gone = false;
-    for _ in 0..20 {
+    for _ in 0..30 {
         if !std::path::Path::new(&proc_dir).exists() {
-            gone = true;
-            break;
+            return;
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    assert!(gone, "claude (pid {pid}) is still running after the timeout");
+    panic!("{what} (pid {pid}) is still running");
+}
+
+fn watchdog(bin: PathBuf) -> ClaudeCliRunner {
+    ClaudeCliRunner::new()
+        .with_binary(bin)
+        .with_hung_after(Duration::from_millis(400))
+        .with_check_in(Duration::from_millis(50))
 }
 
 #[tokio::test]
-async fn a_cli_that_finishes_in_time_is_unaffected_by_the_timeout() {
+async fn a_silent_cli_is_flagged_hung_restarted_once_and_then_given_up() {
+    let (bin, dir) = fake_claude(
+        "hung",
+        "d=\"$(dirname \"$0\")\"\necho run >> \"$d/runs.txt\"\necho $$ > \"$d/pid.txt\"\nexec sleep 30",
+    );
+    let events = collect(&watchdog(bin), request(false)).await;
+    let n = events.len();
+    assert!(
+        matches!(&events[0], RunEvent::Error(m) if m.contains("did not respond") && m.contains("restarting")),
+        "{events:?}"
+    );
+    assert!(
+        matches!(&events[n - 2], RunEvent::Error(m) if m.contains("giving up")),
+        "{events:?}"
+    );
+    assert_eq!(events[n - 1], RunEvent::Done);
+    assert_eq!(events.iter().filter(|e| **e == RunEvent::Done).count(), 1, "{events:?}");
+    assert_eq!(fs::read_to_string(dir.join("runs.txt")).unwrap().lines().count(), 2);
+    assert_gone(&dir.join("pid.txt"), "claude").await;
+}
+
+#[tokio::test]
+async fn a_hung_first_attempt_is_recovered_by_the_restart() {
+    let (bin, _dir) = fake_claude(
+        "recover",
+        &format!(
+            "d=\"$(dirname \"$0\")\"\nif [ -e \"$d/first\" ]; then cat > /dev/null; cat {FIXTURE}; else touch \"$d/first\"; exec sleep 30; fi"
+        ),
+    );
+    let events = collect(&watchdog(bin), request(false)).await;
+    assert!(
+        matches!(&events[0], RunEvent::Error(m) if m.contains("restarting")),
+        "{events:?}"
+    );
+    assert_eq!(
+        events[1..],
+        [RunEvent::Started, RunEvent::Text("hi".into()), RunEvent::Done],
+        "{events:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_session_that_had_started_is_resumed_with_the_continue_prompt() {
+    let init = r#"{"type":"system","subtype":"init","session_id":"s"}"#;
+    let (bin, dir) = fake_claude(
+        "resume",
+        &format!(
+            "d=\"$(dirname \"$0\")\"\nif [ -e \"$d/first\" ]; then echo \"$@\" > \"$d/args2.txt\"; cat {FIXTURE}; else touch \"$d/first\"; echo '{init}'; exec sleep 30; fi"
+        ),
+    );
+    let events = collect(&watchdog(bin), request(false)).await;
+    assert_eq!(events.first(), Some(&RunEvent::Started), "{events:?}");
+    assert_eq!(events.last(), Some(&RunEvent::Done), "{events:?}");
+    let args = fs::read_to_string(dir.join("args2.txt")).unwrap();
+    assert!(args.contains("--resume sess-1"), "{args:?}");
+    assert!(!args.contains("--session-id"), "{args:?}");
+    assert!(args.contains(CONTINUE_PROMPT), "{args:?}");
+}
+
+#[tokio::test]
+async fn a_silent_but_busy_cli_is_not_flagged() {
+    // Nothing on stdout for 1.5 s, but a process it started keeps the CPU busy: that is a sign of life.
+    let (bin, _dir) = fake_claude(
+        "busy",
+        &format!("timeout 1.5 sh -c 'while :; do :; done'\ncat > /dev/null\ncat {FIXTURE}"),
+    );
+    let events = collect(&watchdog(bin), request(false)).await;
+    assert_eq!(
+        events,
+        vec![RunEvent::Started, RunEvent::Text("hi".into()), RunEvent::Done]
+    );
+}
+
+#[tokio::test]
+async fn killing_a_hung_cli_also_kills_what_it_started() {
+    let (bin, dir) = fake_claude(
+        "grandchild",
+        "d=\"$(dirname \"$0\")\"\nsleep 300 &\necho $! > \"$d/gpid.txt\"\necho $$ > \"$d/pid.txt\"\nwait",
+    );
+    collect(&watchdog(bin), request(false)).await;
+    assert_gone(&dir.join("pid.txt"), "claude").await;
+    assert_gone(&dir.join("gpid.txt"), "a process claude started").await;
+}
+
+#[tokio::test]
+async fn a_tool_that_moved_to_its_own_session_is_stopped_too() {
+    // setsid detaches the tool from the CLI's process group and session; it is still a descendant.
+    let (bin, dir) = fake_claude(
+        "setsid",
+        "d=\"$(dirname \"$0\")\"\nsetsid sleep 300 &\necho $! > \"$d/gpid.txt\"\necho $$ > \"$d/pid.txt\"\nwait",
+    );
+    collect(&watchdog(bin), request(false)).await;
+    assert_gone(&dir.join("pid.txt"), "claude").await;
+    assert_gone(&dir.join("gpid.txt"), "a tool in its own session").await;
+}
+
+#[tokio::test]
+async fn a_cli_that_finishes_in_time_is_unaffected_by_the_watchdog() {
     let (bin, _dir) = fake_claude("quick", &format!("cat > /dev/null\ncat {FIXTURE}"));
     let runner = ClaudeCliRunner::new()
         .with_binary(bin)
-        .with_timeout(Duration::from_secs(5));
+        .with_hung_after(Duration::from_secs(5));
     let events = collect(&runner, request(false)).await;
     assert_eq!(
         events,
@@ -277,13 +369,13 @@ async fn a_cli_that_finishes_in_time_is_unaffected_by_the_timeout() {
 }
 
 #[test]
-fn the_timeout_message_names_whole_minutes() {
+fn the_hung_message_names_whole_minutes() {
     assert_eq!(
-        timeout_message(DEFAULT_TIMEOUT),
-        "Claude Code did not finish within 10 minutes and was stopped"
+        hung_message(DEFAULT_HUNG_AFTER),
+        "Claude Code did not respond for 10 minutes and was stopped"
     );
     assert_eq!(
-        timeout_message(Duration::from_millis(300)),
-        "Claude Code did not finish within 1 minute and was stopped"
+        hung_message(Duration::from_millis(300)),
+        "Claude Code did not respond for 1 minute and was stopped"
     );
 }

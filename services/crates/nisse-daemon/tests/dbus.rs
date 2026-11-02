@@ -505,12 +505,13 @@ async fn cancel_on_an_idle_or_unknown_session_returns_false() {
 #[tokio::test]
 async fn cancel_kills_the_real_cli_process() {
     use std::os::unix::fs::PermissionsExt;
-    // A stand-in `claude` that records its pid and then sleeps; Cancel must leave no process behind.
+    // A stand-in `claude` that records its pid, starts a tool in its own session and waits; Cancel must leave neither
+    // the CLI nor the tool behind.
     let dir = scratch("cancel-real");
     let bin = dir.join("claude");
     fs::write(
         &bin,
-        "#!/bin/sh\necho $$ > \"$(dirname \"$0\")/pid.txt\"\nexec sleep 300\n",
+        "#!/bin/sh\nd=\"$(dirname \"$0\")\"\nsetsid sleep 300 &\necho $! > \"$d/gpid.txt\"\necho $$ > \"$d/pid.txt\"\nwait\n",
     )
     .unwrap();
     fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
@@ -529,6 +530,11 @@ async fn cancel_kills_the_real_cli_process() {
     next_signal(&mut done).await;
     wait_until("the CLI process to exit", || {
         !std::path::Path::new(&format!("/proc/{pid}")).exists()
+    })
+    .await;
+    let tool = fs::read_to_string(dir.join("gpid.txt")).unwrap().trim().to_string();
+    wait_until("the tool the CLI started to exit", || {
+        !std::path::Path::new(&format!("/proc/{tool}")).exists()
     })
     .await;
 }
