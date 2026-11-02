@@ -14,7 +14,9 @@ hardware.
 ## Milestone 2 target (Bert, 2026-11-02)
 
 A **complete AI layer** and the **full Nisse look and feel**, both proven in a VM. Real-hardware installs come after.
-Design direction: a distinct Nisse identity, not stock KDE. Palette: Bert picks by looking at mockups (decision).
+Design direction: a distinct Nisse identity, not stock KDE. Palette (decided 2026-11-02): **Ember**, a dark Ink desktop
+with Paper text and a warm red-orange accent (the nisse's red cap; exact hex to be tuned for contrast). Dark shell, but
+document-like apps (email, word processing, PDF, web pages) keep a light background; see 1.14.
 
 ## Ground rules for every item
 
@@ -37,7 +39,7 @@ Design direction: a distinct Nisse identity, not stock KDE. Palette: Bert picks 
 
 | Id | Item | Notes |
 |---|---|---|
-| 1.1 | Palette and style direction | (decision) 2-3 palette mockups from the logo, Bert picks by looking; dark/light behaviour follows |
+| 1.1 | Palette and style direction | Decided: Ember (dark Ink base, Paper text, red-orange accent). Light variant for the whole desktop is optional and later |
 | 1.2 | Plasma color scheme, theme, window decorations | Based on the chosen palette; light and dark variants if wanted |
 | 1.3 | Icon theme, cursor theme | (guess) start from a base set and override the Nisse icons; custom cursor only if it adds value |
 | 1.4 | Wallpapers and lock/login backgrounds | Nisse artwork from the logo assets; at least one wallpaper per variant |
@@ -49,6 +51,7 @@ Design direction: a distinct Nisse identity, not stock KDE. Palette: Bert picks 
 | 1.10 | Terminal and editor defaults | Konsole profile in the Nisse palette; the terminal-under-cap logo is reserved for a terminal app (later) |
 | 1.11 | Default apps and de-bloat | Decide what ships and what does not (decision) |
 | 1.12 | First-boot welcome and installer branding | Replace plasma-welcome-fedora content; Anaconda branding; sound and notification theme (guess) |
+| 1.14 | Light surfaces for document apps | Decided: dark shell, light document apps, set per app (not a light-content-everywhere scheme). Cover the mail client, word processor, PDF viewer and browser; check each with a screenshot of a real document; terminals and code editors stay dark |
 | 1.13 | Look-and-feel regression test | Screenshot checks of the live desktop, login, splash and panel in the VM |
 
 ## Phase 2: the AI layer, core
@@ -96,7 +99,7 @@ then the rest of Phase 1, 2.4 to 2.6, Phase 3, and Phase 4 to close. Phases 1 an
 
 ## Decisions waiting on Bert
 
-1. Palette direction (1.1): mockups first.
+1. ~~Palette direction (1.1)~~: decided, Ember.
 2. Monospace and document fonts (1.5).
-3. Default apps to keep or drop (1.11).
+3. Default apps to keep or drop (1.11); it decides which apps 1.14 must cover.
 4. Any preset item that is a real tradeoff (0.3), asked when met.
