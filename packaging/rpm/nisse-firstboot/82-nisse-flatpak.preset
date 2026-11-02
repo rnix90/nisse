@@ -1,0 +1,2 @@
+# Add the Flathub remote at first boot on installed systems (the service skips live media).
+enable nisse-flatpak-remotes.service

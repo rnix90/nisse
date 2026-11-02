@@ -1,0 +1,19 @@
+[Unit]
+Description=Add the Flathub Flatpak remote
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/nisse/flatpak-remotes.done
+ConditionKernelCommandLine=!rd.live.image
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nisse-flatpak-remotes
+Restart=on-failure
+RestartForceExitStatus=75
+RestartSec=300
+# Exit 1 means flatpak itself failed: do not retry until the next boot.
+RestartPreventExitStatus=1
+
+[Install]
+WantedBy=multi-user.target

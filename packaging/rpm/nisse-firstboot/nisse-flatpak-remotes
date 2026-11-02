@@ -1,0 +1,26 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Add the Flathub Flatpak remote system-wide at first boot. Fedora's own remote comes from flatpak-add-fedora-repos
+# (enabled by the Fedora presets); both show up in Discover.
+#
+# Exit 0: done. Exit 75 (EX_TEMPFAIL): no network yet, try again later. Exit 1: flatpak is missing or failed.
+#
+# NISSE_PROBE_URL, NISSE_FLATPAK and NISSE_STATE_DIR exist for tests.
+
+state_dir="${NISSE_STATE_DIR:-/var/lib/nisse}"
+probe_url="${NISSE_PROBE_URL:-https://dl.flathub.org}"
+flatpak="${NISSE_FLATPAK:-flatpak}"
+repo_url="https://dl.flathub.org/repo/flathub.flatpakrepo"
+
+# Any HTTP answer means we are online.
+if ! curl -sI --max-time 10 -o /dev/null "$probe_url" 2>/dev/null; then
+    exit 75
+fi
+
+command -v "$flatpak" >/dev/null 2>&1 || exit 1
+
+if "$flatpak" remote-add --system --if-not-exists flathub "$repo_url"; then
+    mkdir -p "$state_dir" && : > "$state_dir/flatpak-remotes.done"
+    exit 0
+fi
+exit 1

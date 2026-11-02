@@ -1,6 +1,8 @@
 [Unit]
 Description=Fetch Claude Code from Anthropic
 ConditionPathExists=!%h/.local/bin/claude
+# Live media runs from RAM: do not download Claude Code there.
+ConditionKernelCommandLine=!rd.live.image
 StartLimitIntervalSec=0
 
 [Service]

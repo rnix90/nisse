@@ -11,10 +11,20 @@ member() { rpm2cpio "$rpmf" | cpio -i --to-stdout --quiet "./$1"; }
 
 files="$(rpm -qlp "$rpmf")"
 for f in /usr/bin/nisse-fetch-claude /usr/lib/systemd/user/nisse-fetch-claude.service \
-         /usr/lib/systemd/user-preset/81-nisse-firstboot.preset; do
+         /usr/lib/systemd/user-preset/81-nisse-firstboot.preset /usr/bin/nisse-flatpak-remotes \
+         /usr/lib/systemd/system/nisse-flatpak-remotes.service /usr/lib/systemd/system-preset/82-nisse-flatpak.preset; do
     printf '%s\n' "$files" | grep -qxF "$f" || fail "RPM lacks $f"
 done
 member usr/lib/systemd/user-preset/81-nisse-firstboot.preset | grep -qx 'enable nisse-fetch-claude.service' || fail "preset must enable nisse-fetch-claude.service for users"
+# A live session must not download Claude Code into RAM or add Flatpak remotes: both units skip live media.
+member usr/lib/systemd/user/nisse-fetch-claude.service | grep -qx 'ConditionKernelCommandLine=!rd.live.image' || fail "the Claude fetch unit must skip live media"
+flat="$(member usr/lib/systemd/system/nisse-flatpak-remotes.service)"
+for want in 'ConditionKernelCommandLine=!rd.live.image' 'ConditionPathExists=!/var/lib/nisse/flatpak-remotes.done' \
+            'After=network-online.target' 'ExecStart=/usr/bin/nisse-flatpak-remotes' 'RestartForceExitStatus=75'; do
+    grep -qx "$want" <<< "$flat" || fail "nisse-flatpak-remotes.service lacks: $want"
+done
+member usr/lib/systemd/system-preset/82-nisse-flatpak.preset | grep -qx 'enable nisse-flatpak-remotes.service' || fail "system preset must enable nisse-flatpak-remotes.service"
+rpm -qp --requires "$rpmf" | grep -qx 'flatpak' || fail "RPM must require flatpak"
 rpm -qp --requires "$rpmf" | grep -qx 'curl' || fail "RPM must require curl"
 printf '%s\n' "$files" | grep -qE '(^|/)claude$' && fail "Claude Code itself must not be in this package"
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpmf")" = "GPL-2.0-or-later" ] || fail "License must be GPL-2.0-or-later"
