@@ -16,7 +16,7 @@ xorriso -indev "$iso" -pvd_info 2>/dev/null | grep -q "^Volume Id *: *Nisse-$rel
     || fail "the ISO volume id is not Nisse-$release"
 
 work="$(mktemp -d)"
-cleanup() { sudo umount "$work/mnt" 2>/dev/null || true; sudo rm -rf "$work"; }
+cleanup() { sudo umount "$work/merged" 2>/dev/null || true; sudo umount "$work/mnt" 2>/dev/null || true; sudo rm -rf "$work"; }
 trap cleanup EXIT
 
 xorriso -osirrox on -indev "$iso" -extract /LiveOS/squashfs.img "$work/root.erofs" >/dev/null 2>&1 \
@@ -47,18 +47,26 @@ for u in livesys.service livesys-late.service; do
     [ -L "$root/etc/systemd/system/multi-user.target.wants/$u" ] || fail "$u is not enabled in the image"
 done
 
-# Presets: every unit the Nisse presets enable must really be enabled in the image, for each unit file that exists
-# there (units of packages that are not installed are skipped and listed). 80-nisse-desktop sorts first and wins.
+# Presets: every unit the Nisse presets enable must be enabled once the image applies its presets. The static image only
+# has the units whose package scriptlets preset them; systemd applies the rest (preset-all) at the live system's first
+# boot, so simulate that on a writable overlay of the image. Units of packages that are not installed are skipped and
+# listed. 80-nisse-desktop sorts first and wins.
+mkdir "$work/upper" "$work/ovwork" "$work/merged"
+sudo mount -t overlay overlay -o "lowerdir=$root,upperdir=$work/upper,workdir=$work/ovwork" "$work/merged" \
+    || fail "cannot mount an overlay on the image"
+merged="$work/merged"
+sudo systemctl --root="$merged" preset-all >/dev/null 2>&1 || fail "systemctl preset-all failed on the image"
+sudo systemctl --root="$merged" --global preset-all >/dev/null 2>&1 || fail "systemctl --global preset-all failed on the image"
 presets="$(dirname "$0")/../../packaging/rpm/nisse-release"
 disabled_by_nisse="$(sed -n 's/^disable \([^*]*\)$/\1/p' "$presets/80-nisse-desktop.preset")"
 skipped=""; checked=0
 while read -r unit; do
     grep -qxF "$unit" <<< "$disabled_by_nisse" && continue
     if [ ! -e "$root/usr/lib/systemd/system/$unit" ]; then skipped="$skipped $unit"; continue; fi
-    state="$(sudo systemctl --root="$root" is-enabled "$unit" 2>/dev/null || true)"
+    state="$(sudo systemctl --root="$merged" is-enabled "$unit" 2>/dev/null || true)"
     case "$state" in
         enabled|enabled-runtime|alias|static|indirect|generated) checked=$((checked + 1)) ;;
-        *) fail "$unit is enabled by the preset but is '$state' in the image" ;;
+        *) fail "$unit is enabled by the preset but is '$state' after the image applies its presets" ;;
     esac
 done < <(cat "$presets/80-nisse-desktop.preset" "$presets/85-display-manager.preset" "$presets/90-default.preset" |
          sed -n 's/^enable \([^*[:space:]]*\)$/\1/p' | sort -u)
@@ -67,7 +75,7 @@ echo "presets: $checked enabled units checked in the image; not installed, skipp
 # The same for the user preset (a desktop session's PipeWire, WirePlumber, xdg-user-dirs): --global reads the user units.
 for unit in wireplumber.service pipewire-pulse.socket xdg-user-dirs.service; do
     [ -e "$root/usr/lib/systemd/user/$unit" ] || fail "user unit $unit is not installed in the image"
-    state="$(sudo systemctl --root="$root" --global is-enabled "$unit" 2>/dev/null || true)"
+    state="$(sudo systemctl --root="$merged" --global is-enabled "$unit" 2>/dev/null || true)"
     [ "$state" = enabled ] || fail "user unit $unit is '$state' in the image, expected enabled"
 done
 
