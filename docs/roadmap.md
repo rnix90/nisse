@@ -61,6 +61,7 @@ preset set is adopted except `plasma-setup.service`; Flatpak remotes are Fedora'
 | 1.14 | Light surfaces for document apps | Decided: dark shell, light document apps, set per app (not a light-content-everywhere scheme). Cover the mail client, word processor, PDF viewer and browser; check each with a screenshot of a real document; terminals and code editors stay dark |
 | 1.13 | Look-and-feel regression test | Screenshot checks of the live desktop, login, splash and panel in the VM |
 | 1.15 | SSH as an install-time option | Decided (Bert, 2026-11-02): sshd is an OPTION AT INSTALL, off by default until then. Anaconda has no checkbox for it, so it needs our own installer step or the first-boot welcome flow (1.12); the image ships `disable sshd.service` today |
+| 1.0 | Branding foundations | Replace Fedora's placeholder art (generic-logos, the hot dog on the start button, About page and installer) with Nisse's; Nisse's own product version starting at 0.2, no alpha label, no tracking of Fedora's number (VERSION_ID stays the Fedora base). Plan `docs/superpowers/plans/2026-11-02-branding-foundations.md` |
 
 ## Phase 2: the AI layer, core
 
