@@ -5,7 +5,7 @@
 
 Name:           nisse-release
 Version:        %{fedora_release}
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Nisse release files
 License:        MIT
 BuildArch:      noarch
@@ -72,6 +72,10 @@ PRETTY_NAME="Nisse %{version}"
 ANSI_COLOR="0;34"
 LOGO=distributor-logo-nisse
 CPE_NAME="cpe:/o:nisse:nisse:%{version}"
+DEFAULT_HOSTNAME=nisse
+HOME_URL="https://github.com/rnix90/nisse"
+BUG_REPORT_URL="https://github.com/rnix90/nisse/issues"
+SUPPORT_URL="https://github.com/rnix90/nisse/discussions"
 EOF
 ln -s ../usr/lib/os-release %{buildroot}%{_sysconfdir}/os-release
 
@@ -92,6 +96,8 @@ install -Dm0644 %{SOURCE1} %{SOURCE2} %{SOURCE3} %{SOURCE8} -t %{buildroot}%{_pr
 install -Dm0644 %{SOURCE4} -t %{buildroot}%{_prefix}/lib/systemd/user-preset/
 
 install -Dm0644 %{SOURCE5} %{buildroot}%{_sysconfdir}/nisse/channel
+# Shared by nisse-hw, nisse-daemon and later packages: this package owns the directory itself.
+install -d %{buildroot}%{_datadir}/nisse
 
 # dnf5's copr plugin derives the COPR chroot from os-release ID ("nisse-44"); point it at Fedora's chroots instead.
 install -d %{buildroot}%{_sysconfdir}/dnf/plugins
@@ -128,12 +134,16 @@ install -Dm0644 %{SOURCE6} %{SOURCE7} -t %{buildroot}%{_sysconfdir}/yum.repos.d/
 %{_prefix}/lib/systemd/system-preset/99-default-disable.preset
 %{_prefix}/lib/systemd/system-preset/80-nisse-desktop.preset
 %dir %{_sysconfdir}/nisse
+%dir %{_datadir}/nisse
 %config(noreplace) %{_sysconfdir}/nisse/channel
 %config(noreplace) %{_sysconfdir}/dnf/plugins/copr.vendor.conf
 %config(noreplace) %{_sysconfdir}/yum.repos.d/nisse-stable.repo
 %config(noreplace) %{_sysconfdir}/yum.repos.d/nisse-daily.repo
 
 %changelog
+* Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-3
+- os-release gains DEFAULT_HOSTNAME, HOME_URL, BUG_REPORT_URL and SUPPORT_URL; this package owns /usr/share/nisse
+
 * Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-2
 - Enable livesys.service and livesys-late.service so live media gets a live user and autologin
 

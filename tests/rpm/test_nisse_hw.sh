@@ -14,6 +14,8 @@ for f in /usr/bin/nisse-hwroute /usr/share/nisse/hw/profiles.toml /usr/lib/syste
          /usr/lib/systemd/system-preset/81-nisse-hw.preset /usr/lib/systemd/system/nisse-hwroute-report.service          /usr/share/anaconda/post-scripts/90-nisse-hwroute.ks; do
     printf '%s\n' "$files" | grep -qxF "$f" || fail "RPM lacks $f"
 done
+printf '%s\n' "$files" | grep -qx '/usr/share/nisse' && fail "nisse-hw must not own /usr/share/nisse itself (nisse-release-common does)"
+rpm -qp --requires "$rpmf" | grep -q 'nisse-release-common' || fail "nisse-hw must require nisse-release-common (owner of /usr/share/nisse)"
 printf '%s\n' "$files" | grep -qE '/site-packages/nisse_hw/route\.py$' || fail "RPM lacks the nisse_hw package"
 printf '%s\n' "$files" | grep -qE '/site-packages/nisse_hw/detect\.py$' || fail "RPM lacks nisse_hw.detect"
 

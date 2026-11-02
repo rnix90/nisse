@@ -15,6 +15,7 @@ for f in /usr/bin/nisse-daemon /usr/bin/nisse-audit-hook /usr/lib/systemd/user/n
     printf '%s\n' "$files" | grep -qxF "$f" || fail "RPM lacks $f"
 done
 
+rpm -qp --requires "$rpmf" | grep -q 'nisse-release-common' || fail "nisse-daemon must require nisse-release-common (owner of /usr/share/nisse)"
 member usr/share/nisse/claude-settings.json | grep -q '/usr/bin/nisse-audit-hook' || fail "settings must register nisse-audit-hook"
 settings="$(member usr/share/nisse/claude-settings.json)"
 for event in PreToolUse PostToolUse; do

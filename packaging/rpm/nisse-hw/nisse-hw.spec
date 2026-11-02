@@ -3,7 +3,7 @@
 
 Name:           nisse-hw
 Version:        0.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Nisse hardware detection and kernel routing
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -11,6 +11,7 @@ BuildRequires:  python3-devel
 BuildRequires:  systemd-rpm-macros
 Requires:       python3
 Requires:       dnf5-plugins
+Requires:       nisse-release-common
 %{?systemd_requires}
 
 Source1:        nisse-hwroute.service
@@ -58,7 +59,7 @@ install -Dpm 0644 %{SOURCE4} %{buildroot}%{_datadir}/anaconda/post-scripts/90-ni
 %files
 %license licenses/LICENSE
 %{python3_sitelib}/nisse_hw/
-%{_datadir}/nisse/
+%{_datadir}/nisse/hw/
 %{_bindir}/nisse-hwroute
 %{_unitdir}/nisse-hwroute.service
 %{_unitdir}/nisse-hwroute-report.service
@@ -66,6 +67,9 @@ install -Dpm 0644 %{SOURCE4} %{buildroot}%{_datadir}/anaconda/post-scripts/90-ni
 %{_datadir}/anaconda/post-scripts/90-nisse-hwroute.ks
 
 %changelog
+* Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-3
+- Stop owning /usr/share/nisse (nisse-release-common does) and require that package
+
 * Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
 - nisse-hwroute reports one line for errors, stops after a bounded number of failed runs per boot (--retry resets)
 

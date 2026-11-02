@@ -5,13 +5,14 @@
 
 Name:           nisse-daemon
 Version:        0.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Nisse daemon: AI sessions for the Nisse panel
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
 BuildRequires:  gcc
 BuildRequires:  systemd-rpm-macros
 Requires:       dbus-common
+Requires:       nisse-release-common
 
 Source1:        nisse-daemon.service
 Source2:        org.nisse.Daemon1.service
@@ -46,5 +47,8 @@ install -Dpm 0644 %{SOURCE3} %{buildroot}%{_datadir}/nisse/claude-settings.json
 %{_datadir}/nisse/claude-settings.json
 
 %changelog
+* Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
+- Per-session queue, Cancel, persistent sessions, CLI timeout and the authority switch; require nisse-release-common (owner of /usr/share/nisse)
+
 * Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1
 - Initial package

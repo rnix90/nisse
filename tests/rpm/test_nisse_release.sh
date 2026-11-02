@@ -17,7 +17,7 @@ common="$(ls -v "$RPMS"/nisse-release-common-[0-9]*.rpm 2>/dev/null | tail -1 ||
 member() { rpm2cpio "$1" | cpio -i --to-stdout --quiet "./$2"; }
 
 osr="$(member "$main" usr/lib/os-release)"
-for want in 'ID=nisse' 'ID_LIKE="fedora"' 'LOGO=distributor-logo-nisse' "VERSION_ID=$REL" 'NAME="Nisse"'; do
+for want in 'ID=nisse' 'ID_LIKE="fedora"' 'LOGO=distributor-logo-nisse' "VERSION_ID=$REL" 'NAME="Nisse"'              'DEFAULT_HOSTNAME=nisse' 'HOME_URL="https://github.com/rnix90/nisse"'              'BUG_REPORT_URL="https://github.com/rnix90/nisse/issues"' 'SUPPORT_URL="https://github.com/rnix90/nisse/discussions"'; do
     printf '%s\n' "$osr" | grep -qxF "$want" || fail "os-release lacks line: $want"
 done
 
@@ -41,6 +41,9 @@ vendor="$(member "$common" etc/dnf/plugins/copr.vendor.conf)"
 for want in '[main]' 'distribution = fedora' "releasever = $REL"; do
     grep -qxF "$want" <<< "$vendor" || fail "copr.vendor.conf lacks line: $want"
 done
+
+# /usr/share/nisse is shared by nisse-hw, nisse-daemon and later packages: the release package owns the directory.
+rpm -qp --dump "$common" | grep -qE '^/usr/share/nisse [0-9]+ [0-9]+ [^ ]+ 040' || fail "nisse-release-common must own the directory /usr/share/nisse"
 
 out="$(rpmlint "$main" "$common" 2>&1 || true)"
 echo "$out" | tail -3
