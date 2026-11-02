@@ -13,7 +13,7 @@ panel=panel/build/nisse-panel
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-export NISSE_FAKE_RUNNER=1 NISSE_AUDIT_LOG="$work/audit.jsonl" NISSE_CONFIG="$work/none.toml" QT_QPA_PLATFORM=offscreen
+export NISSE_FAKE_RUNNER=1 NISSE_AUDIT_LOG="$work/audit.jsonl" NISSE_CONFIG="$work/none.toml" NISSE_STATE="$work/sessions.json" QT_QPA_PLATFORM=offscreen
 
 # shellcheck disable=SC2016
 dbus-run-session -- bash -c '

@@ -30,9 +30,17 @@ fn scratch(name: &str) -> PathBuf {
 
 /// A daemon and a client joined by a socket pair, no bus needed.
 async fn setup(name: &str, runner: Arc<dyn AgentRunner>) -> Setup {
-    let dir = scratch(name);
+    start(scratch(name), runner, false).await
+}
+
+/// Like `setup` but in an existing directory (so a second daemon can reuse the first one's files), optionally with a
+/// state file for the sessions.
+async fn start(dir: PathBuf, runner: Arc<dyn AgentRunner>, with_state: bool) -> Setup {
     let config = dir.join("backends.toml");
-    let daemon = Daemon::new(runner, config.clone(), dir.join("audit.jsonl"));
+    let mut daemon = Daemon::new(runner, config.clone(), dir.join("audit.jsonl"));
+    if with_state {
+        daemon = daemon.with_state_file(dir.join("sessions.json"));
+    }
     let (s, c) = tokio::net::UnixStream::pair().unwrap();
     let server = zbus::connection::Builder::unix_stream(s)
         .server(zbus::Guid::generate())
@@ -273,4 +281,60 @@ async fn a_session_that_never_started_is_started_again() {
     send_and_wait(&s, &id, "one").await;
     send_and_wait(&s, &id, "two").await;
     assert_eq!(*seen.lock().unwrap(), vec![false, false]);
+}
+
+/// Answers with the scripted events and records each request's `resume` flag (one runner per daemon).
+fn scripted(events: Vec<RunEvent>) -> (Arc<ScriptedRunner>, Arc<Mutex<Vec<bool>>>) {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    (
+        Arc::new(ScriptedRunner {
+            events,
+            seen: Arc::clone(&seen),
+        }),
+        seen,
+    )
+}
+
+#[tokio::test]
+async fn a_new_daemon_knows_the_sessions_of_the_old_one() {
+    let dir = scratch("restart-known");
+    let first = start(dir.clone(), Arc::new(FakeRunner), true).await;
+    let id: String = first.proxy.call("NewSession", &()).await.unwrap();
+    drop(first);
+
+    let (runner, seen) = scripted(vec![RunEvent::Done]);
+    let second = start(dir, runner, true).await;
+    send_and_wait(&second, &id, "hello again").await; // an unknown session would emit an error and never finish
+    assert_eq!(*seen.lock().unwrap(), vec![false]);
+}
+
+#[tokio::test]
+async fn a_started_session_is_resumed_after_a_restart() {
+    let dir = scratch("restart-resume");
+    let (runner, _) = scripted(vec![RunEvent::Started, RunEvent::Done]);
+    let first = start(dir.clone(), runner, true).await;
+    let id: String = first.proxy.call("NewSession", &()).await.unwrap();
+    send_and_wait(&first, &id, "one").await;
+    drop(first);
+
+    let (runner, seen) = scripted(vec![RunEvent::Done]);
+    let second = start(dir, runner, true).await;
+    send_and_wait(&second, &id, "two").await;
+    assert_eq!(*seen.lock().unwrap(), vec![true]);
+}
+
+#[tokio::test]
+async fn a_corrupt_state_file_is_set_aside_and_audited() {
+    let dir = scratch("corrupt-state");
+    fs::write(dir.join("sessions.json"), "{not json").unwrap();
+    let s = start(dir.clone(), Arc::new(FakeRunner), true).await;
+
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    assert!(!id.is_empty());
+    assert!(
+        dir.join("sessions.json.bad").exists(),
+        "the corrupt file must be kept for inspection"
+    );
+    let lines: Vec<String> = s.proxy.call("AuditTail", &(10u32,)).await.unwrap();
+    assert!(lines.iter().any(|l| l.contains("state-warning")), "{lines:?}");
 }

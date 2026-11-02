@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //! The `org.nisse.Daemon1` D-Bus interface the panel talks to.
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use nisse_audit::{now_rfc3339, AuditLog, AuditRecord};
 use nisse_config::{claude_env, load, Authority, BackendKind, Config, ConfigError};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use uuid::Uuid;
 use zbus::{interface, object_server::SignalEmitter};
 
 use crate::runner::{AgentRunner, RunEvent, RunRequest};
+use crate::state::SessionStore;
 
 pub struct Daemon {
     runner: Arc<dyn AgentRunner>,
     config_path: PathBuf,
     audit_path: PathBuf,
-    /// session id -> whether a run has completed (later messages resume instead of starting)
-    sessions: Arc<Mutex<HashMap<String, bool>>>,
+    /// session id -> whether Claude Code has started it (later messages resume instead of starting)
+    sessions: Arc<SessionStore>,
 }
 
 impl Daemon {
@@ -27,8 +27,19 @@ impl Daemon {
             runner,
             config_path,
             audit_path,
-            sessions: Arc::new(Mutex::new(HashMap::new())),
+            sessions: Arc::new(SessionStore::in_memory()),
         }
+    }
+
+    /// Keep the session list in `path` so sessions survive a daemon restart. An unreadable file is set aside as
+    /// `<path>.bad`, the daemon starts with no sessions, and a `state-warning` audit record says why.
+    pub fn with_state_file(mut self, path: PathBuf) -> Daemon {
+        let (store, warning) = SessionStore::open(path);
+        self.sessions = Arc::new(store);
+        if let Some(warning) = warning {
+            self.audit(None, "daemon", "state-warning", serde_json::json!({ "error": warning }));
+        }
+        self
     }
 
     fn audit(&self, session: Option<&str>, actor: &str, kind: &str, detail: serde_json::Value) {
@@ -70,12 +81,12 @@ impl Daemon {
 impl Daemon {
     async fn new_session(&self) -> String {
         let id = Uuid::new_v4().to_string();
-        self.sessions.lock().await.insert(id.clone(), false);
+        self.sessions.set(&id, false).await;
         id
     }
 
     async fn send_message(&self, session_id: String, text: String, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) {
-        let Some(started) = self.sessions.lock().await.get(&session_id).copied() else {
+        let Some(started) = self.sessions.get(&session_id).await else {
             let _ = Self::session_error(&emitter, &session_id, &format!("unknown session: {session_id}")).await;
             return;
         };
@@ -106,7 +117,7 @@ impl Daemon {
                 match event {
                     RunEvent::Started => {
                         // The session exists from here on, even if this turn fails: continue it with --resume.
-                        sessions.lock().await.insert(session_id.clone(), true);
+                        sessions.set(&session_id, true).await;
                     }
                     RunEvent::Text(chunk) => {
                         let _ = Daemon::message_chunk(&emitter, &session_id, &chunk).await;

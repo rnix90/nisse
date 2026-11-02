@@ -27,7 +27,8 @@ async fn main() -> zbus::Result<()> {
         runner,
         nisse_config::default_config_path(),
         nisse_audit::default_log_path(),
-    );
+    )
+    .with_state_file(nisse_daemon::state::default_state_path());
     let _connection = zbus::connection::Builder::session()?
         .name("org.nisse.Daemon1")?
         .serve_at("/org/nisse/Daemon1", daemon)?
