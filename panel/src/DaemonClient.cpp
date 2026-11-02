@@ -42,6 +42,19 @@ void DaemonClient::send(const QString &session, const QString &text)
     });
 }
 
+void DaemonClient::cancel(const QString &session)
+{
+    auto *watcher = new QDBusPendingCallWatcher(m_iface.asyncCall(QStringLiteral("Cancel"), session), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, session](QDBusPendingCallWatcher *w) {
+        if (w->isError()) {
+            // No done signal will come for a call that never arrived: unlock the chat ourselves.
+            emit failed(session, tr("Could not stop: %1").arg(w->error().message()));
+            emit done(session);
+        }
+        w->deleteLater();
+    });
+}
+
 QStringList DaemonClient::auditTail(int n)
 {
     QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("AuditTail"), static_cast<uint>(qMax(0, n)));
@@ -57,6 +70,15 @@ void DaemonClient::refreshBackend()
     if (label != m_backendLabel) {
         m_backendLabel = label;
         emit backendLabelChanged();
+    }
+
+    const QDBusMessage authority = m_iface.call(QStringLiteral("GetAuthority"));
+    QString authorityText = QStringLiteral("daemon offline");
+    if (authority.type() == QDBusMessage::ReplyMessage && authority.arguments().size() == 1)
+        authorityText = authority.arguments().at(0).toString();
+    if (authorityText != m_authorityLabel) {
+        m_authorityLabel = authorityText;
+        emit authorityLabelChanged();
     }
 }
 

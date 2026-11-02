@@ -15,6 +15,7 @@ static int selfTest(int argc, char *argv[])
     QTextStream out(stdout);
     DaemonClient client;
     out << "backend: " << client.backendLabel() << Qt::endl;
+    out << "authority: " << client.authorityLabel() << Qt::endl;
 
     const QString session = client.newSession();
     if (session.isEmpty()) {

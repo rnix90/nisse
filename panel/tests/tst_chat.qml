@@ -14,6 +14,8 @@ TestCase {
     QtObject {
         id: stub
         property string backendLabel: "max"
+        property string authorityLabel: "autonomous"
+        property var cancelled: []
         property var sent: []
         property string nextSession: "s1"
         signal chunk(string session, string text)
@@ -22,6 +24,13 @@ TestCase {
         function newSession() { return nextSession }
         function send(session, text) { sent.push([session, text]) }
         function auditTail(n) { return [] }
+        function cancel(session) { cancelled.push(session) }
+    }
+
+    StatusBar {
+        id: bar
+        width: parent.width
+        client: stub
     }
 
     ChatView {
@@ -33,7 +42,9 @@ TestCase {
     function init() {
         chat.reset()
         stub.sent = []
+        stub.cancelled = []
         stub.nextSession = "s1"
+        stub.authorityLabel = "autonomous"
     }
 
     function test_sending_appends_a_user_bubble() {
@@ -102,5 +113,45 @@ TestCase {
         verify(chat.messages.get(1).text.indexOf("daemon") >= 0)
         verify(findChild(chat, "input").enabled)
         compare(stub.sent.length, 0)
+    }
+
+    function test_stop_button_is_visible_only_while_busy() {
+        var stop = findChild(chat, "stop")
+        verify(!stop.visible)
+        chat.submit("hi")
+        verify(stop.visible)
+        stub.done("s1")
+        verify(!stop.visible)
+    }
+
+    function test_stop_calls_cancel_for_the_current_session() {
+        chat.submit("hi")
+        mouseClick(findChild(chat, "stop"))
+        compare(stub.cancelled.length, 1)
+        compare(stub.cancelled[0], "s1")
+    }
+
+    function test_done_after_stop_unlocks_the_input_and_notes_it() {
+        chat.submit("hi")
+        mouseClick(findChild(chat, "stop"))
+        stub.done("s1")
+        verify(!chat.busy)
+        verify(findChild(chat, "input").enabled)
+        compare(chat.messages.count, 2)
+        compare(chat.messages.get(1).role, "note")
+        compare(chat.messages.get(1).text, "Stopped.")
+    }
+
+    function test_done_without_a_stop_adds_no_note() {
+        chat.submit("hi")
+        stub.done("s1")
+        compare(chat.messages.count, 1)
+    }
+
+    function test_status_bar_shows_the_authority() {
+        var label = findChild(bar, "authority")
+        compare(label.text, "Authority: autonomous")
+        stub.authorityLabel = "supervised"
+        compare(label.text, "Authority: supervised")
     }
 }

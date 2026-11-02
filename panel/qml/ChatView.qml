@@ -11,6 +11,8 @@ Item {
     property string session: ""
     property bool busy: false
     property int replyIndex: -1
+    // True from a click on Stop until the daemon's done signal arrives.
+    property bool stopRequested: false
     property alias messages: model
 
     ListModel { id: model }
@@ -20,6 +22,7 @@ Item {
         session = ""
         busy = false
         replyIndex = -1
+        stopRequested = false
     }
 
     function submit(text) {
@@ -35,6 +38,7 @@ Item {
         }
         model.append({ role: "user", text: text })
         replyIndex = -1
+        stopRequested = false
         busy = true
         client.send(session, text)
     }
@@ -65,6 +69,10 @@ Item {
                 return
             root.busy = false
             root.replyIndex = -1
+            if (root.stopRequested) {
+                model.append({ role: "note", text: "Stopped." })
+                root.stopRequested = false
+            }
         }
     }
 
@@ -89,7 +97,7 @@ Item {
                 width: list.width
                 implicitHeight: label.implicitHeight + 16
                 radius: 8
-                color: role === "user" ? "#2b3a52" : (role === "error" ? "#5c2a2a" : "#1f2937")
+                color: role === "user" ? "#2b3a52" : (role === "error" ? "#5c2a2a" : (role === "note" ? "#2a2f3a" : "#1f2937"))
 
                 Label {
                     id: label
@@ -104,15 +112,30 @@ Item {
             }
         }
 
-        TextField {
-            id: field
-            objectName: "input"
+        RowLayout {
             Layout.fillWidth: true
-            enabled: !root.busy
-            placeholderText: "Ask Nisse..."
-            onAccepted: {
-                root.submit(text)
-                text = ""
+            spacing: 8
+
+            TextField {
+                id: field
+                objectName: "input"
+                Layout.fillWidth: true
+                enabled: !root.busy
+                placeholderText: "Ask Nisse..."
+                onAccepted: {
+                    root.submit(text)
+                    text = ""
+                }
+            }
+
+            Button {
+                objectName: "stop"
+                text: "Stop"
+                visible: root.busy
+                onClicked: {
+                    root.stopRequested = true
+                    root.client.cancel(root.session)
+                }
             }
         }
     }
