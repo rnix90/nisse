@@ -4,7 +4,9 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use nisse_daemon::runner::{parse_line, AgentRunner, ClaudeCliRunner, RunEvent, RunRequest, NOT_INSTALLED};
+use nisse_daemon::runner::{
+    parse_line, timeout_message, AgentRunner, ClaudeCliRunner, RunEvent, RunRequest, DEFAULT_TIMEOUT, NOT_INSTALLED,
+};
 use tokio::sync::mpsc;
 
 const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/hello.jsonl");
@@ -193,4 +195,57 @@ async fn a_chatty_stderr_does_not_block_the_run() {
     );
     let events = collect(&ClaudeCliRunner::new().with_binary(bin), request(false)).await;
     assert_eq!(events, vec![RunEvent::Text("done".into()), RunEvent::Done]);
+}
+
+#[tokio::test]
+async fn a_hung_cli_is_stopped_at_the_timeout() {
+    let (bin, dir) = fake_claude("hung", "echo $$ > \"$(dirname \"$0\")/pid.txt\"\nexec sleep 30");
+    let runner = ClaudeCliRunner::new()
+        .with_binary(bin)
+        .with_timeout(Duration::from_millis(300));
+    let events = collect(&runner, request(false)).await;
+    let n = events.len();
+    assert!(
+        matches!(&events[n - 2], RunEvent::Error(m) if m.contains("did not finish") && m.contains("stopped")),
+        "{events:?}"
+    );
+    assert_eq!(events[n - 1], RunEvent::Done);
+
+    // No orphan: the killed process must be gone.
+    let pid = fs::read_to_string(dir.join("pid.txt")).unwrap().trim().to_string();
+    let proc_dir = format!("/proc/{pid}");
+    let mut gone = false;
+    for _ in 0..20 {
+        if !std::path::Path::new(&proc_dir).exists() {
+            gone = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(gone, "claude (pid {pid}) is still running after the timeout");
+}
+
+#[tokio::test]
+async fn a_cli_that_finishes_in_time_is_unaffected_by_the_timeout() {
+    let (bin, _dir) = fake_claude("quick", &format!("cat > /dev/null\ncat {FIXTURE}"));
+    let runner = ClaudeCliRunner::new()
+        .with_binary(bin)
+        .with_timeout(Duration::from_secs(5));
+    let events = collect(&runner, request(false)).await;
+    assert_eq!(
+        events,
+        vec![RunEvent::Started, RunEvent::Text("hi".into()), RunEvent::Done]
+    );
+}
+
+#[test]
+fn the_timeout_message_names_whole_minutes() {
+    assert_eq!(
+        timeout_message(DEFAULT_TIMEOUT),
+        "Claude Code did not finish within 10 minutes and was stopped"
+    );
+    assert_eq!(
+        timeout_message(Duration::from_millis(300)),
+        "Claude Code did not finish within 1 minute and was stopped"
+    );
 }

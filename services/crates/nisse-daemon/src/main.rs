@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 use std::sync::Arc;
+use std::time::Duration;
 
 use nisse_daemon::dbus::Daemon;
 use nisse_daemon::runner::{default_settings_path, AgentRunner, ClaudeCliRunner, FakeRunner};
@@ -10,6 +11,13 @@ async fn main() -> zbus::Result<()> {
         Arc::new(FakeRunner)
     } else {
         let mut runner = ClaudeCliRunner::new();
+        if let Some(secs) = std::env::var("NISSE_CLI_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .filter(|s| *s > 0)
+        {
+            runner = runner.with_timeout(Duration::from_secs(secs));
+        }
         if let Some(settings) = default_settings_path() {
             runner = runner.with_settings(settings);
         }

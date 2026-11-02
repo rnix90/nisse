@@ -5,6 +5,7 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
@@ -33,6 +34,16 @@ pub struct RunRequest {
 #[async_trait]
 pub trait AgentRunner: Send + Sync {
     async fn run(&self, req: RunRequest, tx: Sender<RunEvent>);
+}
+
+/// How long one turn may take before the CLI is killed (a hung CLI must not leave the panel busy forever).
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(600);
+
+/// The error shown when a turn is stopped at the timeout; the time is rounded up to whole minutes.
+pub fn timeout_message(timeout: Duration) -> String {
+    let minutes = timeout.as_secs().div_ceil(60).max(1);
+    let unit = if minutes == 1 { "minute" } else { "minutes" };
+    format!("Claude Code did not finish within {minutes} {unit} and was stopped")
 }
 
 pub const NOT_INSTALLED: &str = "Claude Code is not installed yet; waiting for first-boot download";
@@ -66,6 +77,7 @@ pub struct ClaudeCliRunner {
     binary: Option<PathBuf>,
     settings: Option<PathBuf>,
     permission_args: Vec<String>,
+    timeout: Duration,
 }
 
 impl Default for ClaudeCliRunner {
@@ -81,11 +93,17 @@ impl ClaudeCliRunner {
             binary: None,
             settings: None,
             permission_args: vec!["--dangerously-skip-permissions".into()],
+            timeout: DEFAULT_TIMEOUT,
         }
     }
 
     pub fn with_binary(mut self, path: impl Into<PathBuf>) -> Self {
         self.binary = Some(path.into());
+        self
+    }
+
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
         self
     }
 
@@ -155,18 +173,32 @@ impl AgentRunner for ClaudeCliRunner {
             })
         });
 
-        if let Some(stdout) = child.stdout.take() {
-            let mut lines = BufReader::new(stdout).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                for event in parse_line(&line) {
-                    if tx.send(event).await.is_err() {
-                        return; // nobody is listening any more; kill_on_drop stops the child
+        // Read stdout and wait for the exit under one deadline; on expiry the child is killed and reaped.
+        let stdout = child.stdout.take();
+        let turn = async {
+            if let Some(stdout) = stdout {
+                let mut lines = BufReader::new(stdout).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    for event in parse_line(&line) {
+                        if tx.send(event).await.is_err() {
+                            return None; // nobody is listening any more; kill_on_drop stops the child
+                        }
                     }
                 }
             }
-        }
+            Some(child.wait().await)
+        };
+        let exit = match tokio::time::timeout(self.timeout, turn).await {
+            Ok(Some(exit)) => exit,
+            Ok(None) => return,
+            Err(_) => {
+                let _ = child.start_kill();
+                let _ = child.wait().await;
+                return finish_with_error(&tx, timeout_message(self.timeout)).await;
+            }
+        };
 
-        match child.wait().await {
+        match exit {
             Ok(status) if status.success() => {
                 let _ = tx.send(RunEvent::Done).await;
             }
