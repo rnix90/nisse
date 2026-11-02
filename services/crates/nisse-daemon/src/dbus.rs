@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use nisse_audit::{now_rfc3339, AuditLog, AuditRecord};
-use nisse_config::{claude_env, load, BackendKind, Config, ConfigError};
+use nisse_config::{claude_env, load, Authority, BackendKind, Config, ConfigError};
 use tokio::sync::{mpsc, Mutex};
 use uuid::Uuid;
 use zbus::{interface, object_server::SignalEmitter};
@@ -56,7 +56,11 @@ impl Daemon {
                     "config-warning",
                     serde_json::json!({ "error": e.to_string() }),
                 );
-                Config::default_max()
+                // A file we cannot read may have said "supervised": fail closed.
+                Config {
+                    authority: Authority::Supervised,
+                    ..Config::default_max()
+                }
             }
         }
     }
@@ -88,6 +92,7 @@ impl Daemon {
             prompt: text,
             env: claude_env(config.main_backend()),
             resume: started,
+            authority: config.authority,
         };
         let (tx, mut rx) = mpsc::channel(32);
         let runner = Arc::clone(&self.runner);
@@ -133,6 +138,11 @@ impl Daemon {
             backend.base_url.clone().unwrap_or_default(),
             backend.model.clone().unwrap_or_default(),
         )
+    }
+
+    /// "autonomous" or "supervised": how much the AI may do without asking.
+    async fn get_authority(&self) -> String {
+        self.config().authority.as_str().to_string()
     }
 
     /// The last `n` audit records, one JSON object per string.

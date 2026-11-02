@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use futures_util::StreamExt;
+use nisse_config::Authority;
 use nisse_daemon::dbus::Daemon;
 use nisse_daemon::runner::{AgentRunner, FakeRunner, RunEvent, RunRequest};
 use tokio::sync::mpsc::Sender;
@@ -132,11 +133,65 @@ async fn the_backend_defaults_to_max_without_a_config_file() {
 }
 
 #[tokio::test]
+async fn get_authority_reports_the_configured_value() {
+    let s = setup("authority", Arc::new(FakeRunner)).await;
+    let default: String = s.proxy.call("GetAuthority", &()).await.unwrap();
+    assert_eq!(default, "autonomous");
+
+    fs::write(
+        &s.config,
+        "authority = \"supervised\"\nmain = \"max\"\n[[backends]]\nname = \"max\"\nkind = \"max\"\n",
+    )
+    .unwrap();
+    let supervised: String = s.proxy.call("GetAuthority", &()).await.unwrap();
+    assert_eq!(supervised, "supervised");
+}
+
+#[tokio::test]
+async fn the_configured_authority_reaches_the_runner() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let runner = AuthoritySpy {
+        seen: Arc::clone(&seen),
+    };
+    let s = setup("authority-spy", Arc::new(runner)).await;
+    fs::write(
+        &s.config,
+        "authority = \"supervised\"\nmain = \"max\"\n[[backends]]\nname = \"max\"\nkind = \"max\"\n",
+    )
+    .unwrap();
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    send_and_wait(&s, &id, "one").await;
+    assert_eq!(*seen.lock().unwrap(), vec![Authority::Supervised]);
+}
+
+/// Records each request's authority.
+struct AuthoritySpy {
+    seen: Arc<Mutex<Vec<Authority>>>,
+}
+
+#[async_trait]
+impl AgentRunner for AuthoritySpy {
+    async fn run(&self, req: RunRequest, tx: Sender<RunEvent>) {
+        self.seen.lock().unwrap().push(req.authority);
+        let _ = tx.send(RunEvent::Done).await;
+    }
+}
+
+#[tokio::test]
 async fn a_broken_config_falls_back_to_max_instead_of_failing() {
     let s = setup("broken-config", Arc::new(FakeRunner)).await;
     fs::write(&s.config, "main = [").unwrap();
     let (name, kind, _, _): (String, String, String, String) = s.proxy.call("GetBackend", &()).await.unwrap();
     assert_eq!((name.as_str(), kind.as_str()), ("max", "max"));
+}
+
+#[tokio::test]
+async fn a_broken_config_fails_closed_to_supervised() {
+    // The unreadable file may have said "supervised": do not fall back to full autonomy.
+    let s = setup("broken-authority", Arc::new(FakeRunner)).await;
+    fs::write(&s.config, "authority = \"supervised\"\nmain = [").unwrap();
+    let authority: String = s.proxy.call("GetAuthority", &()).await.unwrap();
+    assert_eq!(authority, "supervised");
 }
 
 #[tokio::test]

@@ -5,7 +5,35 @@ use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
+
+/// How much the AI may do without asking. Until the approvals queue exists, `Supervised` means the Claude CLI's
+/// default permission mode, which denies anything that would need a prompt in print mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Authority {
+    #[default]
+    Autonomous,
+    Supervised,
+}
+
+impl Authority {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Authority::Autonomous => "autonomous",
+            Authority::Supervised => "supervised",
+        }
+    }
+}
+
+/// Only the exact string "autonomous" grants autonomy; anything else (a typo, a wrong type) fails closed.
+fn lenient_authority<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Authority, D::Error> {
+    let value = toml::Value::deserialize(deserializer)?;
+    Ok(if value.as_str() == Some("autonomous") {
+        Authority::Autonomous
+    } else {
+        Authority::Supervised
+    })
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -29,6 +57,9 @@ pub struct Config {
     /// Category (for example "vision") to backend name. Parsed and checked; nothing routes by it yet.
     #[serde(default)]
     pub routes: BTreeMap<String, String>,
+    /// `authority = "autonomous" | "supervised"` at the top of the file; autonomous when absent.
+    #[serde(default, deserialize_with = "lenient_authority")]
+    pub authority: Authority,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -57,6 +88,7 @@ impl Config {
                 model: None,
             }],
             routes: BTreeMap::new(),
+            authority: Authority::Autonomous,
         }
     }
 

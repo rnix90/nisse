@@ -2,7 +2,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use nisse_config::{claude_env, config_path_from, load, Backend, BackendKind, Config, ConfigError};
+use nisse_config::{claude_env, config_path_from, load, Authority, Backend, BackendKind, Config, ConfigError};
 
 const SAMPLE: &str = r#"
 main = "max"
@@ -108,4 +108,45 @@ fn config_path_prefers_the_override_then_xdg_config_then_home() {
         config_path_from(Some(""), Some(""), None),
         PathBuf::from("backends.toml")
     );
+}
+
+const MAX_ONLY: &str = "main = \"max\"\n[[backends]]\nname = \"max\"\nkind = \"max\"\n";
+
+#[test]
+fn authority_defaults_to_autonomous() {
+    assert_eq!(
+        load(&write("auth-default", MAX_ONLY)).unwrap().authority,
+        Authority::Autonomous
+    );
+    assert_eq!(Config::default_max().authority, Authority::Autonomous);
+}
+
+#[test]
+fn authority_supervised_is_read_from_the_file() {
+    let text = format!("authority = \"supervised\"\n{MAX_ONLY}");
+    assert_eq!(
+        load(&write("auth-supervised", &text)).unwrap().authority,
+        Authority::Supervised
+    );
+    let text = format!("authority = \"autonomous\"\n{MAX_ONLY}");
+    assert_eq!(
+        load(&write("auth-autonomous", &text)).unwrap().authority,
+        Authority::Autonomous
+    );
+}
+
+#[test]
+fn an_unknown_authority_fails_closed_to_supervised() {
+    // A typo must never grant more authority than the user meant.
+    for bad in ["autonomus", "AUTONOMOUS", "root", ""] {
+        let text = format!("authority = \"{bad}\"\n{MAX_ONLY}");
+        let cfg = load(&write("auth-bad", &text)).unwrap();
+        assert_eq!(cfg.authority, Authority::Supervised, "authority = {bad:?}");
+    }
+}
+
+#[test]
+fn authority_has_stable_names() {
+    assert_eq!(Authority::Autonomous.as_str(), "autonomous");
+    assert_eq!(Authority::Supervised.as_str(), "supervised");
 }

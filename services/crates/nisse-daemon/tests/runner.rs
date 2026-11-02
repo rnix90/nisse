@@ -4,6 +4,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use nisse_config::Authority;
 use nisse_daemon::runner::{
     parse_line, timeout_message, AgentRunner, ClaudeCliRunner, RunEvent, RunRequest, DEFAULT_TIMEOUT, NOT_INSTALLED,
 };
@@ -33,10 +34,25 @@ fn request(resume: bool) -> RunRequest {
         prompt: "hello".into(),
         env: vec![],
         resume,
+        authority: Authority::Autonomous,
     }
 }
 
+/// Runs the runner and collects its events. A script one test just wrote can still be open in a forked but not yet
+/// exec'd child of another test's spawn, and exec then fails with ETXTBSY ("Text file busy"); retry that.
 async fn collect(runner: &ClaudeCliRunner, req: RunRequest) -> Vec<RunEvent> {
+    let mut events = collect_once(runner, req.clone()).await;
+    for _ in 0..5 {
+        if !matches!(events.first(), Some(RunEvent::Error(m)) if m.contains("Text file busy")) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        events = collect_once(runner, req.clone()).await;
+    }
+    events
+}
+
+async fn collect_once(runner: &ClaudeCliRunner, req: RunRequest) -> Vec<RunEvent> {
     let (tx, mut rx) = mpsc::channel(64);
     tokio::time::timeout(Duration::from_secs(10), runner.run(req, tx))
         .await
@@ -140,6 +156,28 @@ async fn the_first_message_starts_a_session_and_later_ones_resume_it() {
         second.contains("--resume sess-1") && !second.contains("--session-id"),
         "{second:?}"
     );
+}
+
+async fn args_for(name: &str, authority: Authority) -> String {
+    let (bin, dir) = fake_claude(name, "echo \"$@\" > \"$(dirname \"$0\")/args.txt\"");
+    let mut req = request(false);
+    req.authority = authority;
+    collect(&ClaudeCliRunner::new().with_binary(bin), req).await;
+    fs::read_to_string(dir.join("args.txt")).unwrap()
+}
+
+#[tokio::test]
+async fn autonomous_requests_skip_permissions() {
+    let args = args_for("autonomous", Authority::Autonomous).await;
+    assert!(args.contains("--dangerously-skip-permissions"), "{args:?}");
+    assert!(!args.contains("--permission-mode"), "{args:?}");
+}
+
+#[tokio::test]
+async fn supervised_requests_use_the_default_permission_mode() {
+    let args = args_for("supervised", Authority::Supervised).await;
+    assert!(args.contains("--permission-mode default"), "{args:?}");
+    assert!(!args.contains("--dangerously-skip-permissions"), "{args:?}");
 }
 
 #[tokio::test]

@@ -11,7 +11,12 @@ What the Nisse daemon relies on. Re-check these when the CLI version changes.
 - `-p/--print` runs one prompt and exits. `--output-format stream-json` needs `--verbose` with `-p`.
 - `--session-id <uuid>` starts a conversation with a chosen id; `--resume <uuid>` continues it.
 - `--settings <file>` merges extra settings (the audit hook) without touching the user's own files.
-- `--dangerously-skip-permissions` is the "autonomous" mode the design asks for (design section 6.4).
+- Authority is a config switch (`authority = "autonomous" | "supervised"` at the top of `backends.toml`, default
+  autonomous; any other value, or a config file that cannot be read, counts as supervised):
+  - autonomous passes `--dangerously-skip-permissions`, the mode the design asks for (design section 6.4).
+  - supervised passes `--permission-mode default`. In `-p` mode nothing can answer a permission prompt, so actions
+    that need one are denied until the approvals queue exists (roadmap 2.1). The exact denial behaviour of the CLI
+    has not been verified yet.
 - Other flags that exist and may be used later: `--include-partial-messages`, `--input-format`,
   `--permission-mode`, `--mcp-config`, `--model`, `--remote-control [name]`,
   `--remote-control-session-name-prefix`, `--add-dir`, `--allowedTools`, `--disallowedTools`.

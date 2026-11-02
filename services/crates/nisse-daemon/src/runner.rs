@@ -8,6 +8,7 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use nisse_config::Authority;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc::Sender;
@@ -29,6 +30,7 @@ pub struct RunRequest {
     pub env: Vec<(String, String)>,
     /// False for the first message of a session (`--session-id`), true for later ones (`--resume`).
     pub resume: bool,
+    pub authority: Authority,
 }
 
 #[async_trait]
@@ -76,7 +78,6 @@ pub fn parse_line(line: &str) -> Vec<RunEvent> {
 pub struct ClaudeCliRunner {
     binary: Option<PathBuf>,
     settings: Option<PathBuf>,
-    permission_args: Vec<String>,
     timeout: Duration,
 }
 
@@ -92,7 +93,6 @@ impl ClaudeCliRunner {
         Self {
             binary: None,
             settings: None,
-            permission_args: vec!["--dangerously-skip-permissions".into()],
             timeout: DEFAULT_TIMEOUT,
         }
     }
@@ -148,7 +148,10 @@ impl AgentRunner for ClaudeCliRunner {
         if let Some(settings) = &self.settings {
             cmd.arg("--settings").arg(settings);
         }
-        cmd.args(&self.permission_args);
+        match req.authority {
+            Authority::Autonomous => cmd.arg("--dangerously-skip-permissions"),
+            Authority::Supervised => cmd.args(["--permission-mode", "default"]),
+        };
         cmd.envs(req.env.iter().map(|(k, v)| (k.as_str(), v.as_str())));
         // A closed stdin: the CLI otherwise waits 3 seconds for piped data.
         cmd.stdin(Stdio::null())
