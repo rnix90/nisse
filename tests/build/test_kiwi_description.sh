@@ -73,6 +73,41 @@ grep -q 'SPDX-License-Identifier: GPL-3.0-only' build/kiwi/nisse/components/niss
 grep -q 'build/kiwi/fedora' README.md && ok "README names build/kiwi/fedora as third-party" || bad "README does not list build/kiwi/fedora under third-party licenses"
 if grep -q 'GPL-3.0-or-later' docs/build-host.md; then bad "docs/build-host.md claims GPL-3.0-or-later for the vendored files (upstream states GPL-3.0 in COPYING)"; else ok "build-host.md does not overstate the vendored license"; fi
 
+# Values are substituted into XML attributes: sed metacharacters (| & \) must stay literal and XML metacharacters
+# (& < > ") must be escaped, or the rendered description is wrong or not even well-formed.
+r="$tmp/render"
+mkdir -p "$r" && cp -a build "$r/build"
+cmd='quiet a|b&c\d "q" <x>'
+if NISSE_KERNELCMDLINE="$cmd" NISSE_REPO_URL='dir:///re|po&x' bash "$r/build/render-kiwi.sh" >"$tmp/render-odd.log" 2>&1; then
+    rl="$r/out/kiwi-description/nisse/components/nisse-live.xml"
+    grep -qF 'kernelcmdline="quiet a|b&amp;c\d &quot;q&quot; &lt;x&gt;"' "$rl" \
+        && ok "render-kiwi.sh keeps | & and backslash literal and XML-escapes the kernel command line" \
+        || bad "render-kiwi.sh mangled the kernel command line: $(grep -o 'kernelcmdline="[^"]*"' "$rl" | head -1)"
+    grep -qF 'path="dir:///re|po&amp;x"' "$r/out/kiwi-description/nisse/repositories/nisse.xml" \
+        && ok "render-kiwi.sh substitutes an odd repository path literally" \
+        || bad "render-kiwi.sh mangled the repository path"
+    xmlodd="$(find "$r/out/kiwi-description" -name '*.xml' -o -name '*.kiwi' | xargs "$py" -c '
+import sys, xml.etree.ElementTree as E
+for f in sys.argv[1:]:
+    try:
+        E.parse(f)
+    except Exception as e:
+        print(f, e)')"
+    [ -z "$xmlodd" ] && ok "the description with odd values is still well-formed XML" || bad "malformed XML after rendering odd values: $xmlodd"
+else
+    bad "render-kiwi.sh failed on odd values: $(tail -2 "$tmp/render-odd.log" | tr '\n' ' ')"
+fi
+
+# Modes: three vendored files are executable upstream; Windows git drops the bit, so check the index.
+if git rev-parse --git-dir >/dev/null 2>&1; then
+    for f in config.sh editbootinstall_rpilegacy.sh root/etc/fstab.script; do
+        mode="$(git ls-files -s "$V/$f" | cut -d' ' -f1)"
+        [ "$mode" = 100755 ] && ok "$f is mode 100755 in git" || bad "$f is mode $mode in git, upstream has 100755"
+    done
+else
+    echo "skip modes: not a git checkout (the build VM copy has no .git); the host run checks them"
+fi
+
 # ---- part 2: the rendered Nisse description (needs kiwi-ng, so it runs in the build VM)
 if command -v kiwi-ng >/dev/null 2>&1; then
     D=out/kiwi-description
@@ -97,8 +132,9 @@ if command -v kiwi-ng >/dev/null 2>&1; then
     repos="$D/nisse/repositories/nisse.xml"
     grep -q 'alias="fedora"' "$repos" && ok "repository alias fedora" || bad "no repository alias fedora"
     grep -q 'alias="nisse"' "$repos" && ok "repository alias nisse" || bad "no repository alias nisse"
-    grep -q 'alias="updates"' "$repos" && bad "an updates repository is configured (release repo only)" || ok "no updates repository"
-    grep -q 'volid="Nisse-44"' "$live" && ok "volid is Nisse-44" || bad "volid is not Nisse-44"
+    grep -rq 'alias="updates"' "$D" && bad "an updates repository is configured somewhere in the description (release repo only)" || ok "no updates repository"
+    rel="$(tr -d '[:space:]' < build/FEDORA_RELEASE)"
+    grep -q "volid=\"Nisse-$rel\"" "$live" && ok "volid is Nisse-$rel" || bad "volid is not Nisse-$rel"
     if grep -rn '@[A-Z_]*@' "$D/Nisse.kiwi" "$D/nisse" >/dev/null 2>&1; then bad "unfilled @...@ placeholder"; else ok "no unfilled placeholder"; fi
 else
     echo "skip part 2 (rendered description): kiwi-ng not installed; run this test in the build VM"

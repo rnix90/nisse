@@ -20,8 +20,15 @@ cp -a build/kiwi/fedora/. "$out/"
 cp build/kiwi/Nisse.kiwi "$out/Nisse.kiwi"
 cp -a build/kiwi/nisse "$out/nisse"
 
+# The values land inside XML attributes and are substituted with sed: XML-escape each one (& < > "), then escape the
+# characters that are special in a sed replacement (backslash, the | delimiter and &), so any value stays literal.
+subst() {
+    printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g' | sed -e 's/[\\|&]/\\&/g'
+}
+rel_s="$(subst "$rel")"; repo_s="$(subst "$repo")"; cmdline_s="$(subst "$cmdline")"
+
 for f in "$out/Nisse.kiwi" "$out/nisse/repositories/nisse.xml" "$out/nisse/components/nisse-live.xml"; do
-    sed -i -e "s|@RELEASE@|$rel|g" -e "s|@NISSE_REPO@|$repo|g" -e "s|@KERNELCMDLINE@|$cmdline|g" "$f"
+    sed -i -e "s|@RELEASE@|$rel_s|g" -e "s|@NISSE_REPO@|$repo_s|g" -e "s|@KERNELCMDLINE@|$cmdline_s|g" "$f"
 done
 
 if grep -rn '@[A-Z_]*@' "$out/Nisse.kiwi" "$out/nisse" >&2; then

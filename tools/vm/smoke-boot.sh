@@ -111,8 +111,7 @@ while [ "$SECONDS" -lt "$end" ]; do
         if [ -n "$shot" ]; then
             sleep "$settle"
             exec 3<>"/dev/tcp/127.0.0.1/$monport"
-            printf 'screendump %s -f png
-' "$(w "$shot")" >&3
+            printf 'screendump %s -f png\n' "$(w "$shot")" >&3
             sleep 3
             exec 3>&-
             echo "screenshot: $shot"

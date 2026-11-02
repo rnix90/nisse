@@ -5,7 +5,7 @@
 # package and tools/rpm/make-repo.sh. out/nisse-live.iso exists only if this script succeeded.
 #   NISSE_REPO_URL=dir:///path/to/repo   use another local repo (default: out/repo)
 set -euo pipefail
-root="$(cd "$(dirname "$0")/.." && pwd)"
+root="$(cd "$(dirname "$0")/.." && pwd -P)"
 cd "$root"
 
 # Never leave a stale ISO behind: a failed build (including a failed pre-check) must not look like a successful one.
@@ -19,7 +19,7 @@ bash build/render-kiwi.sh
 
 # kiwi mounts /proc, /dev and /sys inside its target tree; clear an old target only through kiwi's own unmounting, and
 # refuse to rm -rf anything that is still a mount point (see docs/kiwi-spike.md).
-if findmnt -rn -o TARGET | grep -q "^$root/out/kiwi-build"; then
+if findmnt -rn -o TARGET | grep -qF -- "$root/out/kiwi-build"; then
     echo "out/kiwi-build still has mounts; unmount them first (findmnt | grep kiwi-build)" >&2
     exit 1
 fi
@@ -28,9 +28,9 @@ sudo rm -rf out/kiwi-build
 sudo kiwi-ng --profile Nisse-Live --type iso system build \
     --description out/kiwi-description --target-dir out/kiwi-build
 
-iso="$(ls out/kiwi-build/*.iso 2>/dev/null | head -1)"
+iso="$(ls out/kiwi-build/*.iso 2>/dev/null | head -1 || true)"
 [ -n "$iso" ] && [ -s "$iso" ] || { echo "kiwi finished but produced no ISO in out/kiwi-build" >&2; exit 1; }
 sudo chown "$(id -u):$(id -g)" "$iso"
-cp "$iso" out/nisse-live.iso.partial
+mv "$iso" out/nisse-live.iso.partial   # same filesystem: a rename, not another 3.4 GB of writes
 mv out/nisse-live.iso.partial out/nisse-live.iso
 ls -la out/nisse-live.iso

@@ -22,6 +22,9 @@ for cmd in "${!PKG[@]}"; do
     command -v "$cmd" >/dev/null 2>&1 || missing+=("${PKG[$cmd]}")
 done
 [ -f /usr/share/edk2/ovmf/OVMF_CODE.fd ] || missing+=(edk2-ovmf)
+# build/kiwi/nisse/repositories/nisse.xml verifies Fedora's packages with the key from this package; without it
+# kiwi stops with a confusing signature error. NISSE_GPG_KEYS_DIR exists for tests.
+[ -d "${NISSE_GPG_KEYS_DIR:-/usr/share/distribution-gpg-keys}/fedora" ] || missing+=(distribution-gpg-keys)
 
 if [ "${#missing[@]}" -gt 0 ]; then
     echo "missing tools. Install with:"
