@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-rpmf="$(ls out/rpmbuild/RPMS/noarch/nisse-firstboot-[0-9]*.rpm 2>/dev/null | head -1 || true)"
+rpmf="$(ls -v out/rpmbuild/RPMS/noarch/nisse-firstboot-[0-9]*.rpm 2>/dev/null | tail -1 || true)"
 [ -n "$rpmf" ] || fail "nisse-firstboot RPM not found (run tools/rpm/build-rpm.sh nisse-firstboot)"
 member() { rpm2cpio "$rpmf" | cpio -i --to-stdout --quiet "./$1"; }
 

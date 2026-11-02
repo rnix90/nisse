@@ -7,7 +7,7 @@ cd "$(dirname "$0")/../.."
 
 RPMS=out/rpmbuild/RPMS/noarch
 fail() { echo "FAIL: $*" >&2; exit 1; }
-find_rpm() { ls "$RPMS"/"$1"-[0-9]*.rpm 2>/dev/null | head -1 || true; }
+find_rpm() { ls -v "$RPMS"/"$1"-[0-9]*.rpm 2>/dev/null | tail -1 || true; }
 
 brand="$(find_rpm nisse-branding)"
 fonts="$(find_rpm nisse-fonts-nunito)"

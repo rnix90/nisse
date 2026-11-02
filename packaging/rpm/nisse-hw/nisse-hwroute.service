@@ -11,6 +11,8 @@ Type=oneshot
 ExecStart=/usr/bin/nisse-hwroute
 Restart=on-failure
 RestartForceExitStatus=75
+# Exit 1 means nisse-hwroute gave up (or hit an unexpected error): do not restart it until the next boot.
+RestartPreventExitStatus=1
 RestartSec=300
 
 [Install]

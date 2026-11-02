@@ -3,7 +3,7 @@
 
 Name:           nisse-hw
 Version:        0.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Nisse hardware detection and kernel routing
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -66,5 +66,8 @@ install -Dpm 0644 %{SOURCE4} %{buildroot}%{_datadir}/anaconda/post-scripts/90-ni
 %{_datadir}/anaconda/post-scripts/90-nisse-hwroute.ks
 
 %changelog
+* Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
+- nisse-hwroute reports one line for errors, stops after a bounded number of failed runs per boot (--retry resets)
+
 * Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1
 - Initial package

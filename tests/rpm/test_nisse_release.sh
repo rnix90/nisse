@@ -9,8 +9,8 @@ REL="$(cat build/FEDORA_RELEASE)"
 RPMS=out/rpmbuild/RPMS/noarch
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-main="$(ls "$RPMS"/nisse-release-[0-9]*.rpm 2>/dev/null | head -1 || true)"
-common="$(ls "$RPMS"/nisse-release-common-[0-9]*.rpm 2>/dev/null | head -1 || true)"
+main="$(ls -v "$RPMS"/nisse-release-[0-9]*.rpm 2>/dev/null | tail -1 || true)"
+common="$(ls -v "$RPMS"/nisse-release-common-[0-9]*.rpm 2>/dev/null | tail -1 || true)"
 [ -n "$main" ] || fail "nisse-release RPM not found in $RPMS (run tools/rpm/build-rpm.sh nisse-release)"
 [ -n "$common" ] || fail "nisse-release-common RPM not found in $RPMS"
 

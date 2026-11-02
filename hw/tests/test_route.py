@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from nisse_hw.detect import Profile
-from nisse_hw.route import Plan, execute, main, plan, secure_boot_enabled
+from nisse_hw.route import MAX_ATTEMPTS, Plan, execute, main, plan, secure_boot_enabled
 
 PROFILES = Path(__file__).resolve().parents[1] / "nisse_hw" / "profiles.toml"
 UNIT = Path(__file__).resolve().parents[2] / "packaging" / "rpm" / "nisse-hw" / "nisse-hwroute.service"
@@ -196,3 +196,76 @@ def test_cli_waits_on_a_surface_with_secure_boot_on(tmp_path):
                "--efivars-root", str(efivars(tmp_path, b"\x01")), "--state-dir", str(tmp_path / "state")])
     assert rc == 75
     assert json.loads((tmp_path / "state" / "hw-profile.json").read_text())["status"] == "waiting-for-secure-boot-off"
+
+
+def read_state(tmp_path: Path) -> dict:
+    return json.loads((tmp_path / "hw-profile.json").read_text())
+
+
+def test_execute_records_a_one_line_last_error(tmp_path):
+    p = plan(Profile.SURFACE, PROFILES, release="44")
+    assert execute(p, lambda argv: 1, tmp_path) == 75
+    err = read_state(tmp_path)["last_error"]
+    assert "\n" not in err and "status 1" in err and p.commands[0][0] in err
+
+
+def test_a_runner_that_cannot_start_dnf_is_a_retryable_error(tmp_path):
+    def runner(argv):
+        raise FileNotFoundError("dnf")
+
+    p = plan(Profile.SURFACE, PROFILES, release="44")
+    assert execute(p, runner, tmp_path) == 75
+    state = read_state(tmp_path)
+    assert state["status"] == "pending" and "dnf" in state["last_error"] and "\n" not in state["last_error"]
+
+
+def test_execute_gives_up_after_the_attempt_cap(tmp_path):
+    p = plan(Profile.SURFACE, PROFILES, release="44")
+    results = [execute(p, lambda argv: 1, tmp_path) for _ in range(MAX_ATTEMPTS)]
+    assert results == [75] * (MAX_ATTEMPTS - 1) + [1]
+    assert read_state(tmp_path)["status"] == "failed"
+    assert execute(p, lambda argv: pytest.fail("a failed state must not run commands again"), tmp_path) == 1
+
+
+def test_a_new_boot_gets_a_fresh_attempt_budget(tmp_path):
+    p = plan(Profile.SURFACE, PROFILES, release="44")
+    for _ in range(MAX_ATTEMPTS):
+        execute(p, lambda argv: 1, tmp_path, boot_id="boot-1")
+    assert read_state(tmp_path)["status"] == "failed"
+    assert execute(p, lambda argv: 0, tmp_path, boot_id="boot-2") == 0
+    assert read_state(tmp_path)["status"] == "done"
+
+
+def test_waiting_for_secure_boot_never_uses_up_the_budget(tmp_path):
+    p = plan(Profile.SURFACE, PROFILES, release="44")
+    for _ in range(MAX_ATTEMPTS + 3):
+        assert execute(p, lambda argv: pytest.fail("no command while Secure Boot is on"), tmp_path, secure_boot=True) == 75
+    assert read_state(tmp_path)["status"] == "waiting-for-secure-boot-off"
+    assert execute(p, lambda argv: 0, tmp_path, secure_boot=False) == 0
+
+
+def test_retry_flag_resets_the_attempt_count(tmp_path):
+    p = plan(Profile.SURFACE, PROFILES, release="44")
+    for _ in range(MAX_ATTEMPTS):
+        execute(p, lambda argv: 1, tmp_path)
+    assert main(["--retry", "--state-dir", str(tmp_path)]) == 0
+    state = read_state(tmp_path)
+    assert state["attempts"] == 0 and state["status"] == "pending"
+
+
+def test_main_prints_one_line_for_a_broken_profiles_file(tmp_path, capsys):
+    bad = tmp_path / "profiles.toml"
+    bad.write_text("this is [not toml")
+    dmi = tmp_path / "dmi"
+    dmi.mkdir()
+    (dmi / "sys_vendor").write_text("Microsoft Corporation\n")
+    (dmi / "product_name").write_text("Surface Go\n")
+    rc = main(["--dmi-root", str(dmi), "--pci-root", str(tmp_path / "none"), "--profiles", str(bad),
+               "--efivars-root", str(tmp_path / "no-efi"), "--state-dir", str(tmp_path / "state")])
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert err.count("\n") == 1 and err.startswith("nisse-hwroute: ") and "Traceback" not in err
+
+
+def test_unit_stops_restarting_after_a_final_failure():
+    assert "RestartPreventExitStatus=1" in unit_sections(UNIT.read_text())["Service"]

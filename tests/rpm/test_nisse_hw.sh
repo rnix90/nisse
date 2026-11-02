@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-rpmf="$(ls out/rpmbuild/RPMS/noarch/nisse-hw-[0-9]*.rpm 2>/dev/null | head -1 || true)"
+rpmf="$(ls -v out/rpmbuild/RPMS/noarch/nisse-hw-[0-9]*.rpm 2>/dev/null | tail -1 || true)"
 [ -n "$rpmf" ] || fail "nisse-hw RPM not found (run tools/rpm/build-rpm.sh nisse-hw)"
 member() { rpm2cpio "$rpmf" | cpio -i --to-stdout --quiet "./$1"; }
 
@@ -19,6 +19,7 @@ printf '%s\n' "$files" | grep -qE '/site-packages/nisse_hw/detect\.py$' || fail 
 
 member usr/lib/systemd/system-preset/81-nisse-hw.preset | grep -qx 'enable nisse-hwroute.service' || fail "preset must enable nisse-hwroute.service"
 member usr/lib/systemd/system/nisse-hwroute.service | grep -qx 'ConditionKernelCommandLine=!rd.live.image' || fail "unit must skip live sessions"
+member usr/lib/systemd/system/nisse-hwroute.service | grep -qx 'RestartPreventExitStatus=1' || fail "unit must not restart after nisse-hwroute gives up (exit 1)"
 member usr/lib/systemd/system-preset/81-nisse-hw.preset | grep -qx 'enable nisse-hwroute-report.service' || fail "preset must enable the live report unit"
 report="$(member usr/lib/systemd/system/nisse-hwroute-report.service)"
 printf '%s
