@@ -35,6 +35,22 @@ member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -q
 member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -qx 'enable livesys.service'          || fail "common lacks a preset enabling livesys.service (live user and autologin)"
 member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -qx 'enable livesys-late.service'     || fail "common lacks a preset enabling livesys-late.service"
 
+# Nisse adopts Fedora's own preset set (fedora-release-common 44-18, MIT); only the deviations live in 80-nisse-desktop.
+p90="$(member "$common" usr/lib/systemd/system-preset/90-default.preset)"
+[ "$(head -1 <<< "$p90")" = "# Derived from fedora-release-common 44-18 (MIT). See README.md." ] || fail "90-default.preset must start with the provenance line"
+for want in 'enable systemd-resolved.service' 'enable systemd-oomd.*' 'enable tuned.service' 'enable power-profiles-daemon.service' \
+            'enable thermald.service' 'enable fstrim.timer' 'enable audit-rules.service' 'enable flatpak-add-fedora-repos.service'; do
+    grep -qxF "$want" <<< "$p90" || fail "90-default.preset lacks Fedora's line: $want"
+done
+member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -qx 'disable plasma-setup.service' || fail "80-nisse-desktop.preset must disable plasma-setup.service (Nisse has its own first-boot flow)"
+member "$common" usr/lib/systemd/system-preset/85-display-manager.preset | grep -qx 'enable plasmalogin.service' || fail "85-display-manager.preset must enable plasmalogin.service"
+# The user preset is what turns on a desktop session's audio (PipeWire) and user directories.
+u90="$(member "$common" usr/lib/systemd/user-preset/90-default-user.preset)"
+[ "$(head -1 <<< "$u90")" = "# Derived from fedora-release-common 44-18 (MIT). See README.md." ] || fail "90-default-user.preset must start with the provenance line"
+for want in 'enable wireplumber.service' 'enable pipewire-pulse.socket' 'enable xdg-user-dirs.service' 'enable obex.service'; do
+    grep -qxF "$want" <<< "$u90" || fail "90-default-user.preset lacks Fedora's line: $want"
+done
+
 # dnf5's copr plugin builds the COPR chroot name from os-release ID ("nisse-44"), which does not exist.
 # This vendor config tells it to use Fedora's chroots (verified in the VM with a fake ID=nisse os-release).
 vendor="$(member "$common" etc/dnf/plugins/copr.vendor.conf)"

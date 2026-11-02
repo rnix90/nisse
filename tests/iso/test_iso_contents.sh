@@ -47,6 +47,30 @@ for u in livesys.service livesys-late.service; do
     [ -L "$root/etc/systemd/system/multi-user.target.wants/$u" ] || fail "$u is not enabled in the image"
 done
 
+# Presets: every unit the Nisse presets enable must really be enabled in the image, for each unit file that exists
+# there (units of packages that are not installed are skipped and listed). 80-nisse-desktop sorts first and wins.
+presets="$(dirname "$0")/../../packaging/rpm/nisse-release"
+disabled_by_nisse="$(sed -n 's/^disable \([^*]*\)$/\1/p' "$presets/80-nisse-desktop.preset")"
+skipped=""; checked=0
+while read -r unit; do
+    grep -qxF "$unit" <<< "$disabled_by_nisse" && continue
+    if [ ! -e "$root/usr/lib/systemd/system/$unit" ]; then skipped="$skipped $unit"; continue; fi
+    state="$(sudo systemctl --root="$root" is-enabled "$unit" 2>/dev/null || true)"
+    case "$state" in
+        enabled|enabled-runtime|alias|static|indirect|generated) checked=$((checked + 1)) ;;
+        *) fail "$unit is enabled by the preset but is '$state' in the image" ;;
+    esac
+done < <(cat "$presets/80-nisse-desktop.preset" "$presets/85-display-manager.preset" "$presets/90-default.preset" |
+         sed -n 's/^enable \([^*[:space:]]*\)$/\1/p' | sort -u)
+echo "presets: $checked enabled units checked in the image; not installed, skipped:${skipped:- none}" | fold -w 150
+
+# The same for the user preset (a desktop session's PipeWire, WirePlumber, xdg-user-dirs): --global reads the user units.
+for unit in wireplumber.service pipewire-pulse.socket xdg-user-dirs.service; do
+    [ -e "$root/usr/lib/systemd/user/$unit" ] || fail "user unit $unit is not installed in the image"
+    state="$(sudo systemctl --root="$root" --global is-enabled "$unit" 2>/dev/null || true)"
+    [ "$state" = enabled ] || fail "user unit $unit is '$state' in the image, expected enabled"
+done
+
 # Package database checks: the release-repo-only decision (Qt 6.10) and Fedora's KDE release package is gone.
 rpmq() { rpm --dbpath "$root/usr/lib/sysimage/rpm" "$@"; }
 qt="$(rpmq -q --qf '%{version}' qt6-qtbase 2>/dev/null)" || fail "qt6-qtbase is not installed in the image"

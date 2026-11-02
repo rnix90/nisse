@@ -1,11 +1,19 @@
-# Also see:
-# https://fedoraproject.org/wiki/Starting_services_by_default
+# Derived from fedora-release-common 44-18 (MIT). See README.md.
+# See https://docs.fedoraproject.org/en-US/packaging-guidelines/DefaultServices/
+# for the Fedora policy.
 
 # On Fedora we deviate from some upstream defaults
 disable systemd-timesyncd.service
 disable systemd-networkd.service
 disable systemd-networkd-wait-online.service
-disable systemd-resolved.service
+# We want to update systemd-boot from packaging scriptlets after updates.
+disable systemd-boot-update.service
+
+# https://fedoraproject.org/wiki/Changes/systemd-resolved
+enable systemd-resolved.service
+
+# https://fedoraproject.org/wiki/Changes/EnableSystemdOomd
+enable systemd-oomd.*
 
 # These presets were last validated en-masse on 2015-09-09
 # https://fedorahosted.org/fesco/ticket/1472
@@ -33,6 +41,9 @@ enable ModemManager.service
 # Approved by FESCo - https://fedorahosted.org/fesco/ticket/1311
 enable auditd.service
 
+# https://bugzilla.redhat.com/show_bug.cgi?id=2258520
+enable audit-rules.service
+
 # Locally-running service
 enable restorecond.service
 
@@ -57,8 +68,69 @@ enable sysklogd.*
 # https://fedoraproject.org/w/index.php?title=Starting_services_by_default&oldid=377748
 enable firewalld.service
 
-# Approved by FESCo - https://fedorahosted.org/fesco/ticket/544
-enable libvirtd.service
+# Approved by FESCo - https://fedorahosted.org/fesco/ticket/2627
+# Virtualization driver specific daemons. Start by default at boot for VM
+# autostart, but shutdown after 2 mins and socket activated thereafter
+enable virtqemud.service
+enable virtxend.service
+enable virtlxcd.service
+enable virtvboxd.service
+
+# Sockets for the services listed above, to support socket activation
+# after the initial timeout
+enable virtqemud.socket
+enable virtqemud-ro.socket
+enable virtqemud-admin.socket
+enable virtxend.socket
+enable virtxend-ro.socket
+enable virtxend-admin.socket
+enable virtlxcd.socket
+enable virtlxcd-ro.socket
+enable virtlxcd-admin.socket
+enable virtvboxd.socket
+enable virtvboxd-ro.socket
+enable virtvboxd-admin.socket
+
+# Compatibility with libvirtd sockets for old clients (socket activated
+# only when required). Note that the -tcp and -tls sockets are kept disabled
+# by default, as they require additional configuration before they can work
+enable virtproxyd.socket
+enable virtproxyd-ro.socket
+enable virtproxyd-admin.socket
+
+# Secondary drivers providing supporting functionality to main virtualization
+# drivers (socket activated only when required)
+enable virtinterfaced.socket
+enable virtinterfaced-ro.socket
+enable virtinterfaced-admin.socket
+enable virtnetworkd.socket
+enable virtnetworkd-ro.socket
+enable virtnetworkd-admin.socket
+enable virtnodedevd.socket
+enable virtnodedevd-ro.socket
+enable virtnodedevd-admin.socket
+enable virtnwfilterd.socket
+enable virtnwfilterd-ro.socket
+enable virtnwfilterd-admin.socket
+enable virtsecretd.socket
+enable virtsecretd-ro.socket
+enable virtsecretd-admin.socket
+enable virtstoraged.socket
+enable virtstoraged-ro.socket
+enable virtstoraged-admin.socket
+
+# Non-driver support services (socket activated only when required, no
+# read-only socket)
+enable virtlogd.socket
+enable virtlogd-admin.socket
+enable virtlockd.socket
+enable virtlockd-admin.socket
+
+# Intel SGX
+# https://bugzilla.redhat.com/show_bug.cgi?id=2346248
+enable aesmd.service
+enable mpa_registration.service
+enable qgs.service
 
 # https://fedoraproject.org/w/index.php?title=Starting_services_by_default&oldid=377748
 enable xinetd.service
@@ -70,6 +142,17 @@ enable multipathd.service
 # Approved by FESCo - https://fedorahosted.org/fesco/ticket/876
 enable libstoragemgmt.service
 
+# Approved by FESCo - https://pagure.io/fesco/issue/2386
+enable iscsid.socket
+enable iscsiuio.socket
+
+# Approved by FESCo - https://pagure.io/fesco/issue/2943
+enable iscsi-starter.service
+
+# iSCSI support for early-boot
+# https://bugzilla.redhat.com/show_bug.cgi?id=1930470
+enable iscsi-onboot.service
+
 # Locally-running services
 enable lvm2-monitor.*
 enable lvm2-lvmetad.*
@@ -80,6 +163,9 @@ enable dmraid-activation.service
 enable mdmonitor.service
 enable mdmonitor-takeover.service
 
+# https://bugzilla.redhat.com/show_bug.cgi?id=1817491
+enable raid-check.timer
+
 # https://bugzilla.redhat.com/show_bug.cgi?id=876237
 enable spice-vdagentd.service
 
@@ -89,8 +175,14 @@ enable qemu-guest-agent.service
 # https://bugzilla.redhat.com/show_bug.cgi?id=928726
 enable dnf-makecache.timer
 
+# https://bugzilla.redhat.com/show_bug.cgi?id=1995495
+enable rpm-ostree-countme.timer
+
+# Hyper-V guest support daemons
 # https://bugzilla.redhat.com/show_bug.cgi?id=957135
+# https://bugzilla.redhat.com/show_bug.cgi?id=1279322
 enable vmtoolsd.service
+enable vgauthd.service
 
 # https://bugzilla.redhat.com/show_bug.cgi?id=976315
 enable dkms.service
@@ -164,18 +256,20 @@ enable upower.service
 enable udisks2.service
 enable polkit.service
 
+# https://bugzilla.redhat.com/show_bug.cgi?id=2418550
+enable plasma-setup.service
+
 # https://bugzilla.redhat.com/show_bug.cgi?id=1187072
 enable timedatex.service
 
 # https://bugzilla.redhat.com/show_bug.cgi?id=1231745
 enable mlocate-updatedb.timer
 
+# https://src.fedoraproject.org/rpms/fedora-release/pull-request/204
+enable plocate-updatedb.timer
+
 # https://bugzilla.redhat.com/show_bug.cgi?id=1218999
 enable sa-update.timer
-
-# Hyper-V guest support daemons
-# https://bugzilla.redhat.com/show_bug.cgi?id=1279322
-enable vmtoolsd.service
 
 # mcelog is a utility that collects and decodes Machine Check Exception data
 # on x86-32 and x86-64 systems.
@@ -186,11 +280,6 @@ enable mcelog.service
 # It is the "OPAL Processor Recovery Diagnostics Daemon"
 # https://bugzilla.redhat.com/show_bug.cgi?id=1312018
 enable opal-prd.service
-
-# virtlog.service is sometimes used by VMs started by libvirt.service
-# Enable virtlog.socket to have it socket activated
-# https://bugzilla.redhat.com/show_bug.cgi?id=1290357
-enable virtlogd.socket
 
 # lircd is the Linux Infrared Control daemon
 # Starting with version 0.9.4, it requires no manual configuration
@@ -282,3 +371,118 @@ enable ostree-finalize-staged.path
 # Enable the Docker daemon socket
 # https://bugzilla.redhat.com/show_bug.cgi?id=1655602
 enable docker.socket
+
+# Enable the service for adding Fedora OCI repos to flatpak
+# https://bugzilla.redhat.com/show_bug.cgi?id=1696225
+enable flatpak-add-fedora-repos.service
+
+# Run fstrim weekly on filesystems listed in fstab
+enable fstrim.timer
+
+# oneshot to generate kata VM appliance at host bootup
+# for the booted kernel
+enable kata-osbuilder-generate.service
+
+# Enable rotation of system log files
+# https://bugzilla.redhat.com/show_bug.cgi?id=1655153#c4
+enable logrotate.timer
+
+# Enable regular update of SpamAssassin data files
+# https://bugzilla.redhat.com/show_bug.cgi?id=1651002
+enable sa-update.timer
+
+# Enable service to automatically rebuild the RPM database
+# on startup when /var/lib/rpm/.rebuilddb exists
+# https://bugzilla.redhat.com/show_bug.cgi?id=1826658
+enable rpmdb-rebuild.service
+
+# Enable service to automatically migrate the RPM database to /usr
+# on startup when /var/lib/rpm/.migratedb exists
+# https://bugzilla.redhat.com/show_bug.cgi?id=2044061
+enable rpmdb-migrate.service
+
+# Support services for Google Cloud
+# Approved by FESCo: https://pagure.io/fesco/issue/2578
+enable google-guest-agent.service
+enable google-startup-scripts.service
+enable google-shutdown-scripts.service
+
+# Support service for Azure
+# Approved by FESCo: https://pagure.io/fesco/issue/2849
+enable waagent.service
+
+# Certbot (Let's Encrypt)
+# https://bugzilla.redhat.com/show_bug.cgi?id=1940211
+enable certbot-renew.timer
+
+# enable thermald by default for desktops
+# https://pagure.io/fedora-workstation/issue/71
+enable thermald.service
+
+# enable uresourced by default for desktops
+# https://pagure.io/fesco/issue/2457
+enable uresourced.service
+
+# enable power-profiles-daemon
+# https://pagure.io/fedora-workstation/issue/191
+enable power-profiles-daemon.service
+
+# enable tuned and tuned-ppd
+# https://bugzilla.redhat.com/show_bug.cgi?id=2293665
+enable tuned.service
+enable tuned-ppd.service
+
+# Enable clevis-luks-askpass.path
+# https://bugzilla.redhat.com/show_bug.cgi?id=2101719
+enable clevis-luks-askpass.path
+
+# Enable livesys services for live media
+# https://bugzilla.redhat.com/show_bug.cgi?id=2148790
+enable livesys.service
+enable livesys-late.service
+
+# Enable Waydroid
+# https://bugzilla.redhat.com/show_bug.cgi?id=2157810
+enable waydroid-container.service
+
+# Enable nmstate to apply network configuration from /etc/nmstate/*.yml
+# https://github.com/coreos/fedora-coreos-tracker/issues/1175
+# https://github.com/coreos/fedora-coreos-config/pull/2269
+enable nmstate.service
+
+# Enable nfs-client.target
+# https://bugzilla.redhat.com/show_bug.cgi?id=2218006
+enable nfs-client.target
+
+# Enable cloud-init services
+# https://bugzilla.redhat.com/show_bug.cgi?id=2233948
+enable cloud-config.service
+enable cloud-final.service
+enable cloud-init-main.service
+enable cloud-init-local.service
+
+# Enable  kernel-bootcfg-boot-successful.service
+# https://bugzilla.redhat.com/show_bug.cgi?id=2239607
+enable kernel-bootcfg-boot-successful.service
+
+# Enable lvm-devices-import
+# https://bugzilla.redhat.com/show_bug.cgi?id=2301651
+enable lvm-devices-import.path
+enable lvm-devices-import.service
+
+# Enable fips-crypto-policy-overlay
+# https://bugzilla.redhat.com/show_bug.cgi?id=2325499
+enable fips-crypto-policy-overlay.service
+
+# Enable gpio-manager.service
+# https://bugzilla.redhat.com/show_bug.cgi?id=2358608
+enable gpio-manager.service
+
+# Enable authselect-apply-changes.service
+# https://bugzilla.redhat.com/show_bug.cgi?id=2397255
+enable authselect-apply-changes.service
+
+# Enable Intel Low Power Model Daemon
+# https://bugzilla.redhat.com/show_bug.cgi?id=2442391
+enable intel_lpmd.service
+

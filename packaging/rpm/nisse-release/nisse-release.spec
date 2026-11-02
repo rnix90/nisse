@@ -5,7 +5,7 @@
 
 Name:           nisse-release
 Version:        %{fedora_release}
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Nisse release files
 License:        MIT
 BuildArch:      noarch
@@ -141,6 +141,9 @@ install -Dm0644 %{SOURCE6} %{SOURCE7} -t %{buildroot}%{_sysconfdir}/yum.repos.d/
 %config(noreplace) %{_sysconfdir}/yum.repos.d/nisse-daily.repo
 
 %changelog
+* Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-4
+- Adopt Fedora's own system and user presets (fedora-release-common 44-18); deviations stay in 80-nisse-desktop.preset
+
 * Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-3
 - os-release gains DEFAULT_HOSTNAME, HOME_URL, BUG_REPORT_URL and SUPPORT_URL; this package owns /usr/share/nisse
 

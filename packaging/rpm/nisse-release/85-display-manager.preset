@@ -1,3 +1,4 @@
+# Derived from fedora-release-common 44-18 (MIT). See README.md.
 # We enable all display managers by default. Since only one can
 # actually be enabled at the same time the one which is installed
 # first wins
@@ -9,3 +10,9 @@ enable lxdm.service
 enable sddm.service
 enable kdm.service
 enable xdm.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=2417187
+enable plasmalogin.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=2305602
+enable cosmic-greeter.service
