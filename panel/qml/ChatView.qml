@@ -13,6 +13,8 @@ Item {
     property int replyIndex: -1
     // True from a click on Stop until the daemon's done signal arrives.
     property bool stopRequested: false
+    // Set when the daemon reported an unknown session: the id is dropped when that turn's Done arrives.
+    property bool forgetSessionOnDone: false
     property alias messages: model
 
     ListModel { id: model }
@@ -23,6 +25,7 @@ Item {
         busy = false
         replyIndex = -1
         stopRequested = false
+        forgetSessionOnDone = false
     }
 
     function submit(text) {
@@ -62,6 +65,10 @@ Item {
                 return
             model.append({ role: "error", text: message })
             root.replyIndex = -1
+            // The daemon no longer knows this session (restarted with a lost or unreadable state file): forget it once
+            // its Done has arrived, so the next message starts a new one instead of failing the same way again.
+            if (message.indexOf("unknown session") === 0)
+                root.forgetSessionOnDone = true
         }
 
         function onDone(sid) {
@@ -69,6 +76,10 @@ Item {
                 return
             root.busy = false
             root.replyIndex = -1
+            if (root.forgetSessionOnDone) {
+                root.session = ""
+                root.forgetSessionOnDone = false
+            }
             if (root.stopRequested) {
                 model.append({ role: "note", text: "Stopped." })
                 root.stopRequested = false

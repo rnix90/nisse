@@ -154,4 +154,14 @@ TestCase {
         stub.authorityLabel = "supervised"
         compare(label.text, "Authority: supervised")
     }
+
+    function test_an_unknown_session_error_drops_the_dead_session_id() {
+        chat.submit("hi")
+        stub.failed("s1", "unknown session: s1")
+        stub.done("s1")
+        stub.nextSession = "s2"
+        chat.submit("again")
+        compare(stub.sent.length, 2)
+        compare(stub.sent[1][0], "s2")
+    }
 }

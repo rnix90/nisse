@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use tokio::sync::Mutex;
 
@@ -38,6 +39,8 @@ pub fn default_state_path() -> PathBuf {
 pub struct SessionStore {
     path: Option<PathBuf>,
     map: Mutex<HashMap<String, bool>>,
+    /// A failed save has been reported and no save has succeeded since.
+    save_failed: AtomicBool,
 }
 
 impl SessionStore {
@@ -46,33 +49,35 @@ impl SessionStore {
         SessionStore {
             path: None,
             map: Mutex::new(HashMap::new()),
+            save_failed: AtomicBool::new(false),
         }
     }
 
-    /// Opens the store at `path`. If the file exists but cannot be read, it is renamed to `<path>.bad`, the store
-    /// starts empty, and the second value describes what happened (the daemon audits it).
+    /// Opens the store at `path`. If the file exists but cannot be read, it is renamed to `<path>.bad` and the store
+    /// starts empty; if even that fails the store keeps its sessions in memory only, so the unreadable file is never
+    /// written over. The second value describes what happened (the daemon audits it).
     pub fn open(path: PathBuf) -> (SessionStore, Option<String>) {
-        let (map, warning) = match load(&path) {
-            Ok(map) => (map, None),
+        let (map, warning, path) = match load(&path) {
+            Ok(map) => (map, None, Some(path)),
             Err(why) => {
                 let mut bad = path.clone().into_os_string();
                 bad.push(".bad");
-                let kept = std::fs::rename(&path, &bad).is_ok();
-                let note = if kept {
-                    "kept as sessions.json.bad"
+                if std::fs::rename(&path, &bad).is_ok() {
+                    let note = format!("sessions file unreadable ({why}); kept as sessions.json.bad");
+                    (HashMap::new(), Some(note), Some(path))
                 } else {
-                    "could not be set aside"
-                };
-                (
-                    HashMap::new(),
-                    Some(format!("sessions file unreadable ({why}); {note}")),
-                )
+                    let note = format!(
+                        "sessions file unreadable ({why}) and could not be set aside; sessions are not saved this run"
+                    );
+                    (HashMap::new(), Some(note), None)
+                }
             }
         };
         (
             SessionStore {
-                path: Some(path),
+                path,
                 map: Mutex::new(map),
+                save_failed: AtomicBool::new(false),
             },
             warning,
         )
@@ -82,12 +87,21 @@ impl SessionStore {
         self.map.lock().await.get(id).copied()
     }
 
-    /// Records `id` and writes the file (best effort: a failed write only loses persistence, not the session).
-    pub async fn set(&self, id: &str, started: bool) {
+    /// Records `id` and writes the file. A failed write only loses persistence, not the session; the first failure
+    /// after a success is returned so the caller can audit it.
+    pub async fn set(&self, id: &str, started: bool) -> Option<String> {
         let mut map = self.map.lock().await;
         map.insert(id.to_string(), started);
-        if let Some(path) = &self.path {
-            let _ = save(path, &map);
+        let path = self.path.as_ref()?;
+        match save(path, &map) {
+            Ok(()) => {
+                self.save_failed.store(false, Ordering::SeqCst);
+                None
+            }
+            Err(e) if !self.save_failed.swap(true, Ordering::SeqCst) => Some(format!(
+                "could not save the sessions file: {e}; sessions will not survive a restart"
+            )),
+            Err(_) => None,
         }
     }
 }

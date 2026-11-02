@@ -36,10 +36,16 @@ async fn setup(name: &str, runner: Arc<dyn AgentRunner>) -> Setup {
 /// Like `setup` but in an existing directory (so a second daemon can reuse the first one's files), optionally with a
 /// state file for the sessions.
 async fn start(dir: PathBuf, runner: Arc<dyn AgentRunner>, with_state: bool) -> Setup {
+    let state = with_state.then(|| dir.join("sessions.json"));
+    start_with_state(dir, runner, state).await
+}
+
+/// `start` with the state file at an explicit path (for tests that make its directory unwritable).
+async fn start_with_state(dir: PathBuf, runner: Arc<dyn AgentRunner>, state: Option<PathBuf>) -> Setup {
     let config = dir.join("backends.toml");
     let mut daemon = Daemon::new(runner, config.clone(), dir.join("audit.jsonl"));
-    if with_state {
-        daemon = daemon.with_state_file(dir.join("sessions.json"));
+    if let Some(state) = state {
+        daemon = daemon.with_state_file(state);
     }
     let (s, c) = tokio::net::UnixStream::pair().unwrap();
     let server = zbus::connection::Builder::unix_stream(s)
@@ -537,4 +543,145 @@ async fn cancel_kills_the_real_cli_process() {
         !std::path::Path::new(&format!("/proc/{tool}")).exists()
     })
     .await;
+}
+
+// ---- review fixes: unknown sessions end with Done, config warnings once, state file safety, no double Done
+
+#[tokio::test]
+async fn an_unknown_session_also_ends_with_done_so_the_panel_unlocks() {
+    let s = setup("unknown-done", Arc::new(FakeRunner)).await;
+    let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+    let _: () = s
+        .proxy
+        .call("SendMessage", &("no-such-session", "hello"))
+        .await
+        .unwrap();
+    let id: String = next_signal(&mut done).await.body().deserialize().unwrap();
+    assert_eq!(id, "no-such-session");
+}
+
+async fn audit_lines(s: &Setup) -> Vec<String> {
+    s.proxy.call("AuditTail", &(100u32,)).await.unwrap()
+}
+
+#[tokio::test]
+async fn a_broken_config_is_audited_once_not_on_every_call() {
+    let s = setup("warn-once", Arc::new(FakeRunner)).await;
+    fs::write(&s.config, "main = [").unwrap();
+    for _ in 0..3 {
+        let _: String = s.proxy.call("GetAuthority", &()).await.unwrap();
+        let _: (String, String, String, String) = s.proxy.call("GetBackend", &()).await.unwrap();
+    }
+    let warnings = |lines: &[String]| lines.iter().filter(|l| l.contains("config-warning")).count();
+    assert_eq!(warnings(&audit_lines(&s).await), 1);
+
+    // fixing the file and breaking it again is a new problem worth one more record
+    fs::write(
+        &s.config,
+        "main = \"max\"\n[[backends]]\nname = \"max\"\nkind = \"max\"\n",
+    )
+    .unwrap();
+    let _: String = s.proxy.call("GetAuthority", &()).await.unwrap();
+    fs::write(&s.config, "main = [").unwrap();
+    let _: String = s.proxy.call("GetAuthority", &()).await.unwrap();
+    assert_eq!(warnings(&audit_lines(&s).await), 2);
+}
+
+/// A directory that is read-only for the owner, restored when dropped so the scratch cleanup works.
+struct ReadOnlyDir(PathBuf);
+
+impl ReadOnlyDir {
+    fn new(path: &std::path::Path) -> ReadOnlyDir {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o555)).unwrap();
+        ReadOnlyDir(path.to_path_buf())
+    }
+}
+
+impl Drop for ReadOnlyDir {
+    fn drop(&mut self) {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(&self.0, fs::Permissions::from_mode(0o755));
+    }
+}
+
+fn running_as_root() -> bool {
+    // SAFETY: geteuid has no preconditions.
+    unsafe { libc::geteuid() == 0 }
+}
+
+#[tokio::test]
+async fn a_corrupt_state_file_that_cannot_be_set_aside_is_never_overwritten() {
+    if running_as_root() {
+        return; // root ignores directory permissions, so the rename would succeed
+    }
+    let dir = scratch("unwritable-state");
+    let state_dir = dir.join("state");
+    fs::create_dir_all(&state_dir).unwrap();
+    let state = state_dir.join("sessions.json");
+    fs::write(&state, "{not json").unwrap();
+    let _ro = ReadOnlyDir::new(&state_dir);
+
+    let s = start_with_state(dir.clone(), Arc::new(FakeRunner), Some(state.clone())).await;
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    assert!(!id.is_empty());
+    assert_eq!(
+        fs::read_to_string(&state).unwrap(),
+        "{not json",
+        "the corrupt file must stay as it was"
+    );
+    let lines = audit_lines(&s).await;
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.contains("state-warning") && l.contains("could not be set aside")),
+        "{lines:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_failed_save_is_audited_once() {
+    if running_as_root() {
+        return;
+    }
+    let dir = scratch("failed-save");
+    let state_dir = dir.join("state");
+    fs::create_dir_all(&state_dir).unwrap();
+    let s = start_with_state(dir.clone(), Arc::new(FakeRunner), Some(state_dir.join("sessions.json"))).await;
+    let _ro = ReadOnlyDir::new(&state_dir);
+    for _ in 0..3 {
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        assert!(!id.is_empty(), "a failed save must not break the session");
+    }
+    let lines = audit_lines(&s).await;
+    let warnings = lines.iter().filter(|l| l.contains("state-warning")).count();
+    assert_eq!(warnings, 1, "{lines:?}");
+}
+
+#[tokio::test]
+async fn a_cancel_racing_the_end_of_a_turn_never_makes_a_second_done() {
+    // Every SendMessage must end with exactly one SessionDone: from the turn, or from Cancel, never both.
+    let s = setup("race", Arc::new(FakeRunner)).await;
+    let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+    // Drain the signals while the calls run: a full signal queue would stall the whole connection.
+    let counted = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&counted);
+    let drain = tokio::spawn(async move {
+        while done.next().await.is_some() {
+            counter.fetch_add(1, Ordering::SeqCst);
+        }
+    });
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let rounds = 150;
+    for _ in 0..rounds {
+        let _: () = s.proxy.call("SendMessage", &(id.as_str(), "x")).await.unwrap();
+        let _: bool = s.proxy.call("Cancel", &(id.as_str(),)).await.unwrap();
+    }
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    drain.abort();
+    assert_eq!(
+        counted.load(Ordering::SeqCst),
+        rounds,
+        "each send must produce exactly one SessionDone"
+    );
 }

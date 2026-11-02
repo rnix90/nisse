@@ -39,6 +39,8 @@ struct Core {
     /// session id -> whether Claude Code has started it (later messages resume instead of starting)
     sessions: Arc<SessionStore>,
     runs: Arc<Mutex<HashMap<String, RunState>>>,
+    /// The config error already audited, so a file that stays broken is reported once, not on every call.
+    config_error: Arc<std::sync::Mutex<Option<String>>>,
 }
 
 impl Core {
@@ -55,18 +57,37 @@ impl Core {
         }
     }
 
+    /// Records a session in the store; the first failed save (until one succeeds again) is audited.
+    async fn remember(&self, session_id: &str, started: bool) {
+        if let Some(problem) = self.sessions.set(session_id, started).await {
+            self.audit(None, "daemon", "state-warning", serde_json::json!({ "error": problem }));
+        }
+    }
+
     /// The configured backends, or the Max default when the file is missing or broken (broken is audited).
     fn config(&self) -> Config {
-        match load(&self.config_path) {
-            Ok(config) => config,
-            Err(ConfigError::NotFound) => Config::default_max(),
-            Err(e) => {
+        let loaded = load(&self.config_path);
+        let problem = match &loaded {
+            Err(ConfigError::NotFound) | Ok(_) => None,
+            Err(e) => Some(e.to_string()),
+        };
+        let mut reported = self.config_error.lock().unwrap_or_else(|e| e.into_inner());
+        if *reported != problem {
+            if let Some(message) = &problem {
                 self.audit(
                     None,
                     "daemon",
                     "config-warning",
-                    serde_json::json!({ "error": e.to_string() }),
+                    serde_json::json!({ "error": message }),
                 );
+            }
+            *reported = problem;
+        }
+        drop(reported);
+        match loaded {
+            Ok(config) => config,
+            Err(ConfigError::NotFound) => Config::default_max(),
+            Err(_) => {
                 // A file we cannot read may have said "supervised": fail closed.
                 Config {
                     authority: Authority::Supervised,
@@ -90,6 +111,7 @@ impl Daemon {
                 audit_path,
                 sessions: Arc::new(SessionStore::in_memory()),
                 runs: Arc::new(Mutex::new(HashMap::new())),
+                config_error: Arc::new(std::sync::Mutex::new(None)),
             },
         }
     }
@@ -107,7 +129,7 @@ impl Daemon {
     }
 }
 
-/// One turn: run the agent for `text` and turn its events into D-Bus signals; ends with exactly one `SessionDone`.
+/// One turn: run the agent for `text` and turn its events into D-Bus signals. `drive` sends the `SessionDone`.
 async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &str, text: String) {
     let started = core.sessions.get(session_id).await.unwrap_or(false);
     let config = core.config();
@@ -128,7 +150,7 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
             match event {
                 RunEvent::Started => {
                     // The session exists from here on, even if this turn fails: continue it with --resume.
-                    core.sessions.set(session_id, true).await;
+                    core.remember(session_id, true).await;
                 }
                 RunEvent::Text(chunk) => {
                     let _ = Daemon::message_chunk(emitter, session_id, &chunk).await;
@@ -142,7 +164,6 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
         if !saw_done {
             let _ = Daemon::session_error(emitter, session_id, "the agent stopped unexpectedly").await;
         }
-        let _ = Daemon::session_done(emitter, session_id).await;
     };
     tokio::join!(produce, consume);
 }
@@ -157,15 +178,19 @@ async fn drive(core: Core, emitter: SignalEmitter<'static>, session_id: String, 
             return;
         };
         if state.generation != generation {
-            return; // cancelled while this turn was finishing; the newer state is not ours to touch
+            return; // cancelled while this turn was finishing: Cancel sent the Done, the newer state is not ours
         }
-        match state.queue.pop_front() {
+        let next = state.queue.pop_front();
+        if next.is_none() {
+            state.running = false;
+            state.abort = None;
+        }
+        // Done goes out while the lock is held, so a Cancel can never find a turn "running" whose Done is already
+        // sent: every message ends with exactly one SessionDone, from the turn or from Cancel.
+        let _ = Daemon::session_done(&emitter, &session_id).await;
+        match next {
             Some(next) => text = next,
-            None => {
-                state.running = false;
-                state.abort = None;
-                return;
-            }
+            None => return,
         }
     }
 }
@@ -174,13 +199,14 @@ async fn drive(core: Core, emitter: SignalEmitter<'static>, session_id: String, 
 impl Daemon {
     async fn new_session(&self) -> String {
         let id = Uuid::new_v4().to_string();
-        self.core.sessions.set(&id, false).await;
+        self.core.remember(&id, false).await;
         id
     }
 
     async fn send_message(&self, session_id: String, text: String, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) {
         if self.core.sessions.get(&session_id).await.is_none() {
             let _ = Self::session_error(&emitter, &session_id, &format!("unknown session: {session_id}")).await;
+            let _ = Self::session_done(&emitter, &session_id).await; // every message ends with a Done: the panel unlocks
             return;
         }
         self.core.audit(
