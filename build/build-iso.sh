@@ -31,6 +31,7 @@ sudo kiwi-ng --profile Nisse-Live --type iso system build \
 iso="$(ls out/kiwi-build/*.iso 2>/dev/null | head -1 || true)"
 [ -n "$iso" ] && [ -s "$iso" ] || { echo "kiwi finished but produced no ISO in out/kiwi-build" >&2; exit 1; }
 sudo chown "$(id -u):$(id -g)" "$iso"
-mv "$iso" out/nisse-live.iso.partial   # same filesystem: a rename, not another 3.4 GB of writes
+# Copy, not move: kiwi ran as root, so its output directory is not ours to remove entries from.
+cp "$iso" out/nisse-live.iso.partial
 mv out/nisse-live.iso.partial out/nisse-live.iso
 ls -la out/nisse-live.iso

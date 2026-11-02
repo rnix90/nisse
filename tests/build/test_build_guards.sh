@@ -10,7 +10,7 @@ ok() { echo "ok   $*"; }
 bad() { echo "FAIL $*"; fail=$((fail + 1)); }
 
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+trap 'chmod -R u+w "$tmp" 2>/dev/null; rm -rf "$tmp"' EXIT
 
 fresh_tree() { # DIR : scripts plus a stale ISO
     mkdir -p "$1/build" "$1/tools/rpm" "$1/out"
@@ -54,6 +54,16 @@ case "$msg" in
     *"kiwi finished but produced no ISO in out/kiwi-build"*) ok "build-iso.sh explains that kiwi produced no ISO" ;;
     *) bad "build-iso.sh printed no explanation for a missing ISO: $msg" ;;
 esac
+
+# kiwi runs as root, so its output directory is not writable for the builder: the ISO must still be delivered
+# (an earlier version moved it out of that directory and failed with "Permission denied" after a 35 minute build)
+iso_tree "$tmp/ok"
+printf '#!/bin/sh\nmkdir -p out/kiwi-build && echo iso > out/kiwi-build/Nisse.iso && chmod 555 out/kiwi-build\n' > "$tmp/ok/bin/kiwi-ng"
+(cd "$tmp/ok" && PATH="$tmp/ok/bin:$PATH" bash build/build-iso.sh >/dev/null 2>&1)
+rc=$?
+[ "$rc" -eq 0 ] && ok "build-iso.sh succeeds when kiwi's output directory is read-only (exit $rc)" || bad "build-iso.sh failed with a read-only kiwi output directory (exit $rc)"
+[ -s "$tmp/ok/out/nisse-live.iso" ] && ok "the ISO was delivered to out/nisse-live.iso" || bad "out/nisse-live.iso missing after a successful build"
+[ ! -e "$tmp/ok/out/nisse-live.iso.partial" ] && ok "no .partial file left behind" || bad "a .partial file was left behind"
 
 # a mount under out/kiwi-build must stop the rm -rf, even when the repo path contains regex characters
 iso_tree "$tmp/a[b"
