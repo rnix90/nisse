@@ -17,7 +17,7 @@ common="$(ls -v "$RPMS"/nisse-release-common-[0-9]*.rpm 2>/dev/null | tail -1 ||
 member() { rpm2cpio "$1" | cpio -i --to-stdout --quiet "./$2"; }
 
 osr="$(member "$main" usr/lib/os-release)"
-for want in 'ID=nisse' 'ID_LIKE="fedora"' 'LOGO=distributor-logo-nisse' "VERSION_ID=$REL" 'NAME="Nisse"'              'DEFAULT_HOSTNAME=nisse' 'HOME_URL="https://github.com/rnix90/nisse"'              'BUG_REPORT_URL="https://github.com/rnix90/nisse/issues"' 'SUPPORT_URL="https://github.com/rnix90/nisse/discussions"'; do
+for want in 'ID=nisse' 'ID_LIKE="fedora"' 'LOGO=distributor-logo-nisse' "VERSION_ID=$REL" 'NAME="Nisse"'              'DEFAULT_HOSTNAME=nisse' 'HOME_URL="https://github.com/rnix90/nisse"'              'BUG_REPORT_URL="https://github.com/rnix90/nisse/issues"' 'SUPPORT_URL="https://github.com/rnix90/nisse"'; do
     printf '%s\n' "$osr" | grep -qxF "$want" || fail "os-release lacks line: $want"
 done
 
@@ -42,6 +42,7 @@ for want in 'enable systemd-resolved.service' 'enable systemd-oomd.*' 'enable tu
             'enable thermald.service' 'enable fstrim.timer' 'enable audit-rules.service' 'enable flatpak-add-fedora-repos.service'; do
     grep -qxF "$want" <<< "$p90" || fail "90-default.preset lacks Fedora's line: $want"
 done
+member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -qx 'disable sshd.service' || fail "80-nisse-desktop.preset must disable sshd.service (an SSH server is opt-in)"
 member "$common" usr/lib/systemd/system-preset/80-nisse-desktop.preset | grep -qx 'disable plasma-setup.service' || fail "80-nisse-desktop.preset must disable plasma-setup.service (Nisse has its own first-boot flow)"
 member "$common" usr/lib/systemd/system-preset/85-display-manager.preset | grep -qx 'enable plasmalogin.service' || fail "85-display-manager.preset must enable plasmalogin.service"
 # The user preset is what turns on a desktop session's audio (PipeWire) and user directories.

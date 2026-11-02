@@ -3,7 +3,7 @@
 
 Name:           nisse-firstboot
 Version:        0.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        First-boot jobs: fetch Claude Code, add the Flathub remote
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -57,6 +57,9 @@ install -Dpm 0644 %{SOURCE5} %{buildroot}%{_presetdir}/82-nisse-flatpak.preset
 %{_presetdir}/82-nisse-flatpak.preset
 
 %changelog
+* Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-3
+- nisse-flatpak-remotes fetches the real .flatpakrepo to check connectivity, so a captive portal means retry later
+
 * Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
 - Skip the Claude fetch on live media; add the Flathub Flatpak remote at first boot (system service, retries offline)
 

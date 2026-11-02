@@ -72,6 +72,12 @@ done < <(cat "$presets/80-nisse-desktop.preset" "$presets/85-display-manager.pre
          sed -n 's/^enable \([^*[:space:]]*\)$/\1/p' | sort -u)
 echo "presets: $checked enabled units checked in the image; not installed, skipped:${skipped:- none}" | fold -w 150
 
+# An SSH server is opt-in: after the presets are applied sshd must not be enabled.
+ssh_state="$(sudo systemctl --root="$merged" is-enabled sshd.service 2>/dev/null || true)"
+case "$ssh_state" in
+    enabled|enabled-runtime) fail "sshd.service is enabled by default in the image" ;;
+esac
+
 # The same for the user preset (a desktop session's PipeWire, WirePlumber, xdg-user-dirs): --global reads the user units.
 for unit in wireplumber.service pipewire-pulse.socket xdg-user-dirs.service; do
     [ -e "$root/usr/lib/systemd/user/$unit" ] || fail "user unit $unit is not installed in the image"

@@ -20,7 +20,7 @@ member usr/lib/systemd/user-preset/81-nisse-firstboot.preset | grep -qx 'enable 
 member usr/lib/systemd/user/nisse-fetch-claude.service | grep -qx 'ConditionKernelCommandLine=!rd.live.image' || fail "the Claude fetch unit must skip live media"
 flat="$(member usr/lib/systemd/system/nisse-flatpak-remotes.service)"
 for want in 'ConditionKernelCommandLine=!rd.live.image' 'ConditionPathExists=!/var/lib/nisse/flatpak-remotes.done' \
-            'After=network-online.target' 'ExecStart=/usr/bin/nisse-flatpak-remotes' 'RestartForceExitStatus=75'; do
+            'After=network-online.target' 'ExecStart=/usr/bin/nisse-flatpak-remotes' 'RestartForceExitStatus=75' 'RestartPreventExitStatus=1'; do
     grep -qx "$want" <<< "$flat" || fail "nisse-flatpak-remotes.service lacks: $want"
 done
 member usr/lib/systemd/system-preset/82-nisse-flatpak.preset | grep -qx 'enable nisse-flatpak-remotes.service' || fail "system preset must enable nisse-flatpak-remotes.service"

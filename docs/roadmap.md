@@ -37,7 +37,8 @@ document-like apps (email, word processing, PDF, web pages) keep a light backgro
 
 **Phase 0 status: DONE 2026-11-02** (plan `docs/superpowers/plans/2026-11-02-phase-0-foundations.md`, 11 tasks). Proven on a
 rebuilt ISO: contents test (63 preset-enabled units verified after a simulated first-boot preset-all), live desktop
-screenshot, 4-case hardware e2e, and the whole test suite. Notes: supervised authority maps to the CLI's default permission
+screenshot, 4-case hardware e2e, and the whole test suite. Final review fixes (same day): the 10-minute whole-turn timeout became a check-in watchdog (30 s check-ins; no sign of life for 10 minutes
+flags the CLI as hung, stops it and everything it started, restarts the turn once); sshd is off by default. Notes: supervised authority maps to the CLI's default permission
 mode and its behaviour in `-p` mode is not yet verified against the real CLI (see `docs/claude-cli-notes.md`); the Fedora
 preset set is adopted except `plasma-setup.service`; Flatpak remotes are Fedora's plus Flathub.
 
@@ -59,6 +60,7 @@ preset set is adopted except `plasma-setup.service`; Flatpak remotes are Fedora'
 | 1.12 | First-boot welcome and installer branding | Replace plasma-welcome-fedora content; Anaconda branding; sound and notification theme (guess) |
 | 1.14 | Light surfaces for document apps | Decided: dark shell, light document apps, set per app (not a light-content-everywhere scheme). Cover the mail client, word processor, PDF viewer and browser; check each with a screenshot of a real document; terminals and code editors stay dark |
 | 1.13 | Look-and-feel regression test | Screenshot checks of the live desktop, login, splash and panel in the VM |
+| 1.15 | SSH as an install-time option | Decided (Bert, 2026-11-02): sshd is an OPTION AT INSTALL, off by default until then. Anaconda has no checkbox for it, so it needs our own installer step or the first-boot welcome flow (1.12); the image ships `disable sshd.service` today |
 
 ## Phase 2: the AI layer, core
 

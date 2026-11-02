@@ -1,5 +1,8 @@
 # Nisse desktop: Fedora 44 KDE uses the Plasma Login Manager, which fedora-release-kde used to enable.
 enable plasmalogin.service
+# An SSH server is opt-in on a desktop (an open port 22 with password login is not what a laptop user expects). The
+# install/first-boot flow is to offer it as a choice (roadmap 1.12); until then it stays off and is one command away.
+disable sshd.service
 # Fedora's KDE first-boot wizard (plasma-setup) creates the first user on preinstalled images. Nisse installs through
 # Anaconda and has its own first-boot flow, so leave it off for now (revisit with the first-boot welcome, roadmap 1.12).
 disable plasma-setup.service

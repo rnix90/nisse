@@ -12,7 +12,7 @@ bad() { echo "FAIL $*"; failures=$((failures + 1)); }
 fresh() {
     work="$(mktemp -d)"
     mkdir -p "$work/state"
-    : > "$work/reachable"
+    printf '[Flatpak Repo]\nTitle=Flathub\n' > "$work/reachable"   # what the real .flatpakrepo looks like
     export NISSE_PROBE_URL="file://$work/reachable"
     export NISSE_STATE_DIR="$work/state"
     export NISSE_FLATPAK="$work/flatpak"
@@ -34,6 +34,13 @@ sh "$script" >/dev/null 2>&1; rc=$?
 [ "$rc" = 75 ] && ok "offline: exit 75 (retry later)" || bad "offline: exit $rc, wanted 75"
 [ ! -e "$work/calls" ] && ok "offline: flatpak not called" || bad "offline: flatpak ran without a network"
 [ ! -e "$work/state/flatpak-remotes.done" ] && ok "offline: no done marker" || bad "offline: done marker written"
+
+# A captive portal answers every request with a page of its own: that is not the internet yet.
+fresh
+printf '<html><body>Log in to the wifi</body></html>\n' > "$work/reachable"
+sh "$script" >/dev/null 2>&1; rc=$?
+[ "$rc" = 75 ] && ok "captive portal: exit 75 (retry later)" || bad "captive portal: exit $rc, wanted 75"
+[ ! -e "$work/calls" ] && ok "captive portal: flatpak not called" || bad "captive portal: flatpak ran"
 
 fresh
 STUB_RC=1 sh "$script" >/dev/null 2>&1; rc=$?

@@ -267,5 +267,26 @@ def test_main_prints_one_line_for_a_broken_profiles_file(tmp_path, capsys):
     assert err.count("\n") == 1 and err.startswith("nisse-hwroute: ") and "Traceback" not in err
 
 
+def test_retry_that_cannot_write_the_state_prints_one_line_not_a_traceback(tmp_path, monkeypatch, capsys):
+    from nisse_hw import route
+
+    def denied(state_dir):
+        raise PermissionError(13, "Permission denied", str(state_dir))
+
+    monkeypatch.setattr(route, "retry", denied)
+    rc = main(["--retry", "--state-dir", str(tmp_path)])
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert err.count("\n") == 1 and err.startswith("nisse-hwroute: ") and "Traceback" not in err
+
+
+def test_the_giving_up_line_names_the_remedy(tmp_path, capsys):
+    p = plan(Profile.SURFACE, PROFILES, release="44")
+    for _ in range(MAX_ATTEMPTS):
+        execute(p, lambda argv: 1, tmp_path)
+    err = capsys.readouterr().err
+    assert "giving up" in err and "nisse-hwroute --retry" in err and "reboot" in err
+
+
 def test_unit_stops_restarting_after_a_final_failure():
     assert "RestartPreventExitStatus=1" in unit_sections(UNIT.read_text())["Service"]

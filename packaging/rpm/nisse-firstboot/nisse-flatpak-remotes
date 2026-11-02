@@ -5,15 +5,16 @@
 #
 # Exit 0: done. Exit 75 (EX_TEMPFAIL): no network yet, try again later. Exit 1: flatpak is missing or failed.
 #
-# NISSE_PROBE_URL, NISSE_FLATPAK and NISSE_STATE_DIR exist for tests.
+# NISSE_PROBE_URL (the file fetched to check connectivity), NISSE_FLATPAK and NISSE_STATE_DIR exist for tests.
 
 state_dir="${NISSE_STATE_DIR:-/var/lib/nisse}"
-probe_url="${NISSE_PROBE_URL:-https://dl.flathub.org}"
 flatpak="${NISSE_FLATPAK:-flatpak}"
 repo_url="https://dl.flathub.org/repo/flathub.flatpakrepo"
+probe_url="${NISSE_PROBE_URL:-$repo_url}"
 
-# Any HTTP answer means we are online.
-if ! curl -sI --max-time 10 -o /dev/null "$probe_url" 2>/dev/null; then
+# Fetch the real .flatpakrepo, not just any answer: a captive portal answers every request with a page of its own,
+# and flatpak would then fail and (exit 1) not be retried until the next boot.
+if ! curl -sfL --max-time 10 "$probe_url" 2>/dev/null | grep -q '^\[Flatpak Repo\]'; then
     exit 75
 fi
 

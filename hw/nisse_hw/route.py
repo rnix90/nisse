@@ -64,6 +64,11 @@ def _one_line(text: object) -> str:
     return " ".join(str(text).split())
 
 
+def _giving_up(failures: int, last_error: str) -> str:
+    return (f"nisse-hwroute: giving up after {failures} failed attempts: {last_error} "
+            "(reboot, or run: nisse-hwroute --retry && systemctl start nisse-hwroute)")
+
+
 def _boot_id() -> str | None:
     try:
         return BOOT_ID_FILE.read_text().strip() or None
@@ -101,8 +106,7 @@ def execute(p: Plan, runner: Callable[[Sequence[str]], int], state_dir: Path, se
     same_boot = old.get("boot_id") == boot_id
     failures = old.get("failures", 0) if same_boot else 0
     if same_boot and old.get("status") == "failed":
-        print(f"nisse-hwroute: giving up after {failures} failed attempts: {old.get('last_error', 'unknown error')}",
-              file=sys.stderr)
+        print(_giving_up(failures, old.get("last_error", "unknown error")), file=sys.stderr)
         return 1
     attempts = old.get("attempts", 0) + 1
     if p.needs_secure_boot_off and secure_boot:
@@ -119,7 +123,7 @@ def execute(p: Plan, runner: Callable[[Sequence[str]], int], state_dir: Path, se
             error = _one_line(error)
             if failures >= MAX_ATTEMPTS:
                 _write_state(state_dir, p.profile, "failed", attempts, failures, error, boot_id)
-                print(f"nisse-hwroute: giving up after {failures} failed attempts: {error}", file=sys.stderr)
+                print(_giving_up(failures, error), file=sys.stderr)
                 return 1
             _write_state(state_dir, p.profile, "pending", attempts, failures, error, boot_id)
             return EX_TEMPFAIL
@@ -147,9 +151,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--efivars-root", type=Path, default=EFIVARS)
     parser.add_argument("--retry", action="store_true", help="forget earlier failed attempts and exit")
     args = parser.parse_args(argv)
-    if args.retry:
-        return retry(args.state_dir)
     try:
+        if args.retry:
+            return retry(args.state_dir)
         return _run(args)
     except Exception as e:  # one line for the journal, never a traceback
         print(f"nisse-hwroute: {_one_line(e) or type(e).__name__}", file=sys.stderr)

@@ -5,7 +5,7 @@
 
 Name:           nisse-release
 Version:        %{fedora_release}
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Nisse release files
 License:        MIT
 BuildArch:      noarch
@@ -75,7 +75,7 @@ CPE_NAME="cpe:/o:nisse:nisse:%{version}"
 DEFAULT_HOSTNAME=nisse
 HOME_URL="https://github.com/rnix90/nisse"
 BUG_REPORT_URL="https://github.com/rnix90/nisse/issues"
-SUPPORT_URL="https://github.com/rnix90/nisse/discussions"
+SUPPORT_URL="https://github.com/rnix90/nisse"
 EOF
 ln -s ../usr/lib/os-release %{buildroot}%{_sysconfdir}/os-release
 
@@ -141,6 +141,9 @@ install -Dm0644 %{SOURCE6} %{SOURCE7} -t %{buildroot}%{_sysconfdir}/yum.repos.d/
 %config(noreplace) %{_sysconfdir}/yum.repos.d/nisse-daily.repo
 
 %changelog
+* Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-5
+- sshd.service is off by default (opt-in); SUPPORT_URL points at the repository (Discussions are not enabled)
+
 * Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-4
 - Adopt Fedora's own system and user presets (fedora-release-common 44-18); deviations stay in 80-nisse-desktop.preset
 
