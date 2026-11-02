@@ -35,6 +35,12 @@ document-like apps (email, word processing, PDF, web pages) keep a light backgro
 | 0.4 | Deferred minors from the kiwi review | file modes, `ls \| head` under pipefail, sed escaping, test greps, check-host key package |
 | 0.5 | Authority switch | Config switch for the AI's authority, default autonomous (decided); wired into the daemon and shown in the panel |
 
+**Phase 0 status: DONE 2026-11-02** (plan `docs/superpowers/plans/2026-11-02-phase-0-foundations.md`, 11 tasks). Proven on a
+rebuilt ISO: contents test (63 preset-enabled units verified after a simulated first-boot preset-all), live desktop
+screenshot, 4-case hardware e2e, and the whole test suite. Notes: supervised authority maps to the CLI's default permission
+mode and its behaviour in `-p` mode is not yet verified against the real CLI (see `docs/claude-cli-notes.md`); the Fedora
+preset set is adopted except `plasma-setup.service`; Flatpak remotes are Fedora's plus Flathub.
+
 ## Phase 1: the Nisse look and feel (all packaged; tested by VM screenshots)
 
 | Id | Item | Notes |
