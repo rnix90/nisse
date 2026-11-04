@@ -30,4 +30,20 @@ done < <(grep '^R ' tests/rpm/placeholder-paths.txt)
 extra="$(cd assets/logo/system && find . -type f | sed 's|^\.||' | sort | while read -r f; do grep -q "^R $f " ../../../tests/rpm/placeholder-paths.txt || echo "$f"; done)"
 [ -z "$extra" ] && ok "assets/logo/system holds only listed files" || bad "unlisted files in assets/logo/system: $extra"
 
+# The About page shows system-logo-white.png (kde-settings' /etc/xdg/kcm-about-distrorc) on a light or a dark page, and
+# GTK-style dialogs show fedora-logo.png: both must be readable on any background, so they are opaque cards, not a
+# lockup floating on transparency (a Paper lockup on a light page would vanish).
+for f in usr/share/pixmaps/system-logo-white.png usr/share/pixmaps/fedora-logo.png; do
+    res="$("$py" - "assets/logo/system/$f" <<'PYEOF'
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("RGBA")
+alpha = im.getchannel("A")
+opaque = alpha.histogram()[255] / (im.width * im.height)
+print("ok" if opaque >= 0.70 else "transparent %.0f%% opaque" % (opaque * 100))
+PYEOF
+)"
+    [ "$res" = ok ] && ok "$f is an opaque card (readable on light and dark pages)" || bad "$f is not readable on every background: $res"
+done
+
 if [ "$fail" -eq 0 ]; then echo "PASS: system art"; else echo "$fail failure(s)"; exit 1; fi

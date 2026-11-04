@@ -66,6 +66,7 @@ The ISO is built with kiwi-ng from the Fedora kiwi description vendored in `buil
     mkdir -p /d/nisse-build-vm/out && bash tools/build/vm.sh pull out/nisse-live.iso /d/nisse-build-vm/out/nisse-live.iso
     bash tools/vm/smoke-boot.sh /d/nisse-build-vm/out/nisse-live.iso --out /d/nisse-build-vm/out/vm \
         --screenshot /d/nisse-build-vm/out/vm/desktop.png        # boots on the Windows host
+    python tests/e2e/check_start_button.py /d/nisse-build-vm/out/vm/desktop.png   # no Fedora hot dog on the start button
     bash tests/e2e/test_hw_in_vm.sh /d/nisse-build-vm/out/nisse-live.iso   # 4 boots with spoofed hardware, slow
 
 `build/build-iso.sh` alone rebuilds only the ISO from the current `out/repo`. A package that changed needs a new

@@ -47,7 +47,13 @@ kernel selection. Most of it is checked by scripts. A few things need a person, 
    - [ ] With no network, send a message: the panel shows an error, not a hang.
 4. **Look and feel.**
    - [ ] `fc-match Nunito` names the Nunito font.
-   - [ ] `cat /etc/os-release` shows `NAME="Nisse"`, `ID=nisse`, `LOGO=distributor-logo-nisse`.
+   - [ ] `cat /etc/os-release` shows `NAME="Nisse"`, `ID=nisse`, `LOGO=distributor-logo-nisse`, `VERSION="0.2"` and
+         `PRETTY_NAME="Nisse 0.2"` (`VERSION_ID` is 44 on purpose: it is the Fedora base that dnf needs).
+   - [ ] The start button (bottom left) is the Nisse tile, not Fedora's hot dog (the boot test checks this by script).
+   - [ ] System Settings, About this System shows the Nisse card (the lockup on an Ink card, from
+         `/usr/share/pixmaps/system-logo-white.png`), the name "Nisse 0.2" and the repository link. This one is checked
+         by eye: the page cannot be driven by script.
+   - [ ] The installer ("Install to Hard Drive") shows Nisse art in its sidebar and header, no hot dog anywhere.
 
 ## Known gaps (planned for later plans)
 

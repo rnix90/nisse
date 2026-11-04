@@ -13,7 +13,7 @@ import argparse
 import pathlib
 import shutil
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 LOGO = ROOT / "assets" / "logo"
@@ -49,8 +49,12 @@ def on_ink(size, art, box, left=None):
     return canvas
 
 
-def transparent(size, art, box):
+def card(size, art, box, radius=26):
+    """Opaque Ink rounded card with `art` fitted and centred: readable on a light page and on a dark one."""
     canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+    mask = Image.new("L", size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=radius, fill=255)
+    canvas.paste(Image.new("RGBA", size, INK), (0, 0), mask)
     art = fit(art, *box)
     canvas.alpha_composite(art, ((size[0] - art.width) // 2, (size[1] - art.height) // 2))
     return canvas
@@ -61,7 +65,6 @@ def build(out):
     if out.exists():
         shutil.rmtree(out)
     stacked = png("nisse-lockup-stacked-reverse-1280w.png")
-    stacked_ink = png("nisse-lockup-stacked-1280w.png")
     horizontal = png("nisse-lockup-horizontal-reverse-1200w.png")
     tile = png("nisse-app-tile-1024.png")
     icon_reverse = png("nisse-icon-reverse-512.png")
@@ -92,8 +95,9 @@ def build(out):
 
     # the logo files other packages look for by their Fedora names
     save("usr/share/pixmaps/fedora-logo-small.png", tile.resize((128, 128), Image.LANCZOS))
-    save("usr/share/pixmaps/fedora-logo.png", transparent((240, 310), stacked_ink, (200, 270)))
-    save("usr/share/pixmaps/system-logo-white.png", transparent((240, 310), stacked, (200, 270)))
+    # shown on light and dark pages alike (the About page uses system-logo-white.png): opaque cards
+    save("usr/share/pixmaps/fedora-logo.png", card((240, 310), stacked, (180, 240)))
+    save("usr/share/pixmaps/system-logo-white.png", card((240, 310), stacked, (180, 240)))
     save("usr/share/pixmaps/splash/gnome-splash.png", on_ink((420, 293), stacked, (230, 200)))
 
     # Mac boot icon

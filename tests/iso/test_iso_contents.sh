@@ -120,6 +120,12 @@ done < <(grep '^R ' "$manifest")
 while read -r kind path sha reason; do
     [ ! -e "$root$path" ] || fail "$path (dropped placeholder: $reason) is still in the image"
 done < <(grep '^D ' "$manifest")
+# The About page's picture is whatever kde-settings' kcm-about-distrorc names, and the start button's icon is `start-here`
+# (Fedora's look-and-feel setup script): both must resolve to nisse-branding files, whatever the Fedora packages do next.
+about_logo="$(sed -n 's/^LogoPath=//p' "$root/etc/xdg/kcm-about-distrorc" 2>/dev/null | head -1)"
+[ -n "$about_logo" ] || fail "no LogoPath in /etc/xdg/kcm-about-distrorc (how does the About page pick its logo?)"
+case "$(rpmq -qf "$about_logo" 2>/dev/null)" in nisse-branding-*) ;; *) fail "the About page logo $about_logo is not a nisse-branding file" ;; esac
+case "$(rpmq -qf /usr/share/icons/hicolor/scalable/apps/start-here.svg 2>/dev/null)" in nisse-branding-*) ;; *) fail "the start button icon start-here.svg is not a nisse-branding file" ;; esac
 echo "placeholder art: $replaced paths replaced by nisse-branding, $(grep -c '^D ' "$manifest") dropped, generic-logos absent"
 
 echo "PASS: ISO contents ($iso), Qt $qt"
