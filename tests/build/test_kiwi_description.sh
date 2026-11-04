@@ -125,7 +125,7 @@ if command -v kiwi-ng >/dev/null 2>&1; then
     for p in nisse-release nisse-release-common nisse-branding nisse-fonts-nunito nisse-hw nisse-firstboot nisse-daemon nisse-panel anaconda-live; do
         grep -q "<package name=\"$p\"/>" "$live" && ok "Nisse-Live installs $p" || bad "Nisse-Live lacks $p"
     done
-    for p in fedora-release-kde fedora-release; do
+    for p in fedora-release-kde fedora-release generic-logos fedora-logos; do
         if grep -q "<package name=\"$p\"/>" "$live"; then bad "Nisse-Live installs $p"; else ok "Nisse-Live does not install $p"; fi
     done
 

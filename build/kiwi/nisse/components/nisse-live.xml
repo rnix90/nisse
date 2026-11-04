@@ -35,10 +35,10 @@
     <package name="nisse-daemon"/>
     <package name="nisse-panel"/>
     <package name="plasma-welcome-fedora"/>
-    <package name="generic-logos"/>
     <ignore name="fedora-release"/>
     <ignore name="fedora-release-*"/>
     <ignore name="fedora-logos"/>
+    <ignore name="generic-logos"/>
   </packages>
   <!-- The live-install set, copied from Fedora's components/liveinstall.xml: the point of a live image is to install. -->
   <packages type="iso" patternType="plusRecommended" profiles="Nisse-Live">

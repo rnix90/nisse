@@ -1,0 +1,83 @@
+# Every file the generic-logos package (18.0.0-27.fc44) owns in the Nisse image (the Fedora placeholder branding:
+# the hot dog). One line per file, with the first 16 hex digits of its sha256 in that image:
+#   R <path> <sha16> <kind>    replaced by nisse-branding; kind is png:WxH (same size as the original), svg, icns or symlink:<target>
+#   D <path> <sha16> <reason>  dropped on purpose (nothing in the image loads it, or it is documentation)
+# tests/rpm/test_branding.sh checks the R lines against the RPM, tests/iso/test_iso_contents.sh against the image.
+R /usr/share/anaconda/boot/splash.png 2d45eed549ed7864 png:640x480
+R /usr/share/anaconda/boot/syslinux-splash.png 361be5a8f12980b9 png:640x300
+R /usr/share/anaconda/pixmaps/anaconda_header.png ea261a3639f7f92a png:800x88
+R /usr/share/anaconda/pixmaps/progress_first.png cbd9ec9a1e4928ca png:416x265
+R /usr/share/anaconda/pixmaps/sidebar-bg.png 82ca91c806f1a2f5 png:406x767
+R /usr/share/anaconda/pixmaps/sidebar-logo.png 692c3217a966086a png:128x128
+R /usr/share/anaconda/pixmaps/splash.png cbd9ec9a1e4928ca png:416x265
+R /usr/share/anaconda/pixmaps/topbar-bg.png b80160fe916f9973 png:1040x132
+D /usr/share/doc/generic-logos/README a86a0595a585aafd documentation and licence of the removed package; nisse-branding ships its own licence
+D /usr/share/firstboot/themes/generic/firstboot-left.png aca6e98d63fba101 legacy firstboot theme; firstboot is not in the image
+D /usr/share/firstboot/themes/generic/workstation.png b214426c840f4e31 legacy firstboot theme; firstboot is not in the image
+R /usr/share/icons/hicolor/48x48/apps/anaconda.png 75d05ff70678af87 png:49x49
+R /usr/share/icons/hicolor/scalable/apps/anaconda.svg d3d03bb4a1105f9a svg
+R /usr/share/icons/hicolor/scalable/apps/fedora-logo-icon.svg 8e45d2c92e9f0881 svg
+R /usr/share/icons/hicolor/scalable/apps/fedora-logo-sprite.svg 8e45d2c92e9f0881 svg
+R /usr/share/icons/hicolor/scalable/apps/start-here.svg 8e45d2c92e9f0881 svg
+R /usr/share/icons/hicolor/scalable/places/start-here.svg symlink symlink:../apps/start-here.svg
+R /usr/share/icons/oxygen/48x48/apps/anaconda.png 75d05ff70678af87 png:49x49
+D /usr/share/kde4/apps/ksplash/Themes/Leonidas/2048x1536/logo.png 6fbadd729ea3d935 KDE 4 splash theme; unused by Plasma 6
+D /usr/share/licenses/generic-logos/COPYING 4a61ef4fff2d5cf3 documentation and licence of the removed package; nisse-branding ships its own licence
+D /usr/share/licenses/generic-logos/COPYING-kde-logo ea19c2493c7e4be0 documentation and licence of the removed package; nisse-branding ships its own licence
+D /usr/share/pixmaps/bootloader/fedora-media.vol 993cab812f6873c0 binary Mac HFS+ boot label with no replacement tooling yet; the icns carries the icon
+R /usr/share/pixmaps/bootloader/fedora.icns 4933c8f949399cc2 icns
+D /usr/share/pixmaps/bootloader/fedora.vol f3d13e0981daf486 binary Mac HFS+ boot label with no replacement tooling yet; the icns carries the icon
+R /usr/share/pixmaps/fedora-logo-small.png 692c3217a966086a png:128x128
+R /usr/share/pixmaps/fedora-logo-sprite.svg 8e45d2c92e9f0881 svg
+R /usr/share/pixmaps/fedora-logo.png 4b314d72b1061687 png:240x310
+R /usr/share/pixmaps/splash/gnome-splash.png be7246eaa48cf2ee png:420x293
+R /usr/share/pixmaps/system-logo-white.png 4b314d72b1061687 png:240x310
+D /usr/share/plymouth/themes/charge/progress-00.png 898af6d15039a2e2 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-01.png 38228c1a32e6696c assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-02.png cf75383091846f2e assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-03.png 3334daeb89b48712 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-04.png 8080ae832576086a assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-05.png c0e1c95eabafc272 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-06.png e8c91163672c3aad assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-07.png bb39c46e62c44c43 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-08.png cd0e527a3e7c9f58 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-09.png fcde92a2ddf4b11d assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-10.png f36ae1f2d572813c assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-11.png d91f97fabf45b114 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-12.png 411722418cdf73d4 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-13.png 01b08c5857f7f549 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-14.png 8ac734fa9fdddebb assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-15.png 468736094bf489d3 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-16.png deb45f2b90c31383 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-17.png ce529617cb8dbbef assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-18.png ab8e8e818dd9d260 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-19.png 8bbe040406638988 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-20.png 8aec40e0114a98e1 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-21.png 6aa0a01175236b2c assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-22.png 615fb385e5192c3b assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-23.png 279c02149505ce4c assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-24.png e6513942a245ad83 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-25.png 1aa3eb3d0e197224 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-26.png 0467a310bbb6a4dc assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-27.png 2c92212cd05d70e1 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-28.png 70545000f4582197 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-29.png 89ea4e2a113efd74 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-30.png ee605c0fe3de2aa3 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-31.png 55d299b1e923f8ac assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/progress-32.png 78bd636f74b1d9b2 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-00.png 1fb38fb913b353f8 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-01.png 171be55e0be8edab assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-02.png 8da75d38a816b50a assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-03.png a0fb31ed6510d924 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-04.png e7de50b96433d8c7 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-05.png 20fd23ba470cfdd9 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-06.png 0129d44aae980c99 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-07.png 046b004bc869f1f2 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-08.png aaefb47ad4027232 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-09.png ecaf4565adbd3c76 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-10.png a9d568456d761049 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-11.png 85cb4bc644f7672d assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-12.png b173ad1567436ef9 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-13.png ed00b237b6c3fded assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-14.png 749e28a016629cec assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
+D /usr/share/plymouth/themes/charge/throbber-15.png 466ba122d9aaa5f3 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)

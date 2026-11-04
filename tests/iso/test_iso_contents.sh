@@ -100,4 +100,26 @@ case "$qt" in 6.10*) ;; *) fail "qt6-qtbase is $qt, expected 6.10.x (release rep
 if rpmq -q fedora-release-kde >/dev/null 2>&1; then fail "fedora-release-kde is installed (Nisse must use nisse-release)"; fi
 rpmq -q nisse-release >/dev/null 2>&1 || fail "nisse-release is not installed"
 
+# Fedora's placeholder art (generic-logos: the hot dog on the start button, About page and installer) must be gone, and
+# every path it owned must be either replaced by nisse-branding or deliberately dropped (tests/rpm/placeholder-paths.txt).
+for pkg in generic-logos fedora-logos; do
+    if rpmq -q "$pkg" >/dev/null 2>&1; then fail "$pkg is installed: Fedora's placeholder art is in the image"; fi
+done
+manifest="$(dirname "$0")/../rpm/placeholder-paths.txt"
+replaced=0
+while read -r kind path sha spec; do
+    owner="$(rpmq -qf "$path" 2>/dev/null)" || fail "the replacement for $path is missing from the image"
+    case "$owner" in nisse-branding-*) ;; *) fail "$path is owned by $owner, not nisse-branding" ;; esac
+    if [ "$sha" != symlink ]; then
+        [ -f "$root$path" ] || fail "$path is not a file in the image"
+        now="$(sudo sha256sum "$root$path" | cut -c1-16)"
+        [ "$now" != "$sha" ] || fail "$path is still Fedora's placeholder (sha256 $sha)"
+    fi
+    replaced=$((replaced + 1))
+done < <(grep '^R ' "$manifest")
+while read -r kind path sha reason; do
+    [ ! -e "$root$path" ] || fail "$path (dropped placeholder: $reason) is still in the image"
+done < <(grep '^D ' "$manifest")
+echo "placeholder art: $replaced paths replaced by nisse-branding, $(grep -c '^D ' "$manifest") dropped, generic-logos absent"
+
 echo "PASS: ISO contents ($iso), Qt $qt"

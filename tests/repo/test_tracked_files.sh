@@ -7,7 +7,8 @@ failures=0
 for f in build/FEDORA_RELEASE build/build-iso.sh build/build-all.sh build/render-kiwi.sh build/kiwi/Nisse.kiwi \
          build/kiwi/nisse/components/nisse-live.xml build/kiwi/nisse/repositories/nisse.xml \
          build/kiwi/fedora/config.sh tools/build/vendor-kiwi.sh tools/rpm/build-rpm.sh tools/rpm/make-repo.sh tools/vm/smoke-boot.sh \
-         packaging/rpm/nisse-release/nisse-release.spec services/Cargo.lock; do
+         packaging/rpm/nisse-release/nisse-release.spec services/Cargo.lock build/PRODUCT_VERSION \
+         tools/logo/build_system.py tests/rpm/placeholder-paths.txt assets/logo/system/usr/share/pixmaps/fedora-logo.png; do
     if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
         echo "ok   tracked: $f"
     else
