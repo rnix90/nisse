@@ -50,6 +50,11 @@ def item_ids(out):
     return {i["title"]: i["id"] for g in inv["groups"] for i in g["items"]}
 
 
+# a comment full of characters outside ASCII: e acute, em dash, curly quotes and an emoji (built from code points so this
+# file stays plain ASCII)
+NON_ASCII = "caf" + chr(0xE9) + " " + chr(0x2014) + " " + chr(0x201C) + "quoted" + chr(0x201D) + " " + chr(0x1F600)
+
+
 def state(**kw):
     base = {"direction": "", "items": {}, "groups": {}, "custom": []}
     base.update(kw)
@@ -186,7 +191,7 @@ def test_export_writes_a_complete_ascii_brief_and_copies_the_redraw_originals(si
 def test_export_is_pure_ascii_and_reports_what_it_replaced(site):
     base, out = site
     ids = item_ids(out)
-    call(base, "PUT", "/api/state", state(items={ids["logo"]: {"verdict": "redraw", "priority": "", "comment": "café — “quoted” \U0001F600"}}))
+    call(base, "PUT", "/api/state", state(items={ids["logo"]: {"verdict": "redraw", "priority": "", "comment": NON_ASCII}}))
     result = json.loads(call(base, "POST", "/api/export", {})[1])
     md = result["markdown"]
     md.encode("ascii")
