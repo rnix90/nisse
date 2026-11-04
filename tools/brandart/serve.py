@@ -20,11 +20,15 @@ Standard library only.
 """
 import argparse
 import datetime
+import hmac
 import json
 import os
+import secrets
 import shutil
+import socket
 import sys
 import threading
+import http.cookies
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -211,7 +215,7 @@ def export(directory, store):
 
 # ---------------------------------------------------------------- HTTP
 
-def make_handler(directory, store):
+def make_handler(directory, store, token=None):
     directory = Path(directory).resolve()
     assets = (directory / "assets").resolve()
 
@@ -230,15 +234,31 @@ def make_handler(directory, store):
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            if getattr(self, "set_cookie", None):
+                self.send_header("Set-Cookie", self.set_cookie)
             self.end_headers()
             self.wfile.write(body)
 
         def host_ok(self):
-            host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]")
-            if host not in LOOPBACK:
-                self.send(403, {"error": "this server only answers on the loopback address"})
-                return False
-            return True
+            """Loopback mode: only loopback Host names (stops DNS rebinding). LAN mode: only a request that carries the
+            access token, from the link (?t=TOKEN, which sets a cookie) or from that cookie."""
+            self.set_cookie = None
+            if token is None:
+                host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]")
+                if host not in LOOPBACK:
+                    self.send(403, {"error": "this server only answers on the loopback address"})
+                    return False
+                return True
+            given = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("t", [""])[0]
+            cookies = http.cookies.SimpleCookie(self.headers.get("Cookie") or "")
+            jar = cookies["brandart"].value if "brandart" in cookies else ""
+            if hmac.compare_digest(given.encode(), token.encode()):
+                self.set_cookie = f"brandart={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000"
+                return True
+            if hmac.compare_digest(jar.encode(), token.encode()):
+                return True
+            self.send(403, {"error": "open the link with the access token that serve.py printed"})
+            return False
 
         def file(self, root, rel):
             path = (Path(root) / rel).resolve()
@@ -309,26 +329,45 @@ class QuietServer(ThreadingHTTPServer):
         super().handle_error(request, client_address)
 
 
-def make_server(directory, port=0, host="127.0.0.1"):
-    if host not in LOOPBACK:
-        raise ValueError(f"refusing to bind to {host}: the review server is loopback only")
+def make_server(directory, port=0, host="127.0.0.1", token=None):
+    if host not in LOOPBACK and not token:
+        raise ValueError(f"refusing to bind to {host}: off the loopback address the server needs an access token")
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
-    return QuietServer((host, port), make_handler(directory, Store(directory)))
+    return QuietServer((host, port), make_handler(directory, Store(directory), token))
+
+
+def lan_address():
+    """The address of this PC on the local network (no packet is sent: a UDP connect only picks the route)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("192.168.68.58", 9))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dir", default="out/brandart")
     parser.add_argument("--port", type=int, default=0)
+    parser.add_argument("--lan", action="store_true", help="listen on the local network too (phone access); needs the printed access link")
     args = parser.parse_args(argv)
+    token = secrets.token_urlsafe(16) if args.lan else None
     try:
-        server = make_server(args.dir, args.port)
+        server = make_server(args.dir, args.port, "0.0.0.0" if args.lan else "127.0.0.1", token)
     except (ValueError, OSError) as e:
         print(f"serve: {e}", file=sys.stderr)
         return 1
-    print(f"Brand art review: http://127.0.0.1:{server.server_address[1]}/   (Ctrl+C to stop; comments are saved in {args.dir}/comments.json)",
-          flush=True)
+    port = server.server_address[1]
+    if args.lan:
+        print(f"Brand art review (LAN): http://{lan_address()}:{port}/?t={token}   (open this link on the phone; anyone without the "
+              f"token gets 403)", flush=True)
+        print(f"Brand art review (this PC): http://127.0.0.1:{port}/?t={token}", flush=True)
+    else:
+        print(f"Brand art review: http://127.0.0.1:{port}/   (Ctrl+C to stop; comments are saved in {args.dir}/comments.json)", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

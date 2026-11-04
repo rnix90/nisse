@@ -217,3 +217,52 @@ def test_a_client_that_hangs_up_makes_no_noise_but_real_errors_are_reported(site
         server.handle_error(None, ("127.0.0.1", 1))
     assert "a real bug" in capfd.readouterr().err
     server.server_close()
+
+
+def lan_site(tmp_path):
+    root = make_root(tmp_path)
+    out = tmp_path / "lan"
+    inventory.build(root, write_surfaces(tmp_path, GOOD), out)
+    server = serve.make_server(out, port=0, host="127.0.0.1", token="s3cret-token")
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, f"http://127.0.0.1:{server.server_address[1]}"
+
+
+def test_a_non_loopback_bind_needs_a_token_and_then_works(tmp_path):
+    with pytest.raises(ValueError):
+        serve.make_server(tmp_path, port=0, host="0.0.0.0")
+    server = serve.make_server(tmp_path, port=0, host="0.0.0.0", token="abc")
+    server.server_close()
+
+
+def test_lan_mode_refuses_requests_without_the_token(tmp_path):
+    server, base = lan_site(tmp_path)
+    try:
+        assert call(base, "GET", "/")[0] == 403
+        assert call(base, "GET", "/api/state")[0] == 403
+        assert call(base, "PUT", "/api/state", state(direction="x"))[0] == 403
+        assert call(base, "GET", "/?t=wrong")[0] == 403
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_lan_mode_token_in_the_link_sets_a_cookie_that_unlocks_everything(tmp_path):
+    server, base = lan_site(tmp_path)
+    try:
+        req = urllib.request.Request(base + "/?t=s3cret-token")
+        with urllib.request.urlopen(req, timeout=10) as r:
+            cookie = r.headers["Set-Cookie"]
+            assert r.status == 200
+        assert "HttpOnly" in cookie and "SameSite=Strict" in cookie
+        pair = cookie.split(";")[0]
+        req = urllib.request.Request(base + "/api/state", headers={"Cookie": pair})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            assert r.status == 200
+        body = json.dumps(state(direction="from the phone")).encode()
+        req = urllib.request.Request(base + "/api/state", data=body, method="PUT", headers={"Cookie": pair, "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            assert r.status == 200
+    finally:
+        server.shutdown()
+        server.server_close()
