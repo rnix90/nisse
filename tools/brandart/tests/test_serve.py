@@ -202,3 +202,18 @@ def test_export_with_nothing_commented_still_works(site):
     base, _ = site
     status, body = call(base, "POST", "/api/export", {})
     assert status == 200 and "Overall direction" in json.loads(body)["markdown"]
+
+
+def test_a_client_that_hangs_up_makes_no_noise_but_real_errors_are_reported(site, capfd, tmp_path):
+    server = serve.make_server(tmp_path / "quiet", port=0)
+    try:
+        raise ConnectionAbortedError("the browser went away")
+    except ConnectionAbortedError:
+        server.handle_error(None, ("127.0.0.1", 1))
+    assert capfd.readouterr().err == ""
+    try:
+        raise RuntimeError("a real bug")
+    except RuntimeError:
+        server.handle_error(None, ("127.0.0.1", 1))
+    assert "a real bug" in capfd.readouterr().err
+    server.server_close()

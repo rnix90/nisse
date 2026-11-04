@@ -1,3 +1,73 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Brand art review</title></head>
-<body><h1>Brand art review</h1><p>The page is built in the next task.</p></body></html>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brand art review</title>
+<link rel="stylesheet" href="/web/style.css">
+</head>
+<body data-bg="dark">
+<header id="top">
+  <h1>Brand art review</h1>
+  <span id="image-info"></span>
+  <span class="spacer"></span>
+  <label>Background
+    <select id="bg">
+      <option value="dark">Dark</option>
+      <option value="light">Light</option>
+      <option value="ink">Ink</option>
+      <option value="checker">Checkerboard</option>
+    </select>
+  </label>
+  <input id="search" type="search" placeholder="Search all groups" aria-label="Search all groups">
+  <label><input type="checkbox" id="only-uncommented"> Uncommented only</label>
+  <label><input type="checkbox" id="only-redraw"> Redraw only</label>
+  <label>Kind
+    <select id="kind"><option value="">All kinds</option></select>
+  </label>
+  <span id="save-state" data-state="idle" role="status">Nothing saved yet</span>
+  <button id="export" type="button">Export submission</button>
+</header>
+
+<div id="layout">
+  <nav id="groups" aria-label="Groups">
+    <ul></ul>
+    <details id="notes" hidden><summary>Inventory notes</summary><ul></ul></details>
+    <p class="keys">Keys (outside text boxes): <kbd>j</kbd> <kbd>k</kbd> next / previous card, <kbd>1</kbd> keep,
+      <kbd>2</kbd> redraw, <kbd>3</kbd> drop, <kbd>4</kbd> new variant, <kbd>0</kbd> clear, <kbd>c</kbd> comment.</p>
+  </nav>
+
+  <main id="main">
+    <section id="direction-box">
+      <label for="direction">Overall direction: the style and feeling for the whole set (goes first in the brief)</label>
+      <textarea id="direction" rows="3" placeholder="For example: warm, round, a little mischievous; a nisse's red cap, never a corporate logo..."></textarea>
+    </section>
+
+    <section id="custom">
+      <div class="custom-head">
+        <h2>My requests</h2>
+        <span class="hint">Art that is not in the list below: describe it and it goes into the brief.</span>
+        <button id="add-request" type="button">Add a request</button>
+      </div>
+      <div id="custom-list"></div>
+    </section>
+
+    <section id="group-head">
+      <h2 id="group-title"></h2>
+      <p id="group-seen"></p>
+      <textarea id="group-comment" rows="2" placeholder="Comment on this whole group"></textarea>
+    </section>
+
+    <section id="cards" class="grid" aria-live="polite"></section>
+
+    <section id="export-panel" hidden>
+      <h2>Submission written</h2>
+      <p id="export-path"></p>
+      <pre id="export-md"></pre>
+    </section>
+  </main>
+</div>
+<script src="/web/app.js"></script>
+</body>
+</html>

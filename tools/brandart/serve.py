@@ -298,12 +298,23 @@ def make_handler(directory, store):
     return Handler
 
 
+class QuietServer(ThreadingHTTPServer):
+    """A browser that hangs up in the middle of an answer (a closed tab, a cancelled image) is normal, not an error."""
+
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], ConnectionError):
+            return
+        super().handle_error(request, client_address)
+
+
 def make_server(directory, port=0, host="127.0.0.1"):
     if host not in LOOPBACK:
         raise ValueError(f"refusing to bind to {host}: the review server is loopback only")
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
-    return ThreadingHTTPServer((host, port), make_handler(directory, Store(directory)))
+    return QuietServer((host, port), make_handler(directory, Store(directory)))
 
 
 def main(argv=None):

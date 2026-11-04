@@ -318,10 +318,12 @@ def build(root, surfaces, out, owners=None, image=None):
     for group in load_surfaces(surfaces):
         gid, items = group["id"], []
         entries = select(root, group, notes, Path(surfaces).parent)
-        # titles that repeat inside a group get their folder appended, so the page can tell them apart
-        counts = {}
+        # titles that repeat inside a group are told apart by size (or by folder when the sizes repeat too)
+        counts, sizes = {}, {}
         for e in entries:
             counts[e["title"]] = counts.get(e["title"], 0) + 1
+            f0 = facts(root / e["preview"], kind_of(e["preview"], group.get("kind")))
+            sizes.setdefault(e["title"], []).append(f"{f0['width']}x{f0['height']}" if f0["width"] and f0["height"] else "")
         for e in entries:
             rel = e["preview"]
             kind = kind_of(rel, group.get("kind"))
@@ -329,7 +331,8 @@ def build(root, surfaces, out, owners=None, image=None):
             f = facts(src, kind)
             title = e["title"]
             if counts[title] > 1:
-                title = f"{title} ({Path(rel).parent.name})"
+                distinct = len(set(sizes[title])) == counts[title] and "" not in sizes[title]
+                title = f"{title} ({size_label(f) if distinct else Path(rel).parent.name})"
             item_id = unique_id(taken, f"{gid}/{slug(e['key'] if group.get('collapse_by') or group.get('icon_list') else title)}")
             ext = ".svg" if rel.endswith(".svgz") else Path(rel).suffix
             asset = f"assets/{item_id}{ext}"
@@ -360,6 +363,10 @@ def build(root, surfaces, out, owners=None, image=None):
     inv = {"image": image or {"iso": "", "built": "", "sha256": ""}, "groups": groups, "notes": list(dict.fromkeys(notes))}
     (out / "inventory.json").write_text(json.dumps(inv, indent=1), encoding="utf-8")
     return inv
+
+
+def size_label(f):
+    return f"{f['width']}x{f['height']}"
 
 
 def missing_item(taken, gid, title, seen):

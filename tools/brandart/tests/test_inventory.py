@@ -270,6 +270,25 @@ kind = "cursor"
     assert [i["title"] for i in group["items"]] == ["left_ptr"]
 
 
+def test_items_with_the_same_name_are_told_apart_by_their_size(tmp_path):
+    root = make_root(tmp_path)
+    for size in (16, 48):
+        d = root / f"usr/share/icons/hicolor/{size}x{size}/apps"
+        d.mkdir(parents=True)
+        (d / "mark.png").write_bytes(png_bytes(size, size))
+    surfaces = write_surfaces(tmp_path, GOOD + """
+[[group]]
+id = "marks"
+title = "Marks"
+seen = "x"
+patterns = ["usr/share/icons/hicolor/*x*/apps/mark.png"]
+""")
+    inv = inventory.build(root, surfaces, tmp_path / "out3")
+    group = next(g for g in inv["groups"] if g["id"] == "marks")
+    assert sorted(i["title"] for i in group["items"]) == ["mark (16x16)", "mark (48x48)"]
+    assert sorted(i["id"] for i in group["items"]) == ["marks/mark-16x16", "marks/mark-48x48"]
+
+
 def test_icons_in_the_preferences_category_are_found(tmp_path):
     root = make_root(tmp_path)
     p = root / "usr/share/icons/breeze/preferences/32/preferences-desktop-wallpaper.svg"
