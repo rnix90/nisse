@@ -1,0 +1,26 @@
+# The launcher icons of the applications this image shows in its menu, by the icon name in their .desktop files
+# (checked against the Fedora 44 KDE image of 2026-11-02). The first match in Breeze, then hicolor, is used. Names the
+# image does not have are reported, not fatal (unless more than 30% of a list of 10 or more are missing).
+org.kde.dolphin
+utilities-terminal
+kwrite
+plasmadiscover
+preferences-system
+utilities-system-monitor
+spectacle
+okular
+gwenview
+ark
+accessories-calculator
+firefox
+libreoffice-writer
+libreoffice-calc
+libreoffice-impress
+kmail
+kontact
+elisa
+kolourpaint
+org.fedoraproject.MediaWriter
+start-here-kde-plasma
+distributor-logo-nisse
+anaconda

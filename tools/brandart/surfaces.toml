@@ -1,0 +1,156 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# What "every graphic" means for Nisse's brand art review (docs/brand-art.md): the identity and the desktop theme of a
+# built image, grouped by where a person sees them. Patterns are relative to the image root and may use ** .
+#
+# Group keys:
+#   patterns     globs for the files in this group; a pattern that matches nothing is an error unless `missing = true`
+#   missing      the group may have no graphic today: an empty group becomes one "missing graphic" request item
+#   collapse_by  regex on the path, first capture = the item key: files sharing a key become ONE item (the largest
+#                file is the preview, the others are listed as variants), e.g. one item per wallpaper
+#   kind         force the kind (png, svg, colors, sound, cursor); otherwise it follows the file extension
+#   icon_list    a text file of icon names, resolved against the Breeze theme (then hicolor)
+#   requests     graphics that do not exist yet but should: { title, seen }
+#
+# Verified against the Fedora 44 KDE image of 2026-11-02 (see docs/superpowers/plans/2026-11-02-brand-art-review-page.md).
+
+[[group]]
+id = "logos"
+title = "Logos and marks"
+seen = "Start button, About this System, installer, dialogs, the Nisse panel"
+patterns = [
+  "usr/share/icons/hicolor/scalable/apps/start-here.svg",
+  "usr/share/icons/hicolor/scalable/apps/distributor-logo-nisse.svg",
+  "usr/share/icons/hicolor/symbolic/apps/distributor-logo-nisse-symbolic.svg",
+  "usr/share/icons/hicolor/256x256/apps/distributor-logo-nisse.png",
+  "usr/share/icons/hicolor/48x48/apps/distributor-logo-nisse.png",
+  "usr/share/icons/hicolor/16x16/apps/distributor-logo-nisse.png",
+  "usr/share/pixmaps/fedora-logo.png",
+  "usr/share/pixmaps/fedora-logo-small.png",
+  "usr/share/pixmaps/system-logo-white.png",
+  "usr/share/pixmaps/fedora-logo-sprite.svg",
+]
+requests = [
+  { title = "Website and favicon mark", seen = "Browser tab and the project page" },
+  { title = "Nisse panel tray icon (monochrome, all states)", seen = "System tray: idle, busy, needs-you, error" },
+]
+
+[[group]]
+id = "avatars"
+title = "Avatars and mascots"
+seen = "User picture at login and in the user settings; the Konqi mascot art KDE ships"
+patterns = [
+  "usr/share/plasma/avatars/*.png",
+  "usr/share/icons/hicolor/scalable/apps/mascot_konqi_3rdparty.svg",
+  "usr/share/icons/hicolor/scalable/apps/fedora-loves-kde.svg",
+]
+requests = [
+  { title = "A Nisse default user avatar set", seen = "Login screen and first-run user setup" },
+]
+
+[[group]]
+id = "boot"
+title = "Boot, login and lock screens"
+seen = "From power-on to the desktop, and when the screen locks or you log out"
+patterns = [
+  "usr/share/plymouth/themes/*/*.png",
+  "usr/share/anaconda/boot/*.png",
+  "usr/share/plasma/look-and-feel/*/contents/previews/lockscreen.png",
+  "usr/share/plasma/look-and-feel/*/contents/previews/splash.png",
+  "usr/share/plasma/look-and-feel/*/contents/splash/images/*",
+]
+collapse_by = "usr/share/plymouth/themes/([^/]+)/"
+missing = true
+requests = [
+  { title = "GRUB boot menu background and logo", seen = "Boot menu: the image today has a plain text menu with no artwork" },
+  { title = "Plasma Login Manager background and theme", seen = "Login screen: plasmalogin ships no artwork of its own" },
+  { title = "Lock screen scene", seen = "When the screen locks (today it reuses the wallpaper)" },
+  { title = "Logout / shutdown / restart screen", seen = "The full-screen choice dialog" },
+]
+
+[[group]]
+id = "installer"
+title = "Installer and first run"
+seen = "Install to Hard Drive (Anaconda), the Welcome Center and the live session"
+patterns = [
+  "usr/share/anaconda/pixmaps/*.png",
+  "usr/share/icons/hicolor/48x48/apps/anaconda.png",
+  "usr/share/icons/hicolor/scalable/apps/anaconda.svg",
+  "usr/share/pixmaps/splash/gnome-splash.png",
+  "usr/share/pixmaps/bootloader/*.icns",
+]
+requests = [
+  { title = "Welcome Center slides (the pages of the first-run tour)", seen = "Welcome to Nisse! window on first boot" },
+  { title = "Desktop icon: Install to Hard Drive", seen = "Live session desktop" },
+]
+
+[[group]]
+id = "wallpapers"
+title = "Wallpapers"
+seen = "Desktop background (light and dark variants)"
+patterns = [
+  "usr/share/wallpapers/*/contents/images*/*.png",
+  "usr/share/wallpapers/*/contents/images*/*.jpg",
+  "usr/share/backgrounds/**/*.png",
+  "usr/share/backgrounds/**/*.jpg",
+]
+collapse_by = "usr/share/(?:wallpapers|backgrounds)/((?:[^/]+/)?[^/]+?)/(?:contents/)?(?:images|[^/]+\\.(?:png|jpg))"
+missing = true
+requests = [
+  { title = "Nisse default wallpaper (light, dark and a time-of-day pair)", seen = "First thing on the desktop" },
+]
+
+[[group]]
+id = "lookandfeel"
+title = "Plasma look and feel"
+seen = "Whole-desktop themes and their previews"
+patterns = [
+  "usr/share/plasma/look-and-feel/*/contents/previews/preview.png",
+  "usr/share/plasma/look-and-feel/*/contents/previews/fullscreenpreview.jpg",
+]
+requests = [
+  { title = "Window decoration (title bar buttons, shadows, corners)", seen = "Every window; drawn in code by the Breeze decoration, so it needs a design brief, not a file" },
+]
+
+[[group]]
+id = "plasmatheme"
+title = "Plasma theme sheets"
+seen = "Panel, dialogs, tooltips, tray, widgets, task manager"
+patterns = ["usr/share/plasma/desktoptheme/default/**/*.svgz"]
+
+[[group]]
+id = "cursors"
+title = "Cursors"
+seen = "The mouse pointer"
+patterns = ["usr/share/icons/breeze_cursors/cursors/*"]
+kind = "cursor"
+
+[[group]]
+id = "colors"
+title = "Color schemes"
+seen = "Window, view, button, selection and tooltip colours"
+patterns = ["usr/share/color-schemes/*.colors"]
+requests = [
+  { title = "Nisse Ember colour scheme (dark shell, light document areas)", seen = "Whole desktop; chosen palette is Ember, see docs/roadmap.md 1.1" },
+]
+
+[[group]]
+id = "icons"
+title = "Core icons"
+seen = "Dolphin, System Settings, the tray, dialogs, the panel and menus"
+icon_list = "icons.txt"
+
+[[group]]
+id = "appicons"
+title = "Default application icons"
+seen = "Launcher, taskbar and menus"
+icon_list = "apps.txt"
+
+[[group]]
+id = "sounds"
+title = "Sounds"
+seen = "Login, logout, notifications, errors and volume feedback (audio, not graphics)"
+patterns = ["usr/share/sounds/ocean/stereo/*.oga"]
+requests = [
+  { title = "Nisse login sound", seen = "After login" },
+]
