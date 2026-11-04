@@ -6,6 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 REL="$(cat build/FEDORA_RELEASE)"
+PROD="$(tr -d '[:space:]' < build/PRODUCT_VERSION)"   # Nisse's own version; REL is only the Fedora base
 RPMS=out/rpmbuild/RPMS/noarch
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
@@ -17,6 +18,16 @@ common="$(ls -v "$RPMS"/nisse-release-common-[0-9]*.rpm 2>/dev/null | tail -1 ||
 member() { rpm2cpio "$1" | cpio -i --to-stdout --quiet "./$2"; }
 
 osr="$(member "$main" usr/lib/os-release)"
+# The user-visible name and version are Nisse's own; VERSION_ID stays the Fedora base (dnf's $releasever, COPR and %fedora need it).
+for want in "VERSION=\"$PROD\"" "PRETTY_NAME=\"Nisse $PROD\"" "BUILD_ID=$PROD" "CPE_NAME=\"cpe:/o:nisse:nisse:$PROD\""; do
+    printf '%s
+' "$osr" | grep -qxF "$want" || fail "os-release lacks line: $want"
+done
+printf '%s
+' "$osr" | grep -E '^(PRETTY_NAME|VERSION)=' | grep -q "$REL" && fail "os-release shows the Fedora base ($REL) in its user-visible name or version"
+[ "$(rpm -qp --qf '%{VERSION}' "$main")" = "$REL" ] || fail "the RPM Version must stay the Fedora base $REL (dnf's releasever)"
+[ "$(member "$common" usr/lib/fedora-release)" = "Nisse release $PROD (Nisse)" ] || fail "/usr/lib/fedora-release must read: Nisse release $PROD (Nisse)"
+[ "$(member "$common" usr/lib/system-release-cpe)" = "cpe:/o:nisse:nisse:$PROD" ] || fail "system-release-cpe must be cpe:/o:nisse:nisse:$PROD"
 for want in 'ID=nisse' 'ID_LIKE="fedora"' 'LOGO=distributor-logo-nisse' "VERSION_ID=$REL" 'NAME="Nisse"'              'DEFAULT_HOSTNAME=nisse' 'HOME_URL="https://github.com/rnix90/nisse"'              'BUG_REPORT_URL="https://github.com/rnix90/nisse/issues"' 'SUPPORT_URL="https://github.com/rnix90/nisse"'; do
     printf '%s\n' "$osr" | grep -qxF "$want" || fail "os-release lacks line: $want"
 done

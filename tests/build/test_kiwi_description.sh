@@ -133,8 +133,9 @@ if command -v kiwi-ng >/dev/null 2>&1; then
     grep -q 'alias="fedora"' "$repos" && ok "repository alias fedora" || bad "no repository alias fedora"
     grep -q 'alias="nisse"' "$repos" && ok "repository alias nisse" || bad "no repository alias nisse"
     grep -rq 'alias="updates"' "$D" && bad "an updates repository is configured somewhere in the description (release repo only)" || ok "no updates repository"
-    rel="$(tr -d '[:space:]' < build/FEDORA_RELEASE)"
-    grep -q "volid=\"Nisse-$rel\"" "$live" && ok "volid is Nisse-$rel" || bad "volid is not Nisse-$rel"
+    prod="$(tr -d '[:space:]' < build/PRODUCT_VERSION)"
+    grep -q "volid=\"Nisse-$prod\"" "$live" && ok "volid is Nisse-$prod" || bad "volid is not Nisse-$prod"
+    grep -q "volid=\"Nisse-$(tr -d '[:space:]' < build/FEDORA_RELEASE)\"" "$live" && bad "the volid still uses the Fedora base release" || ok "the volid does not use the Fedora base release"
     if grep -rn '@[A-Z_]*@' "$D/Nisse.kiwi" "$D/nisse" >/dev/null 2>&1; then bad "unfilled @...@ placeholder"; else ok "no unfilled placeholder"; fi
 else
     echo "skip part 2 (rendered description): kiwi-ng not installed; run this test in the build VM"

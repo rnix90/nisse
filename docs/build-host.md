@@ -46,6 +46,15 @@ image it builds. Details: `docs/kiwi-spike.md`.
 4. Run `bash ~/nisse/tools/build/provision-vm.sh` (after `vm.sh sync`): installs the packages, makes SELinux
    permissive and pins Qt.
 
+## Two version numbers
+
+- `build/PRODUCT_VERSION` is Nisse's own version (0.2 now). It is what the system calls itself: os-release `VERSION`,
+  `PRETTY_NAME` and `BUILD_ID`, the CPE name, `/usr/lib/fedora-release` and the ISO volume id (`Nisse-0.2`, which the boot
+  menu's `root=live:CDLABEL=` must match). Bump it by hand when a milestone ships; there is no "alpha" label.
+- `build/FEDORA_RELEASE` is the Fedora base (44). It stays in os-release `VERSION_ID` and as the `nisse-release` RPM
+  `Version`, because dnf's `$releasever`, the COPR plugin and the `%fedora` macro are derived from them. Change it only
+  when moving to a new Fedora release (see "Refreshing the vendored Fedora description").
+
 ## Building and boot-testing the ISO
 
 The ISO is built with kiwi-ng from the Fedora kiwi description vendored in `build/kiwi/fedora/` plus the Nisse overlay

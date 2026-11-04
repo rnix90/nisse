@@ -11,9 +11,17 @@ iso="${1:?usage: test_iso_contents.sh ISO}"
 
 # The volume id comes from the kiwi description, but a wrapper or a set-type-attr option could override it, so read it
 # from the ISO itself.
-release="$(tr -d '[:space:]' < "$(dirname "$0")/../../build/FEDORA_RELEASE")"
+fedora_base="$(tr -d '[:space:]' < "$(dirname "$0")/../../build/FEDORA_RELEASE")"
+release="$(tr -d '[:space:]' < "$(dirname "$0")/../../build/PRODUCT_VERSION")"   # Nisse's own version, not the Fedora base
 xorriso -indev "$iso" -pvd_info 2>/dev/null | grep -q "^Volume Id *: *Nisse-$release\$" \
     || fail "the ISO volume id is not Nisse-$release"
+# The boot menu finds the ISO by this label: it must match the volume id, and nothing may still say the Fedora base.
+cfgs="$(mktemp -d)"
+xorriso -osirrox on -indev "$iso" -extract /EFI/BOOT "$cfgs/efi" >/dev/null 2>&1
+xorriso -osirrox on -indev "$iso" -extract /boot/grub2 "$cfgs/grub2" >/dev/null 2>&1
+grep -rqh "root=live:CDLABEL=Nisse-$release " "$cfgs" || { rm -rf "$cfgs"; fail "the boot menu does not boot from CDLABEL=Nisse-$release"; }
+if grep -rqh -E "Nisse[- ]$fedora_base" "$cfgs"; then rm -rf "$cfgs"; fail "the boot menu still names the Fedora base ($fedora_base) as Nisse's version"; fi
+rm -rf "$cfgs"
 
 work="$(mktemp -d)"
 cleanup() { sudo umount "$work/merged" 2>/dev/null || true; sudo umount "$work/mnt" 2>/dev/null || true; sudo rm -rf "$work"; }

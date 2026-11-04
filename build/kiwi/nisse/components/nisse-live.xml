@@ -14,7 +14,7 @@
   </profiles>
   <preferences profiles="Nisse-Live" arch="x86_64">
     <type image="iso"
-      publisher="Nisse" volid="Nisse-@RELEASE@" application_id="Nisse-@RELEASE@"
+      publisher="Nisse" volid="Nisse-@PRODUCT@" application_id="Nisse-@PRODUCT@"
       primary="true" flags="dmsquash" filesystem="erofs" erofscompression="lzma,level=6" mediacheck="true"
       firmware="uefi" efiparttable="gpt" efifatimagesize="30" kernelcmdline="@KERNELCMDLINE@"
       fscreateoptions="-Efragments -C 1048576"
