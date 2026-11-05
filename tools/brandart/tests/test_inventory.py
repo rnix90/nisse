@@ -313,3 +313,21 @@ icon_list = "icons.txt"
     (root / "notes.json").write_text(json.dumps(["icons: icon nope-a not found in the image"]))
     inv = inventory.build(root, write_surfaces(tmp_path, text), tmp_path / "out")
     assert len(inv["notes"]) == len(set(inv["notes"])) == 2
+
+
+def test_rebuilding_the_inventory_keeps_comments_backups_and_submissions(tmp_path):
+    root = make_root(tmp_path)
+    out = tmp_path / "keep"
+    inventory.build(root, write_surfaces(tmp_path, GOOD), out)
+    (out / "comments.json").write_text('{"direction": "mine"}')
+    (out / "comments.json.bak").write_text("old")
+    (out / "submission-2026-11-05.md").write_text("brief")
+    (out / "submission-2026-11-05").mkdir()
+    (out / "submission-2026-11-05" / "a.svg").write_text("<svg/>")
+    (out / "assets" / "stale.png").write_bytes(b"x")
+    inventory.build(root, write_surfaces(tmp_path, GOOD), out)
+    assert (out / "comments.json").read_text() == '{"direction": "mine"}'
+    assert (out / "comments.json.bak").read_text() == "old"
+    assert (out / "submission-2026-11-05.md").read_text() == "brief"
+    assert (out / "submission-2026-11-05" / "a.svg").exists()
+    assert not (out / "assets" / "stale.png").exists()

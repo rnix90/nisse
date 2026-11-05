@@ -89,6 +89,11 @@ Lessons from the kiwi migration (details in `docs/kiwi-spike.md`):
 - The vendored files must have Unix line endings. `vendor-kiwi.sh` clones with `core.autocrlf=false`; the Windows
   default converts them and breaks `config.sh` inside the VM.
 
+## Brand art review page
+
+After a new ISO, refresh the review page's inventory with `bash tools/brandart/extract_in_vm.sh` and
+`python tools/brandart/previews.py out/brandart`; comments survive. Details: `docs/brand-art.md`.
+
 ## Refreshing the vendored Fedora description
 
 Fedora maintains the live-image description at `https://pagure.io/fedora-kiwi-descriptions` (one branch per release).

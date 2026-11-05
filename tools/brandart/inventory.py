@@ -311,8 +311,11 @@ def build(root, surfaces, out, owners=None, image=None):
         notes.extend(json.loads(stage_notes.read_text(encoding="utf-8")))
     if not owners and (root / "owners.json").is_file():
         owner_map = json.loads((root / "owners.json").read_text(encoding="utf-8"))
-    if out.exists():
-        shutil.rmtree(out)
+    # Only what this build makes is replaced: the reviewer's comments, their backup and any submissions live in the
+    # same folder and must survive a re-extraction.
+    if (out / "assets").exists():
+        shutil.rmtree(out / "assets")
+    (out / "inventory.json").unlink(missing_ok=True)
     (out / "assets").mkdir(parents=True)
     taken, groups = set(), []
     for group in load_surfaces(surfaces):
