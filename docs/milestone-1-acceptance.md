@@ -1,5 +1,17 @@
 # Milestone 1 acceptance
 
+**SUPERSEDED 2026-11-12 (ledger N-003).** Bert never ran this list; it is retired into the Milestone 2
+acceptance (`docs/milestone-2-acceptance.md`, ledger N-813). Where each item went:
+
+- Scripted later: the spoofed-Surface install, the hardware post-script log and the `kernel-surface` check (N-303,
+  N-807, N-810); the `os-release` and `fc-match` lines (already in the ISO contents test); the start button
+  (`tests/e2e/check_start_button.py`); the no-network panel error (N-806); the installer art (N-519).
+- Manual, folded into N-813: sign in to the Max account and confirm the first-boot fetch reached `installed`; send
+  "hello" in the panel and get a reply; run a prompt that makes the agent use a tool and confirm the audit view lists
+  it; look at the About this System card by eye.
+
+The text below is kept as history.
+
 Milestone 1 is the thin slice from the design: a bootable branded ISO, a bare-bones panel, and hardware-based
 kernel selection. Most of it is checked by scripts. A few things need a person, once.
 
