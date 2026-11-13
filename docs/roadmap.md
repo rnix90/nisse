@@ -4,6 +4,10 @@ Status: draft, 2026-11-02. Written from the approved design (`docs/superpowers/s
 kiwi amendment, the review decisions recorded in memory, and Bert's answers of 2026-11-02. Items marked (guess) are my
 proposal, not something Bert said. Items marked (decision) wait for Bert and are asked one at a time.
 
+**The task queue now lives in `docs/planning/TASK-LEDGER.md` (2026-11-12).** This file keeps the why and the shape; the
+ledger holds the ordered, checkable tasks, and its rule 13 maps these phases to its stages. Do not work from the tables
+below without checking the ledger.
+
 ## Where we are
 
 Milestone 1 (thin slice) and the kiwi build switch are done and on `daily`: a branded ISO built with kiwi boots to
