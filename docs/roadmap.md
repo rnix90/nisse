@@ -54,7 +54,7 @@ preset set is adopted except `plasma-setup.service`; Flatpak remotes are Fedora'
 | 1.2 | Plasma color scheme, theme, window decorations | Based on the chosen palette; light and dark variants if wanted |
 | 1.3 | Icon theme, cursor theme | (guess) start from a base set and override the Nisse icons; custom cursor only if it adds value |
 | 1.4 | Wallpapers and lock/login backgrounds | Nisse artwork from the logo assets; at least one wallpaper per variant |
-| 1.5 | Fonts | Nunito as UI font (already shipped); choose a monospace and a document font (decision) |
+| 1.5 | Fonts | Decided 2026-11-12 (Bert, from rendered sheets): Nunito = UI (already shipped), Fira Code = monospace (terminal, code editor), Literata = default document font. All OFL-1.1 and packaged in Fedora 44 (`fira-code-fonts` 6.2, `typetogether-literata-fonts` 2.200) |
 | 1.6 | Panel, launcher and default layout | (guess) one panel layout shipped via the Plasma look-and-feel package and `/etc/skel`; Nisse panel entry pinned |
 | 1.7 | Shortcuts and window behaviour | Defaults for shortcuts, animations, night light, window rules |
 | 1.8 | Login screen (Plasma Login Manager) | Branded theme and logo |
@@ -114,6 +114,6 @@ then the rest of Phase 1, 2.4 to 2.6, Phase 3, and Phase 4 to close. Phases 1 an
 ## Decisions waiting on Bert
 
 1. ~~Palette direction (1.1)~~: decided, Ember.
-2. Monospace and document fonts (1.5).
+2. ~~Monospace and document fonts (1.5)~~: decided, Fira Code and Literata.
 3. Default apps to keep or drop (1.11); it decides which apps 1.14 must cover.
 4. Any preset item that is a real tradeoff (0.3), asked when met.

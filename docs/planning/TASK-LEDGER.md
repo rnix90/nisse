@@ -43,7 +43,7 @@ added says "call"), *Done when* (a fast check), *Depends*. The how is worked out
 
 ## NOW
 
-**Next: N-101** (choose the fonts). Nothing else has been started.
+**Next: N-102** (the palette tokens file). Nothing else has been started.
 
 Where we are, 2026-11-12: Milestone 1, the kiwi build, Phase 0, the branding foundations and the brand art review page
 are done (see DONE). `daily` is at 5946201 on GitHub; `main` has not moved since the initial commit. Bert's first art
@@ -87,7 +87,7 @@ Bert's rule from 2026-11-05 ("do all of them in one pass") is the reason gates e
 
 ## STAGE 1 - The Ember foundation (look and feel, part 1: tokens, theme, harness)
 
-- [ ] **N-101** `[phone]` **Choose the fonts.** A monospace and a document font to sit beside Nunito (UI). Candidates must be OFL or equivalent so they can ship. *Source:* roadmap 1.5, "Decisions waiting on Bert" 2. *Done when:* two picks recorded in the roadmap and ledger, licenses noted. *Depends:* none.
+- [x] **N-101** `[phone]` **DONE 2026-11-12: Bert chose Fira Code (monospace) and Literata (document font) from rendered sheets; both OFL-1.1, in Fedora 44 as `fira-code-fonts` 6.2 and `typetogether-literata-fonts` 2.200; recorded in roadmap 1.5.** Original entry follows. **Choose the fonts.** A monospace and a document font to sit beside Nunito (UI). Candidates must be OFL or equivalent so they can ship. *Source:* roadmap 1.5, "Decisions waiting on Bert" 2. *Done when:* two picks recorded in the roadmap and ledger, licenses noted. *Depends:* none.
 - [ ] **N-102** `[build]` **Palette tokens file.** One machine-readable source of truth for Ember: Ink, Paper, accent, derived surface, hover, disabled and semantic colors, with a light-document variant. Generates the values other tasks consume (QML, Plasma color scheme, SVG). *Source:* roadmap 1.1 (exact hex "to be tuned for contrast"); decision 2026-11-02 Ember. *Done when:* `assets/palette/ember.json` exists and a test asserts text-on-surface contrast meets WCAG AA for every pairing the desktop uses. *Depends:* none.
 - [ ] **N-103** `[phone]` **Approve the palette sheet.** Bert sees rendered swatches and a mock of dark shell plus light document app, and approves or tunes the exact hexes. *Source:* roadmap 1.1, 1.14. *Done when:* approved hexes committed in N-102's file. *Depends:* N-102.
 - [ ] **N-104** `[build]` **Plasma color scheme from the tokens.** Ember dark scheme (and the light-document scheme) generated, not hand-written. *Source:* roadmap 1.2. *Done when:* generated file passes a test that every key stock Breeze Dark defines is present, and it loads in the VM desktop. *Depends:* N-103.
