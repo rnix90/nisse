@@ -1,0 +1,15 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Nisse"
+            }
+        ],
+        "Category": "",
+        "Description": "The Nisse desktop: the Ember dark look",
+        "Id": "org.nisse.desktop",
+        "License": "GPL-2.0-or-later",
+        "Name": "Nisse"
+    }
+}

@@ -133,4 +133,17 @@ case "$(rpmq -qf "$about_logo" 2>/dev/null)" in nisse-branding-*) ;; *) fail "th
 case "$(rpmq -qf /usr/share/icons/hicolor/scalable/apps/start-here.svg 2>/dev/null)" in nisse-branding-*) ;; *) fail "the start button icon start-here.svg is not a nisse-branding file" ;; esac
 echo "placeholder art: $replaced paths replaced by nisse-branding, $(grep -c '^D ' "$manifest") dropped, generic-logos absent"
 
+# The Nisse global themes (ledger N-108). Fedora's look-and-feel package stays installed because plasma-workspace
+# requires it at an exact version, so the test is about the DEFAULT: Nisse's file is the first one the session reads,
+# and it names a Nisse look, whatever Fedora's kde-settings profile still says further down the search path.
+for id in org.nisse.desktop org.nisse.desktop.light; do
+    [ -f "$root/usr/share/plasma/look-and-feel/$id/metadata.json" ] || fail "look-and-feel $id missing from the image"
+done
+case "$(rpmq -qf /etc/xdg/kdeglobals 2>/dev/null)" in nisse-lookandfeel-*) ;; *) fail "/etc/xdg/kdeglobals is not owned by nisse-lookandfeel" ;; esac
+grep -qx 'LookAndFeelPackage=org.nisse.desktop' "$root/etc/xdg/kdeglobals" || fail "the system default look-and-feel is not org.nisse.desktop"
+grep -qx 'ColorScheme=NisseEmber' "$root/etc/xdg/kdeglobals" || fail "the system default color scheme is not NisseEmber"
+grep -qE '^ *XDG_CONFIG_DIRS=/etc/xdg:/usr/share/kde-settings' "$root/etc/xdg/plasma-workspace/env/env.sh" \
+    || fail "Fedora's session env no longer searches /etc/xdg before its own profile: Nisse's system default would lose"
+echo "look and feel: org.nisse.desktop is the system default, Fedora's profile is searched after it"
+
 echo "PASS: ISO contents ($iso), Qt $qt"

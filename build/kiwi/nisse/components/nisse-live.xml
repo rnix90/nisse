@@ -31,6 +31,7 @@
     <package name="nisse-branding"/>
     <package name="nisse-fonts-nunito"/>
     <package name="nisse-theme"/>
+    <package name="nisse-lookandfeel"/>
     <package name="nisse-hw"/>
     <package name="nisse-firstboot"/>
     <package name="nisse-daemon"/>
