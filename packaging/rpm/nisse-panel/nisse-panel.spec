@@ -35,11 +35,14 @@ mkdir -p licenses
 install -pm 0644 %{nisse_root}/LICENSE licenses/LICENSE
 install -Dpm 0755 build/nisse-panel %{buildroot}%{_bindir}/nisse-panel
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/applications/nisse-panel.desktop
+# the default global shortcut (Meta+N) is read from the desktop file in this directory, as for Konsole's Ctrl+Alt+T
+install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/kglobalaccel/nisse-panel.desktop
 
 %files
 %license licenses/LICENSE
 %{_bindir}/nisse-panel
 %{_datadir}/applications/nisse-panel.desktop
+%{_datadir}/kglobalaccel/nisse-panel.desktop
 
 %changelog
 * Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1

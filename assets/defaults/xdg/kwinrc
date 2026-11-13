@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Nisse system defaults for KWin (ledger N-111, docs/defaults.md line 3). Installed as /etc/xdg/kwinrc, which the session
+# reads before Fedora's kde-settings profile; every key not named here keeps Fedora's or Plasma's value.
+# Night Light on, following Plasma's own day-night schedule, 4500 K at night (keys from Plasma 6.6.4 nightlightsettings.kcfg).
+[NightColor]
+Active=true
+Mode=DarkLight
+NightTemperature=4500

@@ -122,7 +122,7 @@ if command -v kiwi-ng >/dev/null 2>&1; then
     esac
 
     live="$D/nisse/components/nisse-live.xml"
-    for p in nisse-release nisse-release-common nisse-branding nisse-fonts-nunito nisse-theme nisse-lookandfeel nisse-hw nisse-firstboot nisse-daemon nisse-panel anaconda-live; do
+    for p in nisse-release nisse-release-common nisse-branding nisse-fonts-nunito nisse-theme nisse-lookandfeel nisse-defaults nisse-hw nisse-firstboot nisse-daemon nisse-panel anaconda-live; do
         grep -q "<package name=\"$p\"/>" "$live" && ok "Nisse-Live installs $p" || bad "Nisse-Live lacks $p"
     done
     for p in fedora-release-kde fedora-release generic-logos fedora-logos; do

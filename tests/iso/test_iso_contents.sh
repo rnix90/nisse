@@ -155,4 +155,17 @@ done
 case "$(rpmq -qf /usr/share/applications/nisse-panel.desktop 2>/dev/null)" in nisse-panel-*) ;; *) fail "nisse-panel.desktop is not owned by nisse-panel" ;; esac
 echo "panel layout: both looks pin the Nisse panel app first"
 
+# The approved desktop defaults (docs/defaults.md, ledger N-111). Night Light and Meta+N are ours; the rest are Fedora's
+# or Plasma's values kept on purpose, so assert that Fedora's kde-settings still ships them.
+prof="$root/usr/share/kde-settings/kde-profile/default/xdg"
+case "$(rpmq -qf /etc/xdg/kwinrc 2>/dev/null)" in nisse-defaults-*) ;; *) fail "/etc/xdg/kwinrc is not owned by nisse-defaults" ;; esac
+grep -qx 'Active=true' "$root/etc/xdg/kwinrc" || fail "Night Light is not on by default"
+grep -qx 'NightTemperature=4500' "$root/etc/xdg/kwinrc" || fail "the Night Light night temperature is not 4500"
+grep -qx 'SingleClick=false' "$prof/kdeglobals" || fail "Fedora no longer sets double-click (approved default 1)"
+grep -qx 'loginMode=default' "$prof/ksmserverrc" || fail "Fedora no longer starts sessions empty (approved default 7)"
+grep -q 'exclude folders.*=\$HOME' "$prof/baloofilerc" || fail "Fedora no longer excludes the home folder from indexing (approved default 8)"
+grep -qx 'VirtualKeyboardEnabled=true' "$prof/kwinrc" || fail "Fedora no longer enables the on-screen keyboard (approved default 9)"
+grep -qx 'X-KDE-Shortcuts=Meta+N' "$root/usr/share/kglobalaccel/nisse-panel.desktop" || fail "Meta+N is not the Nisse panel's default shortcut"
+echo "defaults: Night Light on at 4500 K, Meta+N for the panel, Fedora's kept values still in place"
+
 echo "PASS: ISO contents ($iso), Qt $qt"
