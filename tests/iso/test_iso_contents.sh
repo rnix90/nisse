@@ -168,4 +168,12 @@ grep -qx 'VirtualKeyboardEnabled=true' "$prof/kwinrc" || fail "Fedora no longer 
 grep -qx 'X-KDE-Shortcuts=Meta+N' "$root/usr/share/kglobalaccel/nisse-panel.desktop" || fail "Meta+N is not the Nisse panel's default shortcut"
 echo "defaults: Night Light on at 4500 K, Meta+N for the panel, Fedora's kept values still in place"
 
+# The terminal (ledger N-112): the Nisse scheme and profile are in the image, and the default profile names them.
+for f in /usr/share/konsole/NisseEmber.colorscheme /usr/share/konsole/Nisse.profile; do
+    [ -f "$root$f" ] || fail "$f missing from the image"
+done
+grep -qx 'DefaultProfile=Nisse.profile' "$root/usr/share/kde-settings/kde-profile/default/xdg/konsolerc" || fail "the default Konsole profile is not Nisse.profile"
+case "$(rpmq -qf /etc/xdg/konsolerc 2>/dev/null)" in konsole-part-*) ;; *) fail "/etc/xdg/konsolerc is no longer owned by konsole-part (Fedora changed where it keeps Konsole's defaults)" ;; esac
+echo "terminal: the Nisse scheme and profile are the Konsole default"
+
 echo "PASS: ISO contents ($iso), Qt $qt"

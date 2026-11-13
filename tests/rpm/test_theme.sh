@@ -26,10 +26,17 @@ for n in NisseEmber NisseEmberLight; do
 done
 echo "ok   packaged schemes are byte-identical to the generated files"
 
+# the terminal: scheme and profile, byte-identical to the committed files (ledger N-112)
+for f in /usr/share/konsole/NisseEmber.colorscheme /usr/share/konsole/Nisse.profile; do
+    printf '%s\n' "$files" | grep -qxF "$f" || fail "theme RPM lacks $f"
+    cmp -s "$scratch$f" "assets/theme/konsole/$(basename "$f")" || fail "$f in the RPM differs from assets/theme/konsole/$(basename "$f")"
+done
+echo "ok   the Konsole scheme and profile are packaged and match the repo files"
+
 # nothing but the schemes: the theme package must not drag Breeze or Fedora art along
-extra="$(printf '%s\n' "$files" | grep -v -E '^/usr/share/(color-schemes/NisseEmber(Light)?\.colors|licenses/nisse-theme(/.*)?)$' || true)"
+extra="$(printf '%s\n' "$files" | grep -v -E '^/usr/share/(color-schemes/NisseEmber(Light)?\.colors|konsole/(NisseEmber\.colorscheme|Nisse\.profile)|licenses/nisse-theme(/.*)?)$' || true)"
 [ -z "$extra" ] || fail "unexpected files in the theme RPM: $(echo "$extra" | tr '\n' ' ')"
-echo "ok   the package holds only the schemes and its license"
+echo "ok   the package holds only the schemes, the terminal files and its license"
 
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpm_path")" = "GPL-2.0-or-later" ] || fail "theme License must be GPL-2.0-or-later"
 [ "$(rpm -qp --qf '%{ARCH}' "$rpm_path")" = "noarch" ] || fail "theme must be noarch"

@@ -49,6 +49,26 @@
     "alert":      {"hex": "#c0392b", "role": "errors"},
     "visited":    {"hex": "#6f46a8", "role": "visited links on light pages"}
   },
+  "terminal": {
+    "bg":             {"hex": "#1b2330", "role": "terminal background: Ink, same as dark.base"},
+    "fg":             {"hex": "#f6f2e9", "role": "terminal text: Paper, same as dark.text"},
+    "black":          {"hex": "#2b3749", "role": "ANSI 0, a dark surface (same as dark.surface-2); not for text"},
+    "red":            {"hex": "#ff7a88", "role": "ANSI 1 (same as dark.alert-text)"},
+    "green":          {"hex": "#58b983", "role": "ANSI 2 (same as dark.ok-text)"},
+    "yellow":         {"hex": "#e5a93d", "role": "ANSI 3 (same as dark.warn)"},
+    "blue":           {"hex": "#5aa0e0", "role": "ANSI 4 (same as dark.info)"},
+    "magenta":        {"hex": "#bba0ee", "role": "ANSI 5 (same as dark.visited, the soft lilac)"},
+    "cyan":           {"hex": "#5cc8c0", "role": "ANSI 6, new: the palette had no cyan"},
+    "white":          {"hex": "#aab1bd", "role": "ANSI 7 (same as dark.text-muted)"},
+    "bright-black":   {"hex": "#8390a3", "role": "ANSI 8, comments and dim text; the outline color lightened to reach 4.5"},
+    "bright-red":     {"hex": "#f28463", "role": "ANSI 9: Ember (same as dark.accent-text)"},
+    "bright-green":   {"hex": "#7ad0a0", "role": "ANSI 10"},
+    "bright-yellow":  {"hex": "#f2c66d", "role": "ANSI 11"},
+    "bright-blue":    {"hex": "#86bdf0", "role": "ANSI 12"},
+    "bright-magenta": {"hex": "#d2bef5", "role": "ANSI 13"},
+    "bright-cyan":    {"hex": "#8ee0d8", "role": "ANSI 14"},
+    "bright-white":   {"hex": "#f6f2e9", "role": "ANSI 15: Paper (same as dark.text)"}
+  },
   "pairs": [
     {"fg": "dark.text",       "bg": "dark.base",      "min": 4.5, "kind": "text",  "use": "body text"},
     {"fg": "dark.text",       "bg": "dark.surface",   "min": 4.5, "kind": "text",  "use": "text on a panel"},
@@ -92,6 +112,22 @@
     {"fg": "light.alert",     "bg": "light.paper",    "min": 4.5, "kind": "text",  "use": "error text on app chrome"},
     {"fg": "light.visited",   "bg": "light.page",     "min": 4.5, "kind": "text",  "use": "visited links in a document"},
     {"fg": "light.visited",   "bg": "light.paper",    "min": 4.5, "kind": "text",  "use": "visited links on app chrome"},
-    {"fg": "light.outline",   "bg": "light.page",     "min": 3.0, "kind": "shape", "use": "control outline"}
+    {"fg": "light.outline",   "bg": "light.page",     "min": 3.0, "kind": "shape", "use": "control outline"},
+    {"fg": "terminal.fg", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, fg"},
+    {"fg": "terminal.red", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, red"},
+    {"fg": "terminal.green", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, green"},
+    {"fg": "terminal.yellow", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, yellow"},
+    {"fg": "terminal.blue", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, blue"},
+    {"fg": "terminal.magenta", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, magenta"},
+    {"fg": "terminal.cyan", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, cyan"},
+    {"fg": "terminal.white", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, white"},
+    {"fg": "terminal.bright-black", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, bright-black"},
+    {"fg": "terminal.bright-red", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, bright-red"},
+    {"fg": "terminal.bright-green", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, bright-green"},
+    {"fg": "terminal.bright-yellow", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, bright-yellow"},
+    {"fg": "terminal.bright-blue", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, bright-blue"},
+    {"fg": "terminal.bright-magenta", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, bright-magenta"},
+    {"fg": "terminal.bright-cyan", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, bright-cyan"},
+    {"fg": "terminal.bright-white", "bg": "terminal.bg", "min": 4.5, "kind": "text",  "use": "terminal text, bright-white"}
   ]
 }

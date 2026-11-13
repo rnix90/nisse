@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Nisse system default for Konsole (ledger N-112): new terminals open with the Nisse profile.
+# Fedora's konsole-part owns /etc/xdg/konsolerc, so this file lives in the kde-settings profile directory, which the
+# Plasma session searches after /etc/xdg; keys not named here keep Fedora's values.
+[Desktop Entry]
+DefaultProfile=Nisse.profile

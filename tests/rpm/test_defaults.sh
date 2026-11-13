@@ -31,6 +31,14 @@ want "$k" NightColor Mode DarkLight
 want "$k" NightColor NightTemperature 4500
 echo "ok   Night Light on, automatic schedule, 4500 K"
 
+# the default terminal profile (ledger N-112): Fedora's konsole-part owns /etc/xdg/konsolerc, so ours lives in the
+# kde-settings profile directory the Plasma session searches after /etc/xdg
+kr=/usr/share/kde-settings/kde-profile/default/xdg/konsolerc
+printf '%s\n' "$files" | grep -qxF "$kr" || fail "defaults RPM lacks $kr"
+if printf '%s\n' "$files" | grep -qxF /etc/xdg/konsolerc; then fail "defaults RPM must not ship /etc/xdg/konsolerc (konsole-part owns it)"; fi
+want "$scratch$kr" 'Desktop Entry' DefaultProfile Nisse.profile
+echo "ok   the Nisse terminal profile is the default"
+
 # the lines the list keeps from Fedora must not be overridden here: this package sets only what changed
 for bad in SingleClick loginMode VirtualKeyboardEnabled; do
     if grep -rq "$bad" "$scratch/etc"; then fail "the package overrides $bad (approved line: keep Fedora's value)"; fi
@@ -40,8 +48,10 @@ echo "ok   only the changed lines are set"
 
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpm_path")" = "GPL-2.0-or-later" ] || fail "defaults License must be GPL-2.0-or-later"
 [ "$(rpm -qp --qf '%{ARCH}' "$rpm_path")" = "noarch" ] || fail "defaults must be noarch"
-rpm -qp --requires "$rpm_path" | grep -qx 'kwin-common\( .*\)\?' || fail "defaults RPM must require kwin-common (it owns the Night Light schema)"
-echo "ok   requires kwin-common"
+for dep in kwin-common kde-settings nisse-theme; do
+    rpm -qp --requires "$rpm_path" | grep -qxE "$dep( .*)?" || fail "defaults RPM must require $dep"
+done
+echo "ok   requires kwin-common, kde-settings and nisse-theme"
 
 out="$(rpmlint "$rpm_path" 2>&1 || true)"
 echo "$out" | tail -3

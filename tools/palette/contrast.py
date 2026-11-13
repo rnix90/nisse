@@ -39,8 +39,8 @@ def token(palette, dotted):
 def check(palette):
     """Return a list of problems; an empty list means every declared pair meets its minimum."""
     problems = []
-    for group in ("dark", "light"):
-        for name, t in palette[group].items():
+    for group in ("dark", "light", "terminal"):
+        for name, t in palette.get(group, {}).items():
             if not HEX.match(t["hex"]):
                 problems.append(f"{group}.{name}: {t['hex']!r} is not a lowercase #rrggbb value")
     for p in palette["pairs"]:
