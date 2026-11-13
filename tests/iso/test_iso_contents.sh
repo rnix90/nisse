@@ -146,4 +146,13 @@ grep -qE '^ *XDG_CONFIG_DIRS=/etc/xdg:/usr/share/kde-settings' "$root/etc/xdg/pl
     || fail "Fedora's session env no longer searches /etc/xdg before its own profile: Nisse's system default would lose"
 echo "look and feel: org.nisse.desktop is the system default, Fedora's profile is searched after it"
 
+# The default panel layout (ledger N-109): both looks carry the script, and the Nisse panel app it pins really exists.
+for id in org.nisse.desktop org.nisse.desktop.light; do
+    f="$root/usr/share/plasma/look-and-feel/$id/contents/layouts/org.kde.plasma.desktop-layout.js"
+    [ -f "$f" ] || fail "$id has no default panel layout script"
+    grep -q 'applications:nisse-panel.desktop' "$f" || fail "the $id layout does not pin the Nisse panel app"
+done
+case "$(rpmq -qf /usr/share/applications/nisse-panel.desktop 2>/dev/null)" in nisse-panel-*) ;; *) fail "nisse-panel.desktop is not owned by nisse-panel" ;; esac
+echo "panel layout: both looks pin the Nisse panel app first"
+
 echo "PASS: ISO contents ($iso), Qt $qt"

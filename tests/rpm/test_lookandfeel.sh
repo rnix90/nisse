@@ -84,6 +84,23 @@ done
 grep -q 'writeConfig("icon", "start-here")' assets/theme/lookandfeel/start-here-icon.js || fail "start-here-icon.js does not set the start-here icon"
 echo "ok   start button setup scripts match the one source file"
 
+# the default panel layout (ledger N-109): the same script in both looks, pinning the Nisse panel app first
+src=assets/theme/lookandfeel/layout.js
+for id in org.nisse.desktop org.nisse.desktop.light; do
+    f="$scratch$LAF/$id/contents/layouts/org.kde.plasma.desktop-layout.js"
+    [ -f "$f" ] || fail "$id has no contents/layouts/org.kde.plasma.desktop-layout.js"
+    cmp -s "$f" "$src" || fail "$id layout differs from $src"
+done
+launchers="$(sed -n '/writeConfig("launchers"/,/\])/p' "$src" | grep -o '"[a-z]*:[^"]*"' | tr -d '"' | tr '\n' ' ')"
+[ "$launchers" = "applications:nisse-panel.desktop preferred://filemanager preferred://browser applications:org.kde.konsole.desktop applications:systemsettings.desktop " ] \
+    || fail "pinned launchers are not, in order: nisse-panel, file manager, browser, terminal, System Settings (got: $launchers)"
+grep -q 'addWidget("org.kde.plasma.kickoff")' "$src" || fail "layout lacks the start button"
+for w in systemtray digitalclock showdesktop; do grep -q "addWidget(\"org.kde.plasma.$w\")" "$src" || fail "layout lacks $w"; done
+if grep -v '^//' "$src" | grep -q -i -E 'pager|discover'; then fail "layout must not add the pager or Discover (approved N-109)"; fi
+# the pinned Nisse entry must name a desktop file that nisse-panel really ships
+grep -q 'nisse-panel.desktop' packaging/rpm/nisse-panel/nisse-panel.spec || fail "nisse-panel does not ship nisse-panel.desktop"
+echo "ok   both looks carry the default panel layout, Nisse panel app pinned first"
+
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpm_path")" = "GPL-2.0-or-later" ] || fail "look-and-feel License must be GPL-2.0-or-later"
 [ "$(rpm -qp --qf '%{ARCH}' "$rpm_path")" = "noarch" ] || fail "look-and-feel must be noarch"
 req="$(rpm -qp --requires "$rpm_path")"

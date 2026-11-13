@@ -26,7 +26,8 @@ mkdir -p licenses
 install -pm 0644 %{nisse_root}/LICENSE licenses/LICENSE
 laf=%{buildroot}%{_datadir}/plasma/look-and-feel
 for id in org.nisse.desktop org.nisse.desktop.light; do
-    install -d "$laf/$id/contents/plasmoidsetupscripts"
+    install -d "$laf/$id/contents/plasmoidsetupscripts" "$laf/$id/contents/layouts"
+    install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/layout.js "$laf/$id/contents/layouts/org.kde.plasma.desktop-layout.js"
     install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/$id/metadata.json "$laf/$id/metadata.json"
     install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/$id/contents/defaults "$laf/$id/contents/defaults"
     for p in kickoff kicker kickerdash; do
