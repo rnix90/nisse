@@ -1,6 +1,7 @@
 # Nisse task ledger - the single source of truth
 
-Status: DRAFT 2026-11-12. The order of stages and tasks is Claude's call until Bert approves it (N-001).
+Status: 2026-11-12. Order approved by Bert (N-001): look first, then the AI core, then the rollback net and the art
+alternating, with one gate per block.
 
 **This file is the project's backlog and its memory.** Chat sessions are ephemeral; this file is not. Any agent picking
 up Nisse reads this file first. The roadmap (`docs/roadmap.md`) keeps the why and the shape; this ledger is the queue.
@@ -33,6 +34,8 @@ When Bert says it:
 **Status key:** `[ ]` open, `[~]` in progress, `[x]` done, `[!]` blocked (being attempted and something stops it: a
 problem), `[-]` cut. A parked task is `[ ]` in the DEFERRED section, which is not the same thing.
 
+**Gates in file order:** GATE 1 (N-114), GATE 2 (N-219), GATE 3 (N-313), GATE 4 (N-520), GATE 5 (N-709), GATE 6 (N-814).
+
 **Entry shape:** id, tag, what, *Source* (design section, roadmap id, dated decision, or submission id; anything Claude
 added says "call"), *Done when* (a fast check), *Depends*. The how is worked out in the proposal step, not written here.
 
@@ -40,7 +43,7 @@ added says "call"), *Done when* (a fast check), *Depends*. The how is worked out
 
 ## NOW
 
-**Next: N-001** (approve the order of this ledger). Nothing else has been started.
+**Next: N-002** (finish the branch). Nothing else has been started.
 
 Where we are, 2026-11-12: Milestone 1, the kiwi build, Phase 0, the branding foundations and the brand art review page
 are done (see DONE). `daily` is at 5946201 on GitHub; `main` has not moved since the initial commit. Bert's first art
@@ -76,8 +79,8 @@ Bert's rule from 2026-11-05 ("do all of them in one pass") is the reason gates e
 
 ## STAGE 0 - Close-out and ground rules
 
-- [ ] **N-001** `[phone]` **Approve the order of this ledger.** Stages run 0 to 9 in file order; stages 1 (look) and 2-3 (AI core, rollback net) are independent in the roadmap, so the order between them is a real choice. *Source:* roadmap "Suggested order"; call. *Done when:* Bert has approved or reordered, and the NOW block says so. *Depends:* none.
-- [ ] **N-002** `[phone]` **Finish the branch.** Pick what happens to `daily`: merge to `main` locally, open a pull request, keep as is, or discard. Includes the first MERGE-SCRUBS entry if merged (CLAUDE.md rule 4). *Source:* finishing-a-development-branch menu still owed; milestone-1-decisions "promote daily to main?". *Done when:* Bert chose, it is done, and `main`/`daily` state is written in the NOW block. *Depends:* N-001.
+- [x] **N-001** `[phone]` **DONE 2026-11-12: Bert chose "alternate by gate": GATE 1 (Ember core), then the AI core (GATE 2), then the art and the rollback net in alternating blocks (GATE 3), then the rest.** Original entry follows. **Approve the order of this ledger.** Stages run 0 to 9 in file order; stages 1 (look) and 2-3 (AI core, rollback net) are independent in the roadmap, so the order between them is a real choice. *Source:* roadmap "Suggested order"; call. *Done when:* Bert has approved or reordered, and the NOW block says so. *Depends:* none.
+- [ ] **N-002** `[phone]` **Finish the branch.** Pick what happens to `daily`: merge to `main` locally, open a pull request, keep as is, or discard. Includes the first MERGE-SCRUBS entry if merged (CLAUDE.md rule 4). *Source:* finishing-a-development-branch menu still owed; milestone-1-decisions "promote daily to main?". *Done when:* Bert chose, it is done, and `main`/`daily` state is written in the NOW block. *Depends:* none.
 - [ ] **N-003** `[phone]` **Retire the Milestone 1 manual checklist into the Milestone 2 acceptance.** The 30-minute list in `docs/milestone-1-acceptance.md` was never run by Bert; most of it is now covered by scripts and the rest is subsumed by N-813. Proposal: mark it superseded and fold its manual items into N-813. *Source:* `docs/milestone-1-acceptance.md`; call. *Done when:* the checklist file says superseded and N-813 lists the folded items. *Depends:* none.
 
 ---
@@ -121,28 +124,14 @@ Bert's rule from 2026-11-05 ("do all of them in one pass") is the reason gates e
 - [ ] **N-216** `[build]` **Config panel UI.** Backend and routes editor, authority switch, timeouts, usage, kill switch state. *Source:* roadmap 2.3; design 6.3. *Done when:* ctest edits and saves a config the daemon accepts. *Depends:* N-210, N-214, N-215.
 - [ ] **N-217** `[build]` **Audit view.** Searchable history of messages and tool use: filter by session, tool, time, text; export. *Source:* roadmap 2.6; design 7 (one append-only audit log). *Done when:* search over a 10,000-record fixture returns correct hits within a stated time bound. *Depends:* none.
 - [ ] **N-218** `[build]` **Offline and daemon-down states.** The panel says "waiting for connection" or "daemon restarting" instead of hanging; the first-boot fetch keeps retrying. *Source:* design 7 (first boot with no network); anti-goal "in the way". *Done when:* e2e stops the daemon and the network and checks the panel text. *Depends:* none.
+- [ ] **N-219** `[gate]` **GATE 2 - AI core.** Rebuild the ISO; all GATES checks; the panel features (approvals, tabs, badges, config panel, audit view, kill switch) seen in screenshots and e2e on the new image. *Source:* GATES. *Certifies:* N-203 to N-218. *Done when:* all pass. *Depends:* N-218.
 
 ---
 
-## STAGE 3 - The rollback net (btrfs, snapper, safe-apply, undo)
+## STAGES 3 AND 4 - The rollback net and Nisse's own art, alternating
 
-- [ ] **N-301** `[build]` **Spike: the installed disk layout.** What the Anaconda in the image produces for btrfs by default, and how to make our layout the default through the installer's product configuration (verify the mechanism). *Source:* design 6.2; call. *Done when:* `docs/storage-spike.md` states the mechanism with evidence and a proposed layout. *Depends:* none.
-- [ ] **N-302** `[phone]` **Approve the subvolume layout and snapshot policy.** Root snapshotted; home and large data (model stores, projects) in excluded subvolumes; frequency and retention. *Source:* design 6.2, 8. *Done when:* decision recorded. *Depends:* N-301.
-- [ ] **N-303** `[build]` **Unattended install-to-disk harness.** Script installs the ISO onto a fresh qcow2 in the VM with an answer file and boots the result to a login. Many later tasks need an installed system. *Source:* roadmap 4.2 pulled forward (call). *Done when:* the script produces a booting installed disk and a test asserts it. *Depends:* none.
-- [ ] **N-304** `[build]` **Implement the layout at install time.** *Source:* design 6.2. *Done when:* installed VM disk shows the N-302 subvolumes (checked by the harness). *Depends:* N-302, N-303.
-- [ ] **N-305** `[build]` **Snapper configuration RPM (`nisse-snapshots`).** Config for root, package-manager pre and post snapshots (verify the integration Fedora offers), cleanup policy. *Source:* design 7 snapshot tool call. *Done when:* RPM test; an installed VM takes a snapshot around a package install. *Depends:* N-304.
-- [ ] **N-306** `[build]` **Snapshot around every AI action batch.** The daemon takes a pre snapshot before a batch of mutating tool calls and a post snapshot after, and writes both ids into the audit log. *Source:* design 7. *Done when:* test with a fake snapper; VM check with the real one. *Depends:* N-305.
-- [ ] **N-307** `[build]` **Boot into a snapshot from GRUB, and GRUB boot counting.** Spike what Fedora offers (verify), then implement the backstop for a machine that never reaches the health check. *Source:* design 7 safe-apply trigger. *Done when:* VM test boots a prior snapshot from the menu; a counted-failure test falls back. *Depends:* N-304.
-- [ ] **N-308** `[build]` **Safe-apply flow (`nisse-apply-updates`).** Snapshot, update packages and the hardware kernel, mark pending-verify, reboot. *Source:* design 6.7; roadmap 2.4. *Done when:* VM run against a local file repo ends pending-verify. *Depends:* N-305.
-- [ ] **N-309** `[build]` **Post-reboot health-check unit.** Checks: boot reached, network up, key services active, display session reached. *Source:* design 7 rollback trigger. *Done when:* unit test of each check; VM passes on a healthy system. *Depends:* N-308.
-- [ ] **N-310** `[build]` **Watchdog rollback.** If checks fail within the time limit, snapper rollback and reboot. *Source:* design 7. *Done when:* VM test with a deliberately broken update rolls back and boots. *Depends:* N-307, N-309.
-- [ ] **N-311** `[build]` **Undo in the panel.** A snapshot list labeled by AI batch; a rollback button with a confirmation that states home and data are not covered. *Source:* design 6.5, 6.2; roadmap 2.4. *Done when:* ctest plus VM e2e undoes a package install. *Depends:* N-306.
-- [ ] **N-312** `[build]` **Excluded subvolumes survive rollback.** *Source:* design 6.2 consequence. *Done when:* VM test writes into home and a data subvolume, rolls back root, and the files remain. *Depends:* N-310.
-- [ ] **N-313** `[gate]` **GATE 2 - AI core and rollback net.** Rebuild the ISO; all GATES checks; plus install-to-disk (N-303), a snapshot, a rollback, and the panel features in a screenshot. *Certifies:* N-203 to N-218, N-303 to N-312. *Done when:* all pass. *Depends:* N-312, N-218.
-
----
-
-## STAGE 4 - Nisse's own art (drawn from Bert's submission)
+Bert chose "alternate by gate" on 2026-11-12: the art (stage 4, needs his gates) and the rollback net (stage 3, Claude
+alone) run in blocks so each makes progress, and one gate (GATE 3) certifies both.
 
 Bert's first submission is `docs/brand-art-submission-2026-11-05.md`. Direction themes: Nisse is a gnome (a cartoon gnome
 replaces the dragon); a nisse "n" with a hat; a comet circling the logo on busy spinners; a GRUB logo with name and an
@@ -151,21 +140,57 @@ terminal icon; a gear icon; a playful two-note login sound. Seven of his comment
 (`boot/charge`, `installer/anaconda-apps`, `-2`, `logos/distributor-logo-nisse-apps`, `-2`, `-3`, `-4`): they stay on
 record and N-416 reconciles them (it runs after GATE 3). Items verdict "keep" stay as they are.
 
+### Art block A - style, mascot, marks
+
 - [ ] **N-401** `[phone]` **Choose the art method.** Hand-authored SVG through scripts (as the logo is), local image generation for the wallpaper only, or hand-drawn throughout. Weigh consistency against effort. *Source:* call; Bert's cozy-crab art experience (memory). *Done when:* method recorded per asset class. *Depends:* none.
 - [ ] **N-402** `[art]` **The gnome mascot sheet and brand style guide.** The Nisse gnome as a character (head badge, full figure, waving, working with a pickaxe), plus stroke weights, corner radii and colors from the Ember tokens. The cap stays the brand atom. *Source:* submission "Avatars and mascots" group note; memory logo taste. *Done when:* Bert gates the sheet (Love / Maybe / Nope) and the style guide is saved at `assets/art/STYLE.md`. *Depends:* N-103, N-401.
 - [ ] **N-403** `[art]` **The nisse "n" with a hat.** One mark reused wherever a small monogram fits. *Source:* submission `plasmatheme/start`, the Breeze/Fedora `*-kde-svgz` and `*-plasma-svgz` splash ids ("nisse n"). *Done when:* Bert gates it. *Depends:* N-402.
 - [ ] **N-404** `[art]` **Comet busy spinner.** A comet orbiting the logo; static frame for the previews and an animation for the busy widget. Spike first how the busy widget consumes its art (verify). *Source:* submission `*-busywidget-svgz` ids ("comet circling"). *Done when:* Bert gates a frame sheet and the animation plays in the VM. *Depends:* N-402.
+
+### Rollback block 1 - the disk layout
+
+- [ ] **N-301** `[build]` **Spike: the installed disk layout.** What the Anaconda in the image produces for btrfs by default, and how to make our layout the default through the installer's product configuration (verify the mechanism). *Source:* design 6.2; call. *Done when:* `docs/storage-spike.md` states the mechanism with evidence and a proposed layout. *Depends:* none.
+- [ ] **N-302** `[phone]` **Approve the subvolume layout and snapshot policy.** Root snapshotted; home and large data (model stores, projects) in excluded subvolumes; frequency and retention. *Source:* design 6.2, 8. *Done when:* decision recorded. *Depends:* N-301.
+- [ ] **N-303** `[build]` **Unattended install-to-disk harness.** Script installs the ISO onto a fresh qcow2 in the VM with an answer file and boots the result to a login. Many later tasks need an installed system. *Source:* roadmap 4.2 pulled forward (call). *Done when:* the script produces a booting installed disk and a test asserts it. *Depends:* none.
+- [ ] **N-304** `[build]` **Implement the layout at install time.** *Source:* design 6.2. *Done when:* installed VM disk shows the N-302 subvolumes (checked by the harness). *Depends:* N-302, N-303.
+
+### Art block B - logos and the icon, cursor and avatar sets
+
 - [ ] **N-405** `[build]` **Logos and marks from the existing logo package.** `start-here` uses the disc-hill circle; `fedora-logo`, `fedora-logo-small`, `system-logo-white`, `fedora-logo-sprite` become the nisse logo; `distributor-logo-nisse` ids kept. *Source:* submission `logos/*` comments ("nisse logo", "Use nisse circle", "use as start-here"). *Done when:* the logo build regenerates them and the placeholder-art test still passes. *Depends:* none.
 - [ ] **N-406** `[art]` **Avatars.** The default user avatar set (variants) and the "Fedora loves KDE" image reworked so only the left side changes ("fedora becomes nisse"); every dragon image becomes the gnome with the same activity theme. Find every Konqi use first (verify). *Source:* submission `avatars/*` and group note. *Done when:* Bert gates the set. *Depends:* N-402.
 - [ ] **N-407** `[art]` **Wallpapers.** A Scandinavian cartoon landscape; light, dark, and a time-of-day pair, at the resolutions Plasma wants. *Source:* submission `wallpapers/*`; roadmap 1.4. *Done when:* Bert gates the set. *Depends:* N-402, N-401.
 - [ ] **N-408** `[art]` **Cursor theme.** Decide first whether a custom cursor adds value (roadmap 1.3 call). The submission asks for a simple W and a simple X in the Nisse font for the `wayland-cursor` and `x-cursor` items. *Source:* submission `cursors/*`; roadmap 1.3. *Done when:* Bert gates the result or chooses to keep the base cursor. *Depends:* N-101.
 - [ ] **N-409** `[art]` **Icons.** Gear for `preferences-system` (core and app), the saved terminal-under-cap icon for `utilities-terminal`, the Nisse logo on a disk for `anaconda`, current colors with a Nisse logo for `start-here-kde-plasma`. Choose the base icon theme to override (roadmap 1.3 call). *Source:* submission `icons/*`, `appicons/*`. *Done when:* Bert gates the set. *Depends:* N-402.
 - [ ] **N-410** `[art]` **Install to Hard Drive icon.** A working pickaxe. The desktop icon is a blank page today. *Source:* submission `installer/request-desktop-icon-install-to-hard-drive`. *Done when:* Bert gates it. *Depends:* N-402.
+
+### Rollback block 2 - snapshots and safe-apply
+
+- [ ] **N-305** `[build]` **Snapper configuration RPM (`nisse-snapshots`).** Config for root, package-manager pre and post snapshots (verify the integration Fedora offers), cleanup policy. *Source:* design 7 snapshot tool call. *Done when:* RPM test; an installed VM takes a snapshot around a package install. *Depends:* N-304.
+- [ ] **N-306** `[build]` **Snapshot around every AI action batch.** The daemon takes a pre snapshot before a batch of mutating tool calls and a post snapshot after, and writes both ids into the audit log. *Source:* design 7. *Done when:* test with a fake snapper; VM check with the real one. *Depends:* N-305.
+- [ ] **N-307** `[build]` **Boot into a snapshot from GRUB, and GRUB boot counting.** Spike what Fedora offers (verify), then implement the backstop for a machine that never reaches the health check. *Source:* design 7 safe-apply trigger. *Done when:* VM test boots a prior snapshot from the menu; a counted-failure test falls back. *Depends:* N-304.
+- [ ] **N-308** `[build]` **Safe-apply flow (`nisse-apply-updates`).** Snapshot, update packages and the hardware kernel, mark pending-verify, reboot. *Source:* design 6.7; roadmap 2.4. *Done when:* VM run against a local file repo ends pending-verify. *Depends:* N-305.
+- [ ] **N-309** `[build]` **Post-reboot health-check unit.** Checks: boot reached, network up, key services active, display session reached. *Source:* design 7 rollback trigger. *Done when:* unit test of each check; VM passes on a healthy system. *Depends:* N-308.
+
+### Art block C - installer, boot, sound, then packaging
+
 - [ ] **N-411** `[art]` **Installer art.** Sidebar logo, the two Anaconda disk images ("disk image"), `installer/fedora`, and the Anaconda boot and syslinux splash images; installer ids with verdict "keep" stay; `installer/gnome-splash` (drop) is removed from the image. *Source:* submission "Installer and first run", `boot/usr-share-anaconda-*`. *Done when:* Bert gates the set. *Depends:* N-402.
 - [ ] **N-412** `[art]` **Boot, GRUB and splash art.** GRUB: the logo with the name below and an XP-style progress bar; Plymouth and Plasma splash and login, lock and logout scenes made to match ("make match other nisse branding"). Whether GRUB can draw a progress bar is unverified and is checked in N-502. *Source:* submission `boot/request-*`, `boot/*splash*`, `boot/*lockscreen*`. *Done when:* Bert gates a mock sheet of each surface. *Depends:* N-402, N-403, N-404.
 - [ ] **N-413** `[art]` **Tray icon and web mark.** The panel tray icon, monochrome, in every state (idle, busy, needs you, unread, paused by kill switch, offline); and the website and favicon mark. *Source:* submission `logos/request-nisse-panel-tray-icon-monochrome-all-states`, `logos/request-website-and-favicon-mark`; design 6.5. *Done when:* Bert gates both. *Depends:* N-402.
 - [ ] **N-414** `[art]` **Login sound and sound theme.** A playful two-note sound that feels like the Scandinavian wilderness, mischievous. Procedural synthesis (as in the cozy-crab SFX test); Bert judges by ear. Notification sounds follow the same voice (roadmap 1.12 guess). *Source:* submission `sounds/request-nisse-login-sound`. *Done when:* Bert has listened and approved or rejected variants. *Depends:* none.
 - [ ] **N-415** `[build]` **Package the approved art.** Install every approved asset into `nisse-branding` or `nisse-theme` at the paths the inventory lists, replacing placeholders. *Source:* roadmap 1.0, 1.16. *Done when:* the placeholder-art test passes and a path-by-path test confirms each replaced file. *Depends:* N-405 to N-414.
+
+### Rollback block 3 - recovery and undo
+
+- [ ] **N-310** `[build]` **Watchdog rollback.** If checks fail within the time limit, snapper rollback and reboot. *Source:* design 7. *Done when:* VM test with a deliberately broken update rolls back and boots. *Depends:* N-307, N-309.
+- [ ] **N-311** `[build]` **Undo in the panel.** A snapshot list labeled by AI batch; a rollback button with a confirmation that states home and data are not covered. *Source:* design 6.5, 6.2; roadmap 2.4. *Done when:* ctest plus VM e2e undoes a package install. *Depends:* N-306.
+- [ ] **N-312** `[build]` **Excluded subvolumes survive rollback.** *Source:* design 6.2 consequence. *Done when:* VM test writes into home and a data subvolume, rolls back root, and the files remain. *Depends:* N-310.
+
+- [ ] **N-313** `[gate]` **GATE 3 - Rollback net and the new art.** Rebuild the ISO; all GATES checks; plus install-to-disk (N-303), a snapshot, a rollback, the undo button, and a screenshot sheet of the new art in place. *Certifies:* N-303 to N-312, N-405, N-415. *Done when:* all pass. *Depends:* N-312, N-415.
+
+**After GATE 3 (these two belong to stage 4 by number; they need the rebuilt ISO with the new art in it):**
+
+- [ ] **N-416** `[build]` **Re-extract the review inventory from the new ISO.** Every remaining Fedora or inherited graphic is either replaced or explicitly accepted; list the seven stale comment ids and where their subjects went. *Source:* `docs/brand-art.md`; stale ids above. *Done when:* the report is written and a test fails if an unaccepted inherited graphic remains. *Depends:* N-313 (needs the rebuilt ISO).
+- [ ] **N-417** `[phone]` **Second review round.** Bert reviews the new set in the review page (it keeps his old comments), producing round two; follow-up art tasks are filed as lettered tasks here. *Source:* `docs/brand-art.md`. *Done when:* round-two submission saved in `docs/`, follow-ups filed. *Depends:* N-416.
 
 ---
 
@@ -189,12 +214,7 @@ record and N-416 reconciles them (it runs after GATE 3). Items verdict "keep" st
 - [ ] **N-517** `[build]` **SSH as an install-time option.** Spike where the choice lives (installer step versus the first-boot tour; Anaconda has no checkbox for it), implement it; off by default; when on, key-only login (call). *Source:* roadmap 1.15; decision 2026-11-02 ("Should be an option at install"). *Done when:* installed VM with the option off has sshd disabled; with it on, sshd runs and password login is refused. *Depends:* N-303, N-515.
 - [ ] **N-518** `[build]` **Per-machine encryption and boot-security proposal.** The installer proposes LUKS, TPM unlock and Secure Boot handling by hardware class (Surface, T2, pre-T2, generic) and Bert confirms. Spike the installer extension point first (shared with N-517); verify TPM unlock support. *Source:* design 6.1. *Done when:* table-driven tests for the proposal per class; VM install uses a chosen LUKS option. *Depends:* N-517.
 - [ ] **N-519** `[build]` **Extend the regression harness** (N-113) with login, lock, splash, GRUB, Plymouth, installer pages and the light-document apps; Bert approves the goldens. *Source:* roadmap 1.13. *Done when:* the harness passes on the new ISO. *Depends:* N-501 to N-505, N-510, N-516.
-- [ ] **N-520** `[gate]` **GATE 3 - Nisse look and feel, complete.** Rebuild the ISO; all GATES checks; the full screenshot sheet; Bert views it in VirtualBox (his earlier test route) and listens to the login sound. *Certifies:* N-405, N-415, N-501 to N-506, N-508, N-510, N-511, N-513 to N-519. *Done when:* all pass and Bert approves or lists fixes as lettered tasks. *Depends:* N-519.
-
-**After GATE 3 (these two belong to stage 4 by number; they need the rebuilt ISO, so they run here):**
-
-- [ ] **N-416** `[build]` **Re-extract the review inventory from the new ISO.** Every remaining Fedora or inherited graphic is either replaced or explicitly accepted; list the seven stale comment ids and where their subjects went. *Source:* `docs/brand-art.md`; stale ids above. *Done when:* the report is written and a test fails if an unaccepted inherited graphic remains. *Depends:* N-520 (needs the rebuilt ISO).
-- [ ] **N-417** `[phone]` **Second review round.** Bert reviews the new set in the review page (it keeps his old comments), producing round two; follow-up art tasks are filed as lettered tasks here. *Source:* `docs/brand-art.md`. *Done when:* round-two submission saved in `docs/`, follow-ups filed. *Depends:* N-416.
+- [ ] **N-520** `[gate]` **GATE 4 - Nisse look and feel, complete.** Rebuild the ISO; all GATES checks; the full screenshot sheet; Bert views it in VirtualBox (his earlier test route) and listens to the login sound. *Certifies:* N-405, N-415, N-501 to N-506, N-508, N-510, N-511, N-513 to N-519. *Done when:* all pass and Bert approves or lists fixes as lettered tasks. *Depends:* N-519.
 
 ---
 
@@ -232,7 +252,7 @@ record and N-416 reconciles them (it runs after GATE 3). Items verdict "keep" st
 - [ ] **N-706** `[build]` **Secret entry path.** A panel prompt that stores a value in the system keyring and hands it to a command without it reaching the transcript or audit log. *Source:* design 6.8 ("credentials never in the prompt"); call. *Done when:* test greps transcript and audit for the secret and finds nothing. *Depends:* N-601.
 - [ ] **N-707** `[phone]` **Config-prompt preamble.** The standing instructions the setup session always gets: guardrails, credentials policy, idempotence, reporting. Bert edits the draft. *Source:* design 6.8; roadmap 3.5. *Done when:* the preamble text approved and saved. *Depends:* N-706.
 - [ ] **N-708** `[build]` **Config-prompt ingestion.** First-boot (and later from the panel) takes a natural-language prompt, saved on the machine only; runs it as a setup session with progress in the panel; re-runnable without repeating finished work; ends with a summary. *Source:* design 6.8; roadmap 3.5. *Done when:* VM run with a stub model and a sample prompt ends with the expected packages and services. *Depends:* N-707, N-619.
-- [ ] **N-709** `[gate]` **GATE 4 - System control and personal layer.** Rebuild the ISO; all GATES checks; the tool scenario suite, the jobs framework and config-prompt ingestion on an installed disk. *Certifies:* N-601 to N-619, N-701 to N-708. *Done when:* all pass. *Depends:* N-708.
+- [ ] **N-709** `[gate]` **GATE 5 - System control and personal layer.** Rebuild the ISO; all GATES checks; the tool scenario suite, the jobs framework and config-prompt ingestion on an installed disk. *Certifies:* N-601 to N-619, N-701 to N-708. *Done when:* all pass. *Depends:* N-708.
 
 ---
 
@@ -251,7 +271,7 @@ record and N-416 reconciles them (it runs after GATE 3). Items verdict "keep" st
 - [ ] **N-811** `[build]` **Soak run.** A day-long VM with quiet jobs and AI sessions; no runaway memory, no snapshot or disk growth beyond policy. Optional if the earlier tests already show stability (decide when reached). *Source:* anti-goal "slow, noisy or in the way"; call. *Done when:* a report with the numbers. *Depends:* N-810.
 - [ ] **N-812** `[build]` **Whole-branch review.** A fresh reviewer on the most capable model reads the whole milestone diff; Critical and Important findings are fixed with a failing test first, and minors too (standing rule fix-minors-too). *Source:* standing rule; Milestone 1 practice. *Done when:* a findings record with every item resolved. *Depends:* N-801 to N-810.
 - [ ] **N-813** `[build]` **Milestone 2 acceptance document.** Scripted proof table plus a short manual checklist for Bert (including the items folded in by N-003). *Source:* roadmap 4.3. *Done when:* `docs/milestone-2-acceptance.md` exists and every scripted row names a runnable command. *Depends:* N-812.
-- [ ] **N-814** `[gate]` **GATE 5 - Milestone 2 ISO.** Rebuild the ISO one last time from the reviewed branch and run everything: all GATES checks, the fault-injection suite, the install-to-disk test. *Certifies:* N-801 to N-813 and every earlier task still UNCERTIFIED. *Done when:* all pass and the ISO is archived with its checksum. *Depends:* N-813.
+- [ ] **N-814** `[gate]` **GATE 6 - Milestone 2 ISO.** Rebuild the ISO one last time from the reviewed branch and run everything: all GATES checks, the fault-injection suite, the install-to-disk test. *Certifies:* N-801 to N-813 and every earlier task still UNCERTIFIED. *Done when:* all pass and the ISO is archived with its checksum. *Depends:* N-813.
 - [ ] **N-815** `[desk]` **Bert's acceptance.** He runs the manual checklist in his VM (VirtualBox or QEMU) and signs off or files fixes. *Source:* roadmap 4.3. *Done when:* Bert has signed off. *Depends:* N-814.
 - [ ] **N-816** `[phone]` **Close Milestone 2.** Decide the version number for this milestone (0.2 today), merge `daily` to `main` with a MERGE-SCRUBS entry, tag, update memory. *Source:* decision 2026-11-02 (own version number); CLAUDE.md rule 4. *Done when:* tagged and merged. *Depends:* N-815.
 
