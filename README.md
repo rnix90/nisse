@@ -9,7 +9,9 @@ spirit of Scandinavian folklore that quietly looks after the farm and the family
 
 ## Status
 
-Day zero. No build system, base, or package set chosen yet.
+Pre-release (product version 0.2). A branded Fedora 44 KDE live ISO built with kiwi boots to Plasma, with a Rust daemon
+and a QML panel that talk to the Claude CLI. Nothing has run on real hardware yet. The plan and task queue are in
+`docs/roadmap.md` and `docs/planning/TASK-LEDGER.md`.
 
 ## Branches
 

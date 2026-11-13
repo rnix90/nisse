@@ -48,6 +48,7 @@ Task 7: Ruling: fixture hello.jsonl is a hand-reduced copy of a real capture (th
 Task 7: Ruling: nisse-daemon RPM builds the Rust code with cargo --release --locked (network needed, debug_package disabled) - Fedora vendoring is out of scope for a local-build milestone - cost if wrong: not buildable offline or in Koji. Cargo.lock now committed with the daemon deps.
 Task 7: Ruling: added config_path_from/default_config_path to nisse-config (with a test) for the daemon's config location - cost if wrong: none.
 Task 7: OPEN (not blocking): the Claude hook JSON in claude-settings.json is syntactically valid but not yet exercised against a real Claude Code in the VM - verify in Task 9/10 when Claude Code is installed there.
+  RESOLVED 2026-10-29: verified against the real CLI (see `docs/claude-cli-notes.md`).
 Task 7: complete (commits 44b8704..80ebb8a, tests: bash tools/build/vm.sh ssh 'cd ~/nisse/services && cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings 2>&1 | tail -1 && cargo test --workspace 2>&1 | grep -E "^test result" | awk "{p+=\$4; f+=\$6} END {print p \" passed, \" f \" failed\"}" && cd .. && tools/rpm/build-rpm.sh nisse-daemon >/dev/null 2>&1 && bash tests/rpm/test_nisse_daemon.sh | tail -1' -> PASS: nisse-daemon)
 Task 8: Ruling: the e2e test and RPM test use busctl instead of qdbus6 (qdbus6 is not installed on Fedora 44 by qt6-qttools) - busctl ships with systemd and was already proven against the daemon - cost if wrong: none.
 Task 8: Ruling: panel QML tests are QtQuickTest in panel/tests (tst_chat.qml, 8 test functions) plus tests/e2e/panel_daemon.sh; DaemonClient C++ is covered only by the e2e run (--self-test prints backend: max and reply: echo: ping) and QML tests use a stub - plan listed no C++ unit test; the glue holds no logic except labelFor - cost if wrong: a label-format regression would only show in e2e.
@@ -95,3 +96,4 @@ Rulings and evidence for this change are in `docs/superpowers/specs/2026-10-29-k
   `nisse-release` had to add to its own preset (the old kickstart enabled them by hand); Fedora's GRUB menu defaults to
   the slow media check, which the boot tests now skip.
 - Open: whether Nisse should adopt Fedora's fuller preset (tuned, thermald, systemd-oomd, flatpak-add-fedora-repos).
+  RESOLVED 2026-11-02: adopted (roadmap 0.3, Phase 0); only plasma-setup and sshd are disabled.

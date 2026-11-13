@@ -43,7 +43,7 @@ added says "call"), *Done when* (a fast check), *Depends*. The how is worked out
 
 ## NOW
 
-**Next: N-002** (finish the branch). Nothing else has been started.
+**Next: N-003** (retire the Milestone 1 manual checklist). Nothing else has been started.
 
 Where we are, 2026-11-12: Milestone 1, the kiwi build, Phase 0, the branding foundations and the brand art review page
 are done (see DONE). `daily` is at 5946201 on GitHub; `main` has not moved since the initial commit. Bert's first art
@@ -80,7 +80,7 @@ Bert's rule from 2026-11-05 ("do all of them in one pass") is the reason gates e
 ## STAGE 0 - Close-out and ground rules
 
 - [x] **N-001** `[phone]` **DONE 2026-11-12: Bert chose "alternate by gate": GATE 1 (Ember core), then the AI core (GATE 2), then the art and the rollback net in alternating blocks (GATE 3), then the rest.** Original entry follows. **Approve the order of this ledger.** Stages run 0 to 9 in file order; stages 1 (look) and 2-3 (AI core, rollback net) are independent in the roadmap, so the order between them is a real choice. *Source:* roadmap "Suggested order"; call. *Done when:* Bert has approved or reordered, and the NOW block says so. *Depends:* none.
-- [ ] **N-002** `[phone]` **Finish the branch.** Pick what happens to `daily`: merge to `main` locally, open a pull request, keep as is, or discard. Includes the first MERGE-SCRUBS entry if merged (CLAUDE.md rule 4). *Source:* finishing-a-development-branch menu still owed; milestone-1-decisions "promote daily to main?". *Done when:* Bert chose, it is done, and `main`/`daily` state is written in the NOW block. *Depends:* none.
+- [x] **N-002** `[phone]` **DONE 2026-11-12: Bert chose scrub, merge and push both. Scrub recorded in `docs/planning/MERGE-SCRUBS.md` (found and fixed a 4 percent connection-reset race in the review page server); `main` fast-forwarded to `daily` and both pushed.** Original entry follows. **Finish the branch.** Pick what happens to `daily`: merge to `main` locally, open a pull request, keep as is, or discard. Includes the first MERGE-SCRUBS entry if merged (CLAUDE.md rule 4). *Source:* finishing-a-development-branch menu still owed; milestone-1-decisions "promote daily to main?". *Done when:* Bert chose, it is done, and `main`/`daily` state is written in the NOW block. *Depends:* none.
 - [ ] **N-003** `[phone]` **Retire the Milestone 1 manual checklist into the Milestone 2 acceptance.** The 30-minute list in `docs/milestone-1-acceptance.md` was never run by Bert; most of it is now covered by scripts and the rest is subsumed by N-813. Proposal: mark it superseded and fold its manual items into N-813. *Source:* `docs/milestone-1-acceptance.md`; call. *Done when:* the checklist file says superseded and N-813 lists the folded items. *Depends:* none.
 
 ---

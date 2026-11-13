@@ -36,6 +36,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 WEB = HERE / "web"
 MAX_BODY = 2_000_000
+MAX_DRAIN = 32_000_000  # an oversized body is read and thrown away up to this much so the 413 reaches the client
 MAX_COMMENT = 20_000
 VERDICTS = ("", "keep", "redraw", "drop", "variant")
 PRIORITIES = ("", "must", "should", "nice")
@@ -290,6 +291,14 @@ def make_handler(directory, store, token=None):
                 return self.send(404, {"error": "not found"})
             length = int(self.headers.get("Content-Length") or 0)
             if length > MAX_BODY:
+                # Read and discard the body (up to a cap) before answering: replying and hanging up with it
+                # unread can reset the connection before the client sees the 413.
+                left = min(length, MAX_DRAIN)
+                while left > 0:
+                    chunk = self.rfile.read(min(65536, left))
+                    if not chunk:
+                        break
+                    left -= len(chunk)
                 self.close_connection = True
                 return self.send(413, {"error": f"the state is over {MAX_BODY} bytes"})
             try:

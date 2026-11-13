@@ -137,6 +137,15 @@ def test_an_oversized_body_is_refused(site):
     assert status == 413
 
 
+def test_an_oversized_body_gets_its_413_every_time(site):
+    # Replying and hanging up with the body unread can reset the connection before the client reads the 413
+    # (about 4 in 100 on Windows), which a browser would report as a network error instead of "too big".
+    base, _ = site
+    body = state(direction="x" * 3_000_000)
+    statuses = [call(base, "PUT", "/api/state", body)[0] for _ in range(120)]
+    assert statuses == [413] * 120
+
+
 def test_the_server_refuses_a_non_loopback_bind(tmp_path):
     with pytest.raises(ValueError):
         serve.make_server(tmp_path, port=0, host="0.0.0.0")

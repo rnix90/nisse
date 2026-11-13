@@ -11,6 +11,8 @@ What the Nisse daemon relies on. Re-check these when the CLI version changes.
 - `-p/--print` runs one prompt and exits. `--output-format stream-json` needs `--verbose` with `-p`.
 - `--session-id <uuid>` starts a conversation with a chosen id; `--resume <uuid>` continues it.
 - `--settings <file>` merges extra settings (the audit hook) without touching the user's own files.
+- The audit hook format was checked against the real CLI on 2026-10-29 (review decision 3): PreToolUse and PostToolUse
+  both fire, and the payload carries `session_id`, `tool_name`, `tool_input` and `hook_event_name`.
 - Authority is a config switch (`authority = "autonomous" | "supervised"` at the top of `backends.toml`, default
   autonomous; any other value, or a config file that cannot be read, counts as supervised):
   - autonomous passes `--dangerously-skip-permissions`, the mode the design asks for (design section 6.4).
