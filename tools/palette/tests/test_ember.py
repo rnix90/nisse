@@ -10,7 +10,7 @@ import contrast  # noqa: E402
 PAL = contrast.load()
 
 REQUIRED_DARK = ["base", "surface", "surface-2", "divider", "outline", "text", "text-muted", "accent", "accent-hover",
-                 "accent-pressed", "on-accent", "accent-text", "ok", "warn", "info", "alert", "on-ok", "on-alert"]
+                 "accent-pressed", "on-accent", "accent-text", "ok", "warn", "info", "alert", "alert-text", "alert-ring", "on-ok", "on-alert"]
 REQUIRED_LIGHT = ["page", "paper", "text", "text-muted", "outline", "accent", "on-accent", "ok", "warn", "info", "alert"]
 
 
@@ -52,10 +52,19 @@ def test_the_pairs_cover_the_ones_the_desktop_uses():
         ("dark.text", "dark.base"), ("dark.text", "dark.surface-2"), ("dark.text-muted", "dark.base"),
         ("dark.text-muted", "dark.surface-2"), ("dark.accent-text", "dark.base"), ("dark.on-accent", "dark.accent"),
         ("dark.on-alert", "dark.alert"), ("dark.on-ok", "dark.ok"), ("dark.outline", "dark.base"),
+        ("dark.alert", "dark.base"), ("dark.alert-text", "dark.base"), ("dark.alert-text", "dark.surface-2"),
+        ("dark.alert-ring", "dark.surface-2"),
         ("light.text", "light.page"), ("light.text-muted", "light.page"), ("light.accent", "light.page"),
         ("light.on-accent", "light.accent"), ("light.text", "light.paper"),
     ]
     assert [n for n in needed if n not in declared] == []
+
+
+def test_the_alert_badge_is_a_deep_red_with_light_text():
+    # Bert, 2026-11-12: "a deeper red with a light colored text" (picked #d0243f from rendered options)
+    assert contrast.token(PAL, "dark.alert") == "#d0243f"
+    assert contrast.token(PAL, "dark.on-alert") == contrast.token(PAL, "dark.text")
+    assert contrast.luminance(contrast.token(PAL, "dark.on-alert")) > contrast.luminance(contrast.token(PAL, "dark.alert"))
 
 
 def test_the_alert_red_and_the_accent_are_distinguishable_on_dark():

@@ -2,13 +2,14 @@
   "license": "GPL-2.0-or-later",
   "name": "ember",
   "version": 1,
-  "status": "tokens approved by Bert 2026-11-12 (plan); exact look judged in ledger N-103",
+  "status": "APPROVED by Bert 2026-11-12 (N-103): alert badge is a deep red with light text; the green badge keeps dark text",
   "notes": [
     "Ink, Paper and Ember are Bert's choices (decision 2026-11-02) and are pinned by a test.",
     "Every pairing listed under 'pairs' is checked by tools/palette: text 4.5 or more, shapes and control outlines 3.0 or more.",
     "Dividers are decorative and only promise 1.2.",
     "The dark set is the desktop shell. The light set is for document apps (mail, word processing, PDF, web).",
-    "Paper text on an Ember fill is only 3.1, so Ember fills carry Ink text (on-accent)."
+    "Paper text on an Ember fill is only 3.1, so Ember fills carry Ink text (on-accent).",
+    "The red 'needs you' badge is a deep red (alert) with Paper text (on-alert), Bert's call at N-103. A deep red is only 2.3 to 3.0 against the dark surfaces, so a badge on surface or surface-2 carries a 1.5 px ring in alert-ring. Error text on dark uses alert-text, not alert."
   ],
   "dark": {
     "base":           {"hex": "#1b2330", "role": "Ink: window and desktop background"},
@@ -26,9 +27,11 @@
     "ok":             {"hex": "#4caf7a", "role": "success, unread completion (green badge)"},
     "warn":           {"hex": "#e5a93d", "role": "warning"},
     "info":           {"hex": "#5aa0e0", "role": "information"},
-    "alert":          {"hex": "#ff5c6c", "role": "needs you, errors (red badge)"},
+    "alert":          {"hex": "#d0243f", "role": "needs you: the red badge fill (deep red, light text)"},
+    "alert-text":     {"hex": "#ff7a88", "role": "error and alert text and icons on dark"},
+    "alert-ring":     {"hex": "#f6f2e9", "role": "1.5 px ring around the red badge on surface or surface-2"},
     "on-ok":          {"hex": "#1b2330", "role": "count text on the green badge"},
-    "on-alert":       {"hex": "#1b2330", "role": "count text on the red badge"}
+    "on-alert":       {"hex": "#f6f2e9", "role": "count text on the red badge (Paper)"}
   },
   "light": {
     "page":       {"hex": "#fffdf8", "role": "document page background"},
@@ -58,12 +61,14 @@
     {"fg": "dark.ok",         "bg": "dark.base",      "min": 4.5, "kind": "text",  "use": "success text"},
     {"fg": "dark.warn",       "bg": "dark.base",      "min": 4.5, "kind": "text",  "use": "warning text"},
     {"fg": "dark.info",       "bg": "dark.base",      "min": 4.5, "kind": "text",  "use": "information text"},
-    {"fg": "dark.alert",      "bg": "dark.base",      "min": 4.5, "kind": "text",  "use": "error text"},
+    {"fg": "dark.alert-text",  "bg": "dark.base",     "min": 4.5, "kind": "text",  "use": "error text"},
+    {"fg": "dark.alert-text",  "bg": "dark.surface-2", "min": 4.5, "kind": "text", "use": "error text in menus and inputs"},
     {"fg": "dark.outline",    "bg": "dark.base",      "min": 3.0, "kind": "shape", "use": "control outline"},
     {"fg": "dark.outline",    "bg": "dark.surface-2", "min": 3.0, "kind": "shape", "use": "control outline in menus"},
     {"fg": "dark.accent",     "bg": "dark.base",      "min": 3.0, "kind": "shape", "use": "accent icon or selection bar"},
     {"fg": "dark.ok",         "bg": "dark.surface-2", "min": 3.0, "kind": "shape", "use": "green badge on a raised area"},
-    {"fg": "dark.alert",      "bg": "dark.surface-2", "min": 3.0, "kind": "shape", "use": "red badge on a raised area"},
+    {"fg": "dark.alert",      "bg": "dark.base",      "min": 3.0, "kind": "shape", "use": "red badge on the base"},
+    {"fg": "dark.alert-ring", "bg": "dark.surface-2", "min": 3.0, "kind": "shape", "use": "badge ring on a raised area"},
     {"fg": "dark.divider",    "bg": "dark.base",      "min": 1.2, "kind": "shape", "use": "divider line", "decorative": true},
     {"fg": "light.text",      "bg": "light.page",     "min": 4.5, "kind": "text",  "use": "document text"},
     {"fg": "light.text",      "bg": "light.paper",    "min": 4.5, "kind": "text",  "use": "text on app chrome"},
