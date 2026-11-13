@@ -31,7 +31,9 @@
     "alert-text":     {"hex": "#ff7a88", "role": "error and alert text and icons on dark"},
     "alert-ring":     {"hex": "#f6f2e9", "role": "1.5 px ring around the red badge on surface or surface-2"},
     "on-ok":          {"hex": "#1b2330", "role": "count text on the green badge"},
-    "on-alert":       {"hex": "#f6f2e9", "role": "count text on the red badge (Paper)"}
+    "on-alert":       {"hex": "#f6f2e9", "role": "count text on the red badge (Paper)"},
+    "ok-text":        {"hex": "#58b983", "role": "success text and icons on dark (ok is only 4.4 on surface-2)"},
+    "visited":        {"hex": "#bba0ee", "role": "visited links on dark (soft lilac)"}
   },
   "light": {
     "page":       {"hex": "#fffdf8", "role": "document page background"},
@@ -44,7 +46,8 @@
     "ok":         {"hex": "#2f7d4f", "role": "success"},
     "warn":       {"hex": "#8a5a00", "role": "warning"},
     "info":       {"hex": "#1f5fa8", "role": "information"},
-    "alert":      {"hex": "#c0392b", "role": "errors"}
+    "alert":      {"hex": "#c0392b", "role": "errors"},
+    "visited":    {"hex": "#6f46a8", "role": "visited links on light pages"}
   },
   "pairs": [
     {"fg": "dark.text",       "bg": "dark.base",      "min": 4.5, "kind": "text",  "use": "body text"},
@@ -63,6 +66,10 @@
     {"fg": "dark.info",       "bg": "dark.base",      "min": 4.5, "kind": "text",  "use": "information text"},
     {"fg": "dark.alert-text",  "bg": "dark.base",     "min": 4.5, "kind": "text",  "use": "error text"},
     {"fg": "dark.alert-text",  "bg": "dark.surface-2", "min": 4.5, "kind": "text", "use": "error text in menus and inputs"},
+    {"fg": "dark.ok-text",    "bg": "dark.base",      "min": 4.5, "kind": "text",  "use": "success text"},
+    {"fg": "dark.ok-text",    "bg": "dark.surface-2", "min": 4.5, "kind": "text",  "use": "success text in menus and inputs"},
+    {"fg": "dark.visited",    "bg": "dark.base",      "min": 4.5, "kind": "text",  "use": "visited links"},
+    {"fg": "dark.visited",    "bg": "dark.surface-2", "min": 4.5, "kind": "text",  "use": "visited links in menus"},
     {"fg": "dark.outline",    "bg": "dark.base",      "min": 3.0, "kind": "shape", "use": "control outline"},
     {"fg": "dark.outline",    "bg": "dark.surface-2", "min": 3.0, "kind": "shape", "use": "control outline in menus"},
     {"fg": "dark.accent",     "bg": "dark.base",      "min": 3.0, "kind": "shape", "use": "accent icon or selection bar"},
@@ -83,6 +90,8 @@
     {"fg": "light.info",      "bg": "light.page",     "min": 4.5, "kind": "text",  "use": "information text"},
     {"fg": "light.alert",     "bg": "light.page",     "min": 4.5, "kind": "text",  "use": "error text"},
     {"fg": "light.alert",     "bg": "light.paper",    "min": 4.5, "kind": "text",  "use": "error text on app chrome"},
+    {"fg": "light.visited",   "bg": "light.page",     "min": 4.5, "kind": "text",  "use": "visited links in a document"},
+    {"fg": "light.visited",   "bg": "light.paper",    "min": 4.5, "kind": "text",  "use": "visited links on app chrome"},
     {"fg": "light.outline",   "bg": "light.page",     "min": 3.0, "kind": "shape", "use": "control outline"}
   ]
 }

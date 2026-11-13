@@ -10,8 +10,8 @@ import contrast  # noqa: E402
 PAL = contrast.load()
 
 REQUIRED_DARK = ["base", "surface", "surface-2", "divider", "outline", "text", "text-muted", "accent", "accent-hover",
-                 "accent-pressed", "on-accent", "accent-text", "ok", "warn", "info", "alert", "alert-text", "alert-ring", "on-ok", "on-alert"]
-REQUIRED_LIGHT = ["page", "paper", "text", "text-muted", "outline", "accent", "on-accent", "ok", "warn", "info", "alert"]
+                 "accent-pressed", "on-accent", "accent-text", "ok", "warn", "info", "alert", "alert-text", "alert-ring", "on-ok", "on-alert", "visited", "ok-text"]
+REQUIRED_LIGHT = ["page", "paper", "text", "text-muted", "outline", "accent", "on-accent", "ok", "warn", "info", "alert", "visited"]
 
 
 def test_the_contrast_math_matches_known_values():
@@ -53,7 +53,9 @@ def test_the_pairs_cover_the_ones_the_desktop_uses():
         ("dark.text-muted", "dark.surface-2"), ("dark.accent-text", "dark.base"), ("dark.on-accent", "dark.accent"),
         ("dark.on-alert", "dark.alert"), ("dark.on-ok", "dark.ok"), ("dark.outline", "dark.base"),
         ("dark.alert", "dark.base"), ("dark.alert-text", "dark.base"), ("dark.alert-text", "dark.surface-2"),
-        ("dark.alert-ring", "dark.surface-2"),
+        ("dark.alert-ring", "dark.surface-2"), ("dark.visited", "dark.base"), ("dark.visited", "dark.surface-2"),
+        ("light.visited", "light.page"), ("light.visited", "light.paper"),
+        ("dark.ok-text", "dark.base"), ("dark.ok-text", "dark.surface-2"),
         ("light.text", "light.page"), ("light.text-muted", "light.page"), ("light.accent", "light.page"),
         ("light.on-accent", "light.accent"), ("light.text", "light.paper"),
     ]
