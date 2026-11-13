@@ -36,6 +36,11 @@ listing="$(sudo find "$root" -xdev -type f 2>/dev/null)"
 
 grep -qx 'ID=nisse' "$root/usr/lib/os-release" || fail "root filesystem os-release lacks ID=nisse"
 [ -d "$root/usr/share/fonts/nunito" ] || fail "Nunito font directory missing"
+[ -d "$root/usr/share/fonts/fira-code" ] || fail "Fira Code font directory missing (the Nisse monospace font, ledger N-101)"
+[ -d "$root/usr/share/fonts/typetogether-literata-fonts" ] || fail "Literata font directory missing (the Nisse document font, ledger N-101)"
+for scheme in NisseEmber NisseEmberLight; do
+    [ -f "$root/usr/share/color-schemes/$scheme.colors" ] || fail "Plasma color scheme $scheme is missing (nisse-theme)"
+done
 for prog in nisse-hwroute nisse-daemon nisse-audit-hook nisse-panel nisse-fetch-claude; do
     # a here-string, not a pipe: under pipefail, grep -q exits early and printf dies of SIGPIPE on a long listing
     grep -qE "(^|/)usr/bin/$prog$" <<< "$listing" || fail "/usr/bin/$prog is missing from the ISO"
