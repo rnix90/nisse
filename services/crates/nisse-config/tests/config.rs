@@ -175,3 +175,197 @@ fn a_zero_approval_expiry_is_refused() {
         Err(ConfigError::BadApprovalExpiry)
     ));
 }
+
+// ---- the backend model (ledger N-210): a main backend, per-category routes, and three kinds of target
+
+use nisse_config::{Category, Target};
+
+const BASE: &str = r#"
+main = "max"
+
+[[backends]]
+name = "max"
+kind = "max"
+"#;
+
+fn with(extra: &str) -> String {
+    format!("{BASE}\n{extra}")
+}
+
+const LOCAL: &str = r#"
+[[backends]]
+name = "here"
+kind = "ollama"
+base_url = "http://127.0.0.1:11434"
+model = "gpt-oss:20b"
+"#;
+
+const REMOTE: &str = r#"
+[[backends]]
+name = "desk"
+kind = "ollama"
+base_url = "http://192.0.2.10:11434"
+model = "qwen3-vl:8b"
+"#;
+
+#[test]
+fn the_categories_have_stable_names() {
+    for (name, category) in [
+        ("chat", Category::Chat),
+        ("vision", Category::Vision),
+        ("background", Category::Background),
+    ] {
+        assert_eq!(Category::parse(name), Some(category));
+        assert_eq!(category.as_str(), name);
+    }
+    assert_eq!(Category::parse("Chat"), None);
+    assert_eq!(Category::parse("images"), None);
+    assert_eq!(Category::ALL.len(), 3);
+}
+
+#[test]
+fn a_category_without_a_route_uses_the_main_backend() {
+    let cfg = load(&write("route-main", &with(LOCAL))).unwrap();
+    for category in Category::ALL {
+        assert_eq!(cfg.backend_for(category).name, "max");
+    }
+}
+
+#[test]
+fn a_routed_category_uses_its_backend_and_the_others_keep_the_main() {
+    let text = with(&format!(
+        "{LOCAL}\n{REMOTE}\n[routes]\nvision = \"desk\"\nbackground = \"here\"\n"
+    ));
+    let cfg = load(&write("route-some", &text)).unwrap();
+    assert_eq!(cfg.backend_for(Category::Vision).name, "desk");
+    assert_eq!(cfg.backend_for(Category::Background).name, "here");
+    assert_eq!(cfg.backend_for(Category::Chat).name, "max");
+}
+
+#[test]
+fn chat_can_be_routed_away_from_the_main_too() {
+    let text = with(&format!("{LOCAL}\n[routes]\nchat = \"here\"\n"));
+    let cfg = load(&write("route-chat", &text)).unwrap();
+    assert_eq!(cfg.backend_for(Category::Chat).name, "here");
+    assert_eq!(cfg.main_backend().name, "max", "the main backend is still the fallback");
+}
+
+#[test]
+fn a_route_for_an_unknown_category_is_rejected_not_ignored() {
+    let text = with(&format!("{LOCAL}\n[routes]\nimages = \"here\"\n"));
+    assert!(matches!(
+        load(&write("route-cat", &text)),
+        Err(ConfigError::UnknownCategory(name)) if name == "images"
+    ));
+}
+
+#[test]
+fn the_three_targets_are_told_apart() {
+    let text = with(&format!("{LOCAL}\n{REMOTE}"));
+    let cfg = load(&write("targets", &text)).unwrap();
+    let target = |name: &str| cfg.backends.iter().find(|b| b.name == name).unwrap().target();
+    assert_eq!(target("max"), Target::MaxAccount);
+    assert_eq!(target("here"), Target::LocalOllama);
+    assert_eq!(target("desk"), Target::RemoteOllama);
+}
+
+#[test]
+fn local_means_this_machine_in_every_spelling() {
+    for url in [
+        "http://localhost:11434",
+        "http://127.0.0.1:11434",
+        "http://127.1.2.3:11434",
+        "http://[::1]:11434",
+        "http://LOCALHOST:11434/",
+    ] {
+        let text = with(&format!(
+            "[[backends]]\nname = \"x\"\nkind = \"ollama\"\nbase_url = \"{url}\"\nmodel = \"m\"\n"
+        ));
+        let cfg = load(&write("local-spelling", &text)).unwrap();
+        assert_eq!(cfg.backends[1].target(), Target::LocalOllama, "{url}");
+    }
+    for url in [
+        "http://192.0.2.10:11434",
+        "https://ollama.example.net",
+        "http://10.0.0.5",
+    ] {
+        let text = with(&format!(
+            "[[backends]]\nname = \"x\"\nkind = \"ollama\"\nbase_url = \"{url}\"\nmodel = \"m\"\n"
+        ));
+        let cfg = load(&write("remote-spelling", &text)).unwrap();
+        assert_eq!(cfg.backends[1].target(), Target::RemoteOllama, "{url}");
+    }
+}
+
+#[test]
+fn an_ollama_backend_needs_an_address_and_a_model() {
+    let no_url = with("[[backends]]\nname = \"x\"\nkind = \"ollama\"\nmodel = \"m\"\n");
+    assert!(matches!(
+        load(&write("no-url", &no_url)),
+        Err(ConfigError::MissingField { backend, field }) if backend == "x" && field == "base_url"
+    ));
+    let no_model = with("[[backends]]\nname = \"x\"\nkind = \"ollama\"\nbase_url = \"http://localhost:11434\"\n");
+    assert!(matches!(
+        load(&write("no-model", &no_model)),
+        Err(ConfigError::MissingField { backend, field }) if backend == "x" && field == "model"
+    ));
+    let empty = with("[[backends]]\nname = \"x\"\nkind = \"ollama\"\nbase_url = \"\"\nmodel = \"m\"\n");
+    assert!(matches!(
+        load(&write("empty-url", &empty)),
+        Err(ConfigError::MissingField { .. })
+    ));
+}
+
+#[test]
+fn an_address_that_is_not_a_web_address_is_rejected() {
+    for url in [
+        "192.0.2.10:11434",
+        "ftp://host",
+        "http://",
+        "not a url",
+        "file:///etc/passwd",
+    ] {
+        let text = with(&format!(
+            "[[backends]]\nname = \"x\"\nkind = \"ollama\"\nbase_url = \"{url}\"\nmodel = \"m\"\n"
+        ));
+        assert!(
+            matches!(load(&write("bad-url", &text)), Err(ConfigError::BadUrl { .. })),
+            "{url} was accepted"
+        );
+    }
+}
+
+#[test]
+fn a_max_backend_takes_no_address() {
+    let text = "main = \"m\"\n[[backends]]\nname = \"m\"\nkind = \"max\"\nbase_url = \"http://x\"\n";
+    assert!(matches!(
+        load(&write("max-url", text)),
+        Err(ConfigError::MaxWithAddress(name)) if name == "m"
+    ));
+}
+
+#[test]
+fn backend_names_must_be_unique_and_not_empty() {
+    let dup = with("[[backends]]\nname = \"max\"\nkind = \"max\"\n");
+    assert!(matches!(
+        load(&write("dup", &dup)),
+        Err(ConfigError::DuplicateBackend(name)) if name == "max"
+    ));
+    let empty = "main = \"\"\n[[backends]]\nname = \"\"\nkind = \"max\"\n";
+    assert!(matches!(load(&write("empty-name", empty)), Err(ConfigError::EmptyName)));
+}
+
+#[test]
+fn the_default_config_routes_everything_to_max() {
+    let cfg = Config::default_max();
+    for category in Category::ALL {
+        assert_eq!(cfg.backend_for(category).target(), Target::MaxAccount);
+    }
+}
+
+#[test]
+fn the_target_has_stable_names_for_clients() {
+    assert_eq!(Target::MaxAccount.as_str(), "max-account");
+    assert_eq!(Target::LocalOllama.as_str(), "local-ollama");
+    assert_eq!(Target::RemoteOllama.as_str(), "remote-ollama");
+}

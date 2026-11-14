@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-//! Which AI backend nisse talks to: the Max account or an Ollama endpoint (local or on the network).
+//! Which AI backend nisse talks to: the Max account or an Ollama endpoint (local or on the network), with a main backend
+//! and per-category routes (N-210).
 
 use std::collections::BTreeMap;
 use std::io;
@@ -43,6 +44,55 @@ pub enum BackendKind {
     Ollama,
 }
 
+/// What kind of work a request is, for routing: each category can go to its own backend (`[routes]` in the file); a
+/// category with no route uses the main backend.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Category {
+    /// Conversation and code work: what a panel session does.
+    Chat,
+    /// Looking at images.
+    Vision,
+    /// Jobs nobody is waiting on (summaries, digests, maintenance).
+    Background,
+}
+
+impl Category {
+    pub const ALL: [Category; 3] = [Category::Chat, Category::Vision, Category::Background];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Category::Chat => "chat",
+            Category::Vision => "vision",
+            Category::Background => "background",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Category> {
+        Category::ALL.into_iter().find(|c| c.as_str() == text)
+    }
+}
+
+/// Where a backend is, in the three ways the design cares about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Target {
+    /// The Max account, through the CLI's own login.
+    MaxAccount,
+    /// Ollama on this machine.
+    LocalOllama,
+    /// Ollama on another machine (LAN or VPN); it may be away.
+    RemoteOllama,
+}
+
+impl Target {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Target::MaxAccount => "max-account",
+            Target::LocalOllama => "local-ollama",
+            Target::RemoteOllama => "remote-ollama",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Backend {
     pub name: String,
@@ -51,11 +101,49 @@ pub struct Backend {
     pub model: Option<String>,
 }
 
+impl Backend {
+    /// Max account, local Ollama or remote Ollama. An Ollama address that is this machine (`localhost`, `127.x.x.x`,
+    /// `::1`) is local; any other host is remote.
+    pub fn target(&self) -> Target {
+        match self.kind {
+            BackendKind::Max => Target::MaxAccount,
+            BackendKind::Ollama => match self.base_url.as_deref().and_then(host_of) {
+                Some(host) if is_this_machine(&host) => Target::LocalOllama,
+                _ => Target::RemoteOllama,
+            },
+        }
+    }
+}
+
+/// The host of an http(s) address, or `None` if it is not one.
+fn host_of(url: &str) -> Option<String> {
+    let rest = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))
+        .or_else(|| url.strip_prefix("HTTP://"))
+        .or_else(|| url.strip_prefix("HTTPS://"))?;
+    let authority = rest.split(['/', '?', '#']).next()?;
+    if authority.is_empty() || authority.chars().any(|c| c.is_whitespace()) {
+        return None;
+    }
+    let authority = authority.rsplit('@').next()?;
+    let host = if let Some(inner) = authority.strip_prefix('[') {
+        inner.split(']').next()?.to_string()
+    } else {
+        authority.split(':').next()?.to_string()
+    };
+    (!host.is_empty()).then(|| host.to_ascii_lowercase())
+}
+
+fn is_this_machine(host: &str) -> bool {
+    host == "localhost" || host == "::1" || host.parse::<std::net::Ipv4Addr>().is_ok_and(|ip| ip.is_loopback())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Config {
     pub main: String,
     pub backends: Vec<Backend>,
-    /// Category (for example "vision") to backend name. Parsed and checked; nothing routes by it yet.
+    /// Category ("chat", "vision" or "background") to backend name; a category with no entry uses `main`.
     #[serde(default)]
     pub routes: BTreeMap<String, String>,
     /// `authority = "autonomous" | "supervised"` at the top of the file; autonomous when absent.
@@ -85,6 +173,18 @@ pub enum ConfigError {
     UnknownMain(String),
     #[error("route {category:?} points at undefined backend {backend:?}")]
     UnknownRoute { category: String, backend: String },
+    #[error("route for unknown category {0:?} (known: chat, vision, background)")]
+    UnknownCategory(String),
+    #[error("backend {backend:?} needs {field}")]
+    MissingField { backend: String, field: &'static str },
+    #[error("backend {backend:?} has an address that is not an http or https web address: {url:?}")]
+    BadUrl { backend: String, url: String },
+    #[error("backend {0:?} is a Max backend and takes no base_url")]
+    MaxWithAddress(String),
+    #[error("backend name {0:?} is used twice")]
+    DuplicateBackend(String),
+    #[error("a backend has an empty name")]
+    EmptyName,
 }
 
 impl Config {
@@ -104,6 +204,14 @@ impl Config {
         }
     }
 
+    /// The backend for a kind of work: its route, or the main backend when it has none.
+    pub fn backend_for(&self, category: Category) -> &Backend {
+        self.routes
+            .get(category.as_str())
+            .and_then(|name| self.backends.iter().find(|b| &b.name == name))
+            .unwrap_or_else(|| self.main_backend())
+    }
+
     pub fn main_backend(&self) -> &Backend {
         self.backends
             .iter()
@@ -115,8 +223,50 @@ impl Config {
         if self.approval_expiry_secs == 0 {
             return Err(ConfigError::BadApprovalExpiry);
         }
+        let mut seen = std::collections::BTreeSet::new();
+        for backend in &self.backends {
+            if backend.name.is_empty() {
+                return Err(ConfigError::EmptyName);
+            }
+            if !seen.insert(backend.name.as_str()) {
+                return Err(ConfigError::DuplicateBackend(backend.name.clone()));
+            }
+            match backend.kind {
+                BackendKind::Max => {
+                    if backend.base_url.as_deref().is_some_and(|u| !u.is_empty()) {
+                        return Err(ConfigError::MaxWithAddress(backend.name.clone()));
+                    }
+                }
+                BackendKind::Ollama => {
+                    let url = backend.base_url.as_deref().unwrap_or_default();
+                    if url.is_empty() {
+                        return Err(ConfigError::MissingField {
+                            backend: backend.name.clone(),
+                            field: "base_url",
+                        });
+                    }
+                    if host_of(url).is_none() {
+                        return Err(ConfigError::BadUrl {
+                            backend: backend.name.clone(),
+                            url: url.to_string(),
+                        });
+                    }
+                    if backend.model.as_deref().unwrap_or_default().is_empty() {
+                        return Err(ConfigError::MissingField {
+                            backend: backend.name.clone(),
+                            field: "model",
+                        });
+                    }
+                }
+            }
+        }
         if !self.backends.iter().any(|b| b.name == self.main) {
             return Err(ConfigError::UnknownMain(self.main));
+        }
+        for category in self.routes.keys() {
+            if Category::parse(category).is_none() {
+                return Err(ConfigError::UnknownCategory(category.clone()));
+            }
         }
         for (category, backend) in &self.routes {
             if !self.backends.iter().any(|b| &b.name == backend) {
