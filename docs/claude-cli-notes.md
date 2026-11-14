@@ -112,8 +112,53 @@ With `--settings` carrying the hook and a 6 second wait inside it:
 - Commands used: `curl -fsSL https://claude.ai/install.sh | bash` (the same installer the first-boot script uses), then the
   runs above with `sudo tee /etc/claude-code/managed-settings.json`; the file and the test user settings were removed afterwards.
 
+## Remote control on headless sessions (verified 2026-11-14, CLI 2.1.325 in the Fedora 44 build VM, ledger N-202)
+
+Signed in to the Max account inside the VM first (`claude auth login` prints a URL; the code from the page is pasted on
+its stdin; `claude auth status` then shows `loggedIn: true`).
+
+- **`claude -p --input-format stream-json ... --remote-control <name>` ignores the flag.** The prompt was answered normally
+  (exit 0), but the debug log reads `remote=false ... nonInteractive=true` and no bridge was started. So the daemon's own
+  `claude -p` children cannot be put under remote control, and a per-session checkbox on them cannot work.
+- **`claude remote-control` (the standalone server) does work with no terminal**, with two one-time conditions:
+  1. The folder must be trusted: otherwise it exits 1 with "Workspace not trusted. Please run `claude` in <dir> first".
+     In the VM the trust entry was set in `~/.claude.json` (`projects.<dir>.hasTrustDialogAccepted`).
+  2. It asks "Enable Remote Control? (y/n)" once. With no answer it exits 1; with `y` on stdin it carried on.
+  Then it registered an environment (`POST /v1/environments/bridge` -> 200), printed a claude.ai/code link, created an
+  initial session and began polling for work: "Connected", "Capacity: 1/32", and it spawned a session process it owns
+  (`[bridge:session] Spawning ...`). `--spawn same-dir|worktree|session`, `--capacity`, `--permission-mode` and
+  `--settings <file>` (the file is read once at start and applies to spawned sessions) exist on it.
+- **Not verified:** a message actually sent from claude.ai or the phone into such a session (nobody drove the other end),
+  whether `--settings` with the guardrail hook is honored by sessions the server spawns, and whether the nisse daemon
+  can see or approve what those sessions do. Those sessions are children of the `claude remote-control` process, not of
+  the daemon, so the daemon's approvals queue (the host protocol) does not cover them.
+- Consequence for the panel: remote control is a per-machine switch (run one `claude remote-control` as a user service),
+  not a per-session checkbox. N-209 was rewritten for that.
+- Commands used: `claude remote-control --name nisse-probe --debug-file F` with `echo y` piped in, run for 25 seconds
+  under `timeout`; the registered environment is left to expire on the account side.
+
+## Live run of the host protocol (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-224)
+
+The real `nisse-daemon` (built in the VM, no fake runner) on a private session bus with `authority = "supervised"` and
+`approval_expiry_secs = 25`, one session, three messages each asking for one Bash call (`echo ... > /tmp/...`), driven
+with `busctl` (SendMessage, ListApprovals, Approve, Deny):
+
+| Case | What the daemon did | What the CLI did | Result |
+|---|---|---|---|
+| approve | a pending approval appeared (asked_by `desktop`, summary `Bash: echo approved > /tmp/live224/a.txt`, whole request in `detail`); `Approve` with a device name | ran the command | file written, reply `done`, signals `pending` then `approved`, audit `approval-approved` |
+| deny | pending; `Deny` with a device name and reason | told the call was denied | file not written, reply `denied`, signals `pending` then `denied`, the reason `not today` stored |
+| expire (25 s, no answer) | the sweeper set `expired` (decided_by `daemon`, reason "no answer in time") | told the call was denied | file not written, reply `denied`, signal `expired`, audit `approval-expired` |
+
+- Repeat with `tools/claude-probe/live_host.sh` (header says how).
+- The queue state, the three D-Bus signals and the audit kinds (requested x3, approved, denied, expired) matched the tests.
+- The same session continued across the three turns (resume works in host mode).
+- Difference found: in host mode the CLI emits **no `permission_denied` event** when the host answers deny, so the
+  `[Bash was not allowed]` line from the one-shot mode never reached the chat; the panel saw only the model's own reply.
+  Filed as N-225.
+- A first attempt of the script mis-parsed busctl output and never answered; all three approvals then expired by
+  themselves and the CLI carried on, which is the expiry case again (and the first live proof of it).
+
 ## Not yet verified
 
-- `--remote-control` on headless or daemon-managed sessions (the panel's per-session checkbox assumes it works): N-202,
-  needs Bert's sign-in.
-- Host answers held longer than 90 seconds, and a PreToolUse hook returning `ask`.
+- A message from claude.ai or the phone into a `claude remote-control` session; the guardrail hook on such sessions (N-209).
+- Host answers held longer than 90 seconds (the 25 second expiry above is shorter), and a PreToolUse hook returning `ask`.
