@@ -712,6 +712,69 @@ impl Daemon {
         .to_string())
     }
 
+    /// The settings the daemon is using, for the settings panel, as JSON: `config` (authority, approval_expiry_secs,
+    /// fallback, main, backends, routes, and each backend's `targets` entry), `source` ("file", "default" when there is no
+    /// file, or "broken" when the file cannot be used, in which case `config` is what the daemon really uses: the safe
+    /// default), `error` (why a broken file is broken) and `path`.
+    async fn get_config(&self) -> String {
+        let (config, source, error) = match load(&self.core.config_path) {
+            Ok(config) => (config, "file", None),
+            Err(ConfigError::NotFound) => (Config::default_max(), "default", None),
+            Err(e) => (self.core.config(), "broken", Some(e.to_string())),
+        };
+        serde_json::json!({
+            "config": config.to_json(),
+            "source": source,
+            "error": error,
+            "path": self.core.config_path.to_string_lossy(),
+        })
+        .to_string()
+    }
+
+    /// Saves settings from the panel (`config_json` is the `config` object of `GetConfig`, edited) as the file the daemon
+    /// reads, after checking them exactly like the file is checked: an invalid config is refused with the reason and
+    /// nothing is written. The previous file is kept as `<file>.bak` (even a broken one). Comments in a hand-edited file
+    /// are not kept. `by` names the device (required). Returns `GetConfig`'s JSON as it is now. Takes effect on the next
+    /// call: the daemon reads the file every time (a remote access server already running keeps the permission mode it
+    /// was started with until it restarts).
+    async fn set_config(&self, config_json: String, by: String) -> zbus::fdo::Result<String> {
+        if by.trim().is_empty() {
+            return Err(zbus::fdo::Error::InvalidArgs("by must name the device".into()));
+        }
+        let value: serde_json::Value = serde_json::from_str(&config_json)
+            .map_err(|e| zbus::fdo::Error::InvalidArgs(format!("the settings are not JSON: {e}")))?;
+        let config = Config::from_json(&value).map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
+        let path = &self.core.config_path;
+        if path.exists() {
+            let mut backup = path.clone().into_os_string();
+            backup.push(".bak");
+            let _ = std::fs::copy(path, PathBuf::from(backup));
+        }
+        if let Some(dir) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let mut tmp = path.clone().into_os_string();
+        tmp.push(".tmp");
+        let tmp = PathBuf::from(tmp);
+        std::fs::write(&tmp, config.to_toml())
+            .and_then(|_| std::fs::rename(&tmp, path))
+            .map_err(|e| zbus::fdo::Error::Failed(format!("could not save the settings: {e}")))?;
+        self.core.audit(
+            None,
+            by.trim(),
+            "config-changed",
+            serde_json::json!({
+                "authority": config.authority.as_str(),
+                "approval_expiry_secs": config.approval_expiry_secs,
+                "fallback": config.fallback_enabled,
+                "main": config.main,
+                "backends": config.backends.iter().map(|b| b.name.clone()).collect::<Vec<_>>(),
+                "routes": config.routes.keys().cloned().collect::<Vec<_>>(),
+            }),
+        );
+        Ok(self.get_config().await)
+    }
+
     /// Whether the kill switch is on, as JSON: `engaged`, `by` (the device), `reason`, `since` (unix seconds).
     async fn get_kill_switch(&self) -> String {
         self.core.kill.status().to_json()

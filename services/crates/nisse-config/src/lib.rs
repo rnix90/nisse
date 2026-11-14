@@ -251,6 +251,8 @@ pub enum ConfigError {
     EmptyName,
     #[error("backend {backend:?} names an unknown fallback {fallback:?}")]
     UnknownFallback { backend: String, fallback: String },
+    #[error("invalid settings: {0}")]
+    Invalid(String),
     #[error("the fallbacks starting at backend {0:?} lead back to a backend already in the chain")]
     FallbackLoop(String),
 }
@@ -301,6 +303,166 @@ impl Config {
             next = found.fallback.as_deref();
         }
         chain
+    }
+
+    /// The whole config as the file the daemon reads. Comments of a hand-edited file are not kept.
+    pub fn to_toml(&self) -> String {
+        use toml::Value;
+        let text = |s: &str| Value::String(s.to_string());
+        let mut top = toml::Table::new();
+        top.insert("authority".into(), text(self.authority.as_str()));
+        top.insert(
+            "approval_expiry_secs".into(),
+            Value::Integer(self.approval_expiry_secs.min(i64::MAX as u64) as i64),
+        );
+        top.insert(
+            "fallback".into(),
+            text(if self.fallback_enabled { "on" } else { "off" }),
+        );
+        top.insert("main".into(), text(&self.main));
+        let backends: Vec<Value> = self
+            .backends
+            .iter()
+            .map(|b| {
+                let mut t = toml::Table::new();
+                t.insert("name".into(), text(&b.name));
+                t.insert(
+                    "kind".into(),
+                    text(match b.kind {
+                        BackendKind::Max => "max",
+                        BackendKind::Ollama => "ollama",
+                    }),
+                );
+                for (key, value) in [
+                    ("base_url", &b.base_url),
+                    ("model", &b.model),
+                    ("fallback", &b.fallback),
+                ] {
+                    if let Some(v) = value.as_deref().filter(|v| !v.is_empty()) {
+                        t.insert(key.into(), text(v));
+                    }
+                }
+                Value::Table(t)
+            })
+            .collect();
+        top.insert("backends".into(), Value::Array(backends));
+        if !self.routes.is_empty() {
+            let routes: toml::Table = self.routes.iter().map(|(k, v)| (k.clone(), text(v))).collect();
+            top.insert("routes".into(), Value::Table(routes));
+        }
+        let body = toml::to_string(&top).unwrap_or_default();
+        format!(
+            "# Written by nisse (the settings panel). You can edit it by hand; comments are not kept when it is saved again.\n{body}"
+        )
+    }
+
+    /// The config as the settings panel edits it, plus the `target` of each backend for display.
+    pub fn to_json(&self) -> serde_json::Value {
+        use serde_json::json;
+        let backends: Vec<serde_json::Value> = self
+            .backends
+            .iter()
+            .map(|b| {
+                json!({
+                    "name": b.name,
+                    "kind": match b.kind { BackendKind::Max => "max", BackendKind::Ollama => "ollama" },
+                    "base_url": b.base_url,
+                    "model": b.model,
+                    "fallback": b.fallback,
+                })
+            })
+            .collect();
+        let targets: serde_json::Map<String, serde_json::Value> = self
+            .backends
+            .iter()
+            .map(|b| (b.name.clone(), json!(b.target().as_str())))
+            .collect();
+        json!({
+            "authority": self.authority.as_str(),
+            "approval_expiry_secs": self.approval_expiry_secs,
+            "fallback": self.fallback_enabled,
+            "main": self.main,
+            "backends": backends,
+            "routes": self.routes,
+            "targets": targets,
+        })
+    }
+
+    /// A config from what the settings panel sends, checked exactly like the file is. Optional fields may be left out.
+    pub fn from_json(v: &serde_json::Value) -> Result<Config, ConfigError> {
+        let bad = |what: &str| ConfigError::Invalid(what.to_string());
+        let obj = v.as_object().ok_or_else(|| bad("the settings are not an object"))?;
+        let main = obj
+            .get("main")
+            .and_then(|m| m.as_str())
+            .ok_or_else(|| bad("main must name a backend"))?
+            .to_string();
+        let list = obj
+            .get("backends")
+            .and_then(|b| b.as_array())
+            .ok_or_else(|| bad("backends must be a list"))?;
+        let optional = |b: &serde_json::Value, key: &str| -> Option<String> {
+            b.get(key)
+                .and_then(|x| x.as_str())
+                .filter(|x| !x.is_empty())
+                .map(String::from)
+        };
+        let mut backends = Vec::new();
+        for b in list {
+            let name = b
+                .get("name")
+                .and_then(|n| n.as_str())
+                .ok_or_else(|| bad("every backend needs a name"))?
+                .to_string();
+            let kind = match b.get("kind").and_then(|k| k.as_str()) {
+                Some("max") => BackendKind::Max,
+                Some("ollama") => BackendKind::Ollama,
+                _ => return Err(bad("a backend kind is max or ollama")),
+            };
+            backends.push(Backend {
+                name,
+                kind,
+                base_url: optional(b, "base_url"),
+                model: optional(b, "model"),
+                fallback: optional(b, "fallback"),
+            });
+        }
+        let mut routes = BTreeMap::new();
+        match obj.get("routes") {
+            None | Some(serde_json::Value::Null) => {}
+            Some(serde_json::Value::Object(map)) => {
+                for (category, backend) in map {
+                    let name = backend.as_str().ok_or_else(|| bad("a route names a backend"))?;
+                    routes.insert(category.clone(), name.to_string());
+                }
+            }
+            Some(_) => return Err(bad("routes must be an object")),
+        }
+        // Only the exact word keeps the AI autonomous; anything else is supervised (same rule as the file).
+        let authority = match obj.get("authority") {
+            None | Some(serde_json::Value::Null) => Authority::Autonomous,
+            Some(a) if a.as_str() == Some("autonomous") => Authority::Autonomous,
+            Some(_) => Authority::Supervised,
+        };
+        let approval_expiry_secs = match obj.get("approval_expiry_secs") {
+            None | Some(serde_json::Value::Null) => default_approval_expiry_secs(),
+            Some(n) => n
+                .as_u64()
+                .ok_or_else(|| bad("approval_expiry_secs must be a whole number"))?,
+        };
+        let fallback_enabled = match obj.get("fallback") {
+            None | Some(serde_json::Value::Null) => true,
+            Some(f) => f.as_bool().ok_or_else(|| bad("fallback is true or false"))?,
+        };
+        Config {
+            main,
+            backends,
+            routes,
+            fallback_enabled,
+            authority,
+            approval_expiry_secs,
+        }
+        .validate()
     }
 
     pub fn main_backend(&self) -> &Backend {
@@ -401,7 +563,12 @@ pub fn load(path: &Path) -> Result<Config, ConfigError> {
         io::ErrorKind::NotFound => ConfigError::NotFound,
         _ => ConfigError::Io(e),
     })?;
-    toml::from_str::<Config>(&text).map_err(ConfigError::Parse)?.validate()
+    parse(&text)
+}
+
+/// Reads and checks a config from text (what `load` does with the file's content).
+pub fn parse(text: &str) -> Result<Config, ConfigError> {
+    toml::from_str::<Config>(text).map_err(ConfigError::Parse)?.validate()
 }
 
 /// Environment that points the Claude Code CLI at `backend`. Max needs none (its own login is used).

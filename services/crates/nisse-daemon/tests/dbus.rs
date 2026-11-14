@@ -2018,3 +2018,149 @@ mod kill_switch {
         Proxy::new(&client, NAME, PATH, NAME).await.unwrap()
     }
 }
+
+// ---- reading and saving the config over D-Bus (ledger N-216)
+
+mod config_api {
+    use super::*;
+
+    const TWO: &str = "main = \"max\"\n[[backends]]\nname = \"max\"\nkind = \"max\"\n[[backends]]\nname = \"here\"\nkind = \"ollama\"\nbase_url = \"http://127.0.0.1:11434\"\nmodel = \"gpt-oss:20b\"\n";
+
+    async fn get(s: &Setup) -> serde_json::Value {
+        let text: String = s.proxy.call("GetConfig", &()).await.unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    #[tokio::test]
+    async fn with_no_file_it_reports_the_default_and_where_the_file_would_be() {
+        let s = setup("cfg-default", Arc::new(FakeRunner)).await;
+        let v = get(&s).await;
+        assert_eq!(v["source"], "default");
+        assert_eq!(v["config"]["main"], "max");
+        assert_eq!(v["config"]["authority"], "autonomous");
+        assert_eq!(v["path"], s.config.to_str().unwrap());
+        assert!(v["error"].is_null());
+    }
+
+    #[tokio::test]
+    async fn with_a_file_it_reports_the_file() {
+        let s = setup("cfg-file", Arc::new(FakeRunner)).await;
+        fs::write(&s.config, TWO).unwrap();
+        let v = get(&s).await;
+        assert_eq!(v["source"], "file");
+        assert_eq!(v["config"]["backends"][1]["name"], "here");
+        assert_eq!(v["config"]["targets"]["here"], "local-ollama");
+    }
+
+    #[tokio::test]
+    async fn a_file_the_daemon_cannot_use_is_reported_with_the_reason_and_the_safe_default() {
+        let s = setup("cfg-broken", Arc::new(FakeRunner)).await;
+        fs::write(
+            &s.config,
+            "main = \"ghost\"\n[[backends]]\nname = \"a\"\nkind = \"max\"\n",
+        )
+        .unwrap();
+        let v = get(&s).await;
+        assert_eq!(v["source"], "broken");
+        assert!(v["error"].as_str().unwrap().contains("ghost"), "{v}");
+        assert_eq!(
+            v["config"]["authority"], "supervised",
+            "what the daemon is really using: fail closed"
+        );
+    }
+
+    #[tokio::test]
+    async fn saving_writes_a_file_the_daemon_then_uses() {
+        let s = setup("cfg-save", Arc::new(FakeRunner)).await;
+        let mut v = get(&s).await["config"].clone();
+        v["authority"] = serde_json::json!("supervised");
+        v["approval_expiry_secs"] = serde_json::json!(120);
+        let saved: String = s.proxy.call("SetConfig", &(v.to_string(), "desktop")).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&saved).unwrap()["config"]["authority"],
+            "supervised"
+        );
+        // the file is there, valid, and the daemon reads it on its next call
+        let on_disk = nisse_config::load(&s.config).unwrap();
+        assert_eq!(on_disk.approval_expiry_secs, 120);
+        let authority: String = s.proxy.call("GetAuthority", &()).await.unwrap();
+        assert_eq!(authority, "supervised");
+    }
+
+    #[tokio::test]
+    async fn adding_a_backend_and_a_route_takes_effect_for_resolution() {
+        let s = setup("cfg-route", Arc::new(FakeRunner)).await;
+        let mut v = get(&s).await["config"].clone();
+        v["backends"].as_array_mut().unwrap().push(serde_json::json!({
+            "name": "here", "kind": "ollama", "base_url": "http://127.0.0.1:1", "model": "m", "fallback": "max"
+        }));
+        v["routes"] = serde_json::json!({"vision": "here"});
+        let _: String = s.proxy.call("SetConfig", &(v.to_string(), "desktop")).await.unwrap();
+        let lines: Vec<String> = s.proxy.call("ListBackends", &()).await.unwrap();
+        assert_eq!(parse_all(&lines).len(), 2);
+        let json: String = s.proxy.call("ResolveBackend", &("vision",)).await.unwrap();
+        let r: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(r["requested"], "here", "the vision route is the new one");
+        let chat: String = s.proxy.call("ResolveBackend", &("chat",)).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&chat).unwrap()["requested"],
+            "max"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_invalid_config_is_refused_with_the_reason_and_the_file_is_left_alone() {
+        let s = setup("cfg-invalid", Arc::new(FakeRunner)).await;
+        fs::write(&s.config, TWO).unwrap();
+        let mut v = get(&s).await["config"].clone();
+        v["main"] = serde_json::json!("ghost");
+        let refused: Result<String, _> = s.proxy.call("SetConfig", &(v.to_string(), "desktop")).await;
+        let message = format!("{:?}", refused.unwrap_err());
+        assert!(message.contains("ghost"), "{message}");
+        assert_eq!(fs::read_to_string(&s.config).unwrap(), TWO);
+        assert!(!s.config.with_extension("toml.bak").exists());
+    }
+
+    #[tokio::test]
+    async fn text_that_is_not_json_and_a_missing_device_are_refused() {
+        let s = setup("cfg-garbage", Arc::new(FakeRunner)).await;
+        let bad: Result<String, _> = s.proxy.call("SetConfig", &("{ nope", "desktop")).await;
+        assert!(bad.is_err());
+        let v = get(&s).await["config"].clone();
+        let nodevice: Result<String, _> = s.proxy.call("SetConfig", &(v.to_string(), "")).await;
+        assert!(nodevice.is_err());
+    }
+
+    #[tokio::test]
+    async fn the_previous_file_is_kept_as_a_backup_even_when_it_was_broken() {
+        let s = setup("cfg-backup", Arc::new(FakeRunner)).await;
+        fs::write(&s.config, "this is { not toml").unwrap();
+        let v = get(&s).await["config"].clone();
+        let _: String = s.proxy.call("SetConfig", &(v.to_string(), "desktop")).await.unwrap();
+        let backup = s.config.with_extension("toml.bak");
+        assert_eq!(fs::read_to_string(backup).unwrap(), "this is { not toml");
+        assert!(nisse_config::load(&s.config).is_ok());
+        assert_eq!(get(&s).await["source"], "file");
+    }
+
+    #[tokio::test]
+    async fn saving_is_audited_with_the_device_and_without_addresses() {
+        let s = setup("cfg-audit", Arc::new(FakeRunner)).await;
+        fs::write(&s.config, TWO).unwrap();
+        let v = get(&s).await["config"].clone();
+        let _: String = s.proxy.call("SetConfig", &(v.to_string(), "phone")).await.unwrap();
+        let audit = audit_lines(&s).await.join("\n");
+        assert!(audit.contains("config-changed") && audit.contains("phone"), "{audit}");
+        assert!(!audit.contains("127.0.0.1"), "addresses stay out of the log: {audit}");
+    }
+
+    #[tokio::test]
+    async fn saving_what_was_read_changes_nothing() {
+        let s = setup("cfg-roundtrip", Arc::new(FakeRunner)).await;
+        fs::write(&s.config, TWO).unwrap();
+        let before = nisse_config::load(&s.config).unwrap();
+        let v = get(&s).await["config"].clone();
+        let _: String = s.proxy.call("SetConfig", &(v.to_string(), "desktop")).await.unwrap();
+        assert_eq!(nisse_config::load(&s.config).unwrap(), before);
+    }
+}

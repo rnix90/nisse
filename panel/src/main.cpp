@@ -224,11 +224,41 @@ static int selfTestKill(int argc, char *argv[])
     return 0;
 }
 
+// Headless check for the settings panel's client side (N-216): read the daemon's config, edit it the way the panel does,
+// save it, and read it back. Used by tests/e2e/panel_daemon.sh.
+static int selfTestConfig(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QTextStream out(stdout);
+    DaemonClient client;
+    QJsonObject reply = QJsonDocument::fromJson(client.config().toUtf8()).object();
+    if (!reply.contains(QStringLiteral("config"))) {
+        out << "error: no config (is the daemon running?)" << Qt::endl;
+        return 3;
+    }
+    out << "source: " << reply.value(QStringLiteral("source")).toString() << Qt::endl;
+    QJsonObject config = reply.value(QStringLiteral("config")).toObject();
+    out << "authority before: " << config.value(QStringLiteral("authority")).toString() << Qt::endl;
+    config.insert(QStringLiteral("authority"), QStringLiteral("supervised"));
+    config.insert(QStringLiteral("approval_expiry_secs"), 120);
+    out << "save error: " << client.saveConfig(QString::fromUtf8(QJsonDocument(config).toJson(QJsonDocument::Compact))) << Qt::endl;
+    out << "authority after: " << client.authorityLabel() << Qt::endl;
+
+    QJsonObject bad = config;
+    bad.insert(QStringLiteral("main"), QStringLiteral("ghost"));
+    out << "bad save: " << client.saveConfig(QString::fromUtf8(QJsonDocument(bad).toJson(QJsonDocument::Compact))) << Qt::endl;
+    reply = QJsonDocument::fromJson(client.config().toUtf8()).object();
+    out << "main after bad save: " << reply.value(QStringLiteral("config")).toObject().value(QStringLiteral("main")).toString() << Qt::endl;
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     for (int i = 1; i < argc; ++i) {
         if (QByteArray(argv[i]) == "--self-test")
             return selfTest(argc, argv);
+        if (QByteArray(argv[i]) == "--self-test-config")
+            return selfTestConfig(argc, argv);
         if (QByteArray(argv[i]) == "--self-test-kill")
             return selfTestKill(argc, argv);
         if (QByteArray(argv[i]) == "--self-test-remote")

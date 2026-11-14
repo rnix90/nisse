@@ -516,3 +516,133 @@ fn a_max_backend_or_a_bad_address_has_no_endpoint() {
         assert!(b.endpoint().is_none(), "{url}");
     }
 }
+
+// ---- reading and writing the config as a whole (ledger N-216: the settings panel edits it)
+
+use nisse_config::parse;
+
+fn full() -> Config {
+    parse(&format!(
+        "authority = \"supervised\"\napproval_expiry_secs = 300\nfallback = \"off\"\n{THREE}\n[routes]\nvision = \"desk\"\nbackground = \"here\"\n"
+    ))
+    .unwrap()
+}
+
+#[test]
+fn parse_is_load_without_the_file() {
+    assert_eq!(parse(THREE).unwrap().backends.len(), 3);
+    assert!(matches!(parse("main = ["), Err(ConfigError::Parse(_))));
+    assert!(matches!(
+        parse("main = \"ghost\"\n[[backends]]\nname = \"a\"\nkind = \"max\"\n"),
+        Err(ConfigError::UnknownMain(_))
+    ));
+}
+
+#[test]
+fn a_config_written_as_toml_reads_back_the_same() {
+    let cfg = full();
+    let text = cfg.to_toml();
+    let again = parse(&text).unwrap_or_else(|e| panic!("{e}\n{text}"));
+    assert_eq!(again, cfg);
+}
+
+#[test]
+fn the_written_toml_is_ascii_says_who_wrote_it_and_keeps_the_top_keys_first() {
+    let text = full().to_toml();
+    assert!(text.is_ascii());
+    assert!(text.starts_with("# Written by nisse"), "{text}");
+    let first_table = text.find("[[backends]]").unwrap();
+    for key in ["authority =", "approval_expiry_secs =", "fallback =", "main ="] {
+        assert!(
+            text.find(key).unwrap() < first_table,
+            "{key} must come before the tables:\n{text}"
+        );
+    }
+}
+
+#[test]
+fn awkward_text_in_names_and_models_is_escaped_and_survives() {
+    let text = "main = \"a\"\n[[backends]]\nname = \"a\"\nkind = \"ollama\"\nbase_url = \"http://127.0.0.1:11434\"\nmodel = \"quote\\\"back\\\\slash\"\n";
+    let cfg = parse(text).unwrap();
+    assert_eq!(cfg.backends[0].model.as_deref(), Some("quote\"back\\slash"));
+    assert_eq!(parse(&cfg.to_toml()).unwrap(), cfg);
+}
+
+#[test]
+fn the_default_config_round_trips() {
+    let cfg = Config::default_max();
+    assert_eq!(parse(&cfg.to_toml()).unwrap(), cfg);
+}
+
+#[test]
+fn json_has_the_shape_the_settings_panel_edits() {
+    let v = full().to_json();
+    assert_eq!(v["authority"], "supervised");
+    assert_eq!(v["approval_expiry_secs"], 300);
+    assert_eq!(v["fallback"], false);
+    assert_eq!(v["main"], "max");
+    assert_eq!(v["backends"][1]["name"], "here");
+    assert_eq!(v["backends"][1]["kind"], "ollama");
+    assert_eq!(v["backends"][1]["fallback"], "desk");
+    assert!(v["backends"][0]["base_url"].is_null());
+    assert_eq!(v["routes"]["vision"], "desk");
+    assert_eq!(
+        v["targets"]["here"], "local-ollama",
+        "each backend's target is told for display"
+    );
+}
+
+#[test]
+fn json_that_the_panel_sends_becomes_a_checked_config() {
+    let cfg = full();
+    let back = Config::from_json(&cfg.to_json()).unwrap();
+    assert_eq!(back, cfg);
+}
+
+#[test]
+fn json_is_checked_like_the_file_is() {
+    let mut v = full().to_json();
+    v["main"] = serde_json::json!("ghost");
+    assert!(matches!(Config::from_json(&v), Err(ConfigError::UnknownMain(_))));
+    let mut v = full().to_json();
+    v["routes"]["images"] = serde_json::json!("here");
+    assert!(matches!(Config::from_json(&v), Err(ConfigError::UnknownCategory(_))));
+    let mut v = full().to_json();
+    v["backends"][1]["base_url"] = serde_json::json!("not a url");
+    assert!(matches!(Config::from_json(&v), Err(ConfigError::BadUrl { .. })));
+    let mut v = full().to_json();
+    v["approval_expiry_secs"] = serde_json::json!(0);
+    assert!(matches!(Config::from_json(&v), Err(ConfigError::BadApprovalExpiry)));
+}
+
+#[test]
+fn json_of_the_wrong_shape_is_an_error_not_a_panic() {
+    for bad in [
+        serde_json::json!(null),
+        serde_json::json!([]),
+        serde_json::json!({}),
+        serde_json::json!({"main": 5, "backends": []}),
+        serde_json::json!({"main": "a", "backends": "x"}),
+        serde_json::json!({"main": "a", "backends": [{"name": "a", "kind": "quantum"}]}),
+        serde_json::json!({"main": "a", "backends": [{"kind": "max"}]}),
+        serde_json::json!({"main": "a", "backends": [{"name": "a", "kind": "max"}], "routes": []}),
+    ] {
+        assert!(Config::from_json(&bad).is_err(), "{bad}");
+    }
+}
+
+#[test]
+fn the_panel_may_leave_optional_fields_out() {
+    let v = serde_json::json!({"main": "a", "backends": [{"name": "a", "kind": "max"}]});
+    let cfg = Config::from_json(&v).unwrap();
+    assert_eq!(cfg.authority, Authority::Autonomous);
+    assert_eq!(cfg.approval_expiry_secs, 900);
+    assert!(cfg.fallback_enabled);
+    assert!(cfg.routes.is_empty());
+}
+
+#[test]
+fn authority_in_json_follows_the_fail_closed_rule() {
+    let v = serde_json::json!({"main": "a", "backends": [{"name": "a", "kind": "max"}], "authority": "AUTONOMOUS"});
+    assert_eq!(Config::from_json(&v).unwrap().authority, Authority::Supervised);
+}

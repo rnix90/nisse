@@ -132,6 +132,22 @@ QString DaemonClient::setSessionBackend(const QString &session, const QString &b
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
+QString DaemonClient::config()
+{
+    QDBusReply<QString> reply = m_iface.call(QStringLiteral("GetConfig"));
+    return reply.isValid() ? reply.value() : QString();
+}
+
+QString DaemonClient::saveConfig(const QString &configJson)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("SetConfig"), configJson, QStringLiteral("desktop"));
+    if (reply.type() == QDBusMessage::ReplyMessage) {
+        refreshBackend();
+        return QString();
+    }
+    return reply.errorMessage();
+}
+
 QStringList DaemonClient::auditTail(int n)
 {
     QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("AuditTail"), static_cast<uint>(qMax(0, n)));

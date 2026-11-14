@@ -148,3 +148,16 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 - It is a plain daemon method with a device name and no panel-only state (the pairing in N-221 will decide who may call it).
 - Root actions (the privileged helper, N-602) do not exist yet; when they do they must stop and clean up under this switch
   too (a ledger note on N-602 says so).
+
+## Settings tab (N-216)
+
+- One tab for everything the person can set: how much the AI may do (autonomous or supervised, in words), how long an approval
+  waits, backends and routes (see `docs/backends-config.md`), the fallback switch, and below them what lives in the daemon:
+  the usage line, the remote access switch, the kill switch. The old "Remote" tab moved in here.
+- It edits a copy and sends it back; Save is off until something changed, Revert goes back to what the daemon has, and a refusal
+  from the daemon (for example a main backend that does not exist) shows in words and keeps the edits.
+- A settings file that is missing or cannot be used is said at the top ("these are the defaults" or the reason, and that
+  saving replaces it and keeps the old one as .bak).
+- Plain words about terminal sessions: Claude Code sessions started in a terminal are recorded in the local audit log (marked
+  terminal) but never limited, and deleting `/etc/claude-code/managed-settings.json` (which holds only nisse's two audit hooks)
+  stops the recording. Checked against the RPM test (N-226).

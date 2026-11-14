@@ -10,7 +10,7 @@ ApplicationWindow {
     visible: true
     title: "nisse"
 
-    // 0 chat, 1 approvals, 2 audit log, 3 remote access
+    // 0 chat, 1 approvals, 2 audit log, 3 settings
     property int page: 0
 
     Connections {
@@ -48,14 +48,8 @@ ApplicationWindow {
         AuditView {
             client: daemon
         }
-        Item {
-            RemoteSwitch {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.margins: 12
-                client: daemon
-            }
+        ConfigView {
+            client: daemon
         }
     }
 
@@ -75,8 +69,8 @@ ApplicationWindow {
                 onClicked: window.page = 1
             }
             Button {
-                objectName: "remoteTab"
-                text: "Remote"
+                objectName: "settingsTab"
+                text: "Settings"
                 checked: window.page === 3
                 onClicked: window.page = 3
             }

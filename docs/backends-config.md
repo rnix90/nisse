@@ -73,3 +73,17 @@ is told; a config switch turns that off.
 - A `fallback` that names no backend, names itself, or leads back into its own chain is refused when the file is read.
 - `ResolveBackend(category)` on D-Bus gives the same answer a turn would get (`name`, `target`, `fell_back`, `note`), for
   every tool that needs a backend.
+
+## Editing it from the panel (N-216)
+
+The Settings tab of the panel reads the config with `GetConfig` and saves it with `SetConfig(config_json, by)`. A save is
+checked exactly like the file is (an invalid config is refused with the reason and nothing is written), the previous file is
+kept next to it as `backends.toml.bak` (even a broken one), the file is rewritten from the settings (so comments in a
+hand-edited file are not kept; the file says so in its first line), and the change is audited as `config-changed` with the
+device and the names of the backends (no addresses). It takes effect on the next message because the daemon reads the file
+every time. A file the daemon cannot use shows in the panel with the reason, and saving replaces it.
+
+The panel edits: authority, how long an approval waits (seconds), whether fallbacks are on, the backends (name, kind, address,
+model, fallback; renaming and removing follow every reference), the main backend and the three routes. Not edited there: the
+CLI hang limit (still `NISSE_CLI_HUNG_SECS` in the daemon's environment, default 10 minutes) and the guardrail hold (derived
+from the approval wait, capped at 1100 seconds).

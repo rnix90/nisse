@@ -53,6 +53,12 @@ public:
     Q_INVOKABLE QStringList backends();
     // Points a session at a backend by name (empty: the default). Returns an error text, or an empty string.
     Q_INVOKABLE QString setSessionBackend(const QString &session, const QString &backend);
+    // The settings for the settings panel (N-216): the daemon's GetConfig JSON ({config, source, error, path}); empty if the
+    // daemon is not reachable.
+    Q_INVOKABLE QString config();
+    // Saves edited settings (the `config` object as JSON) as the "desktop" device. Returns the daemon's refusal in words,
+    // or an empty string when it saved them.
+    Q_INVOKABLE QString saveConfig(const QString &configJson);
     // The last n audit records, one JSON object per string.
     Q_INVOKABLE QStringList auditTail(int n);
     Q_INVOKABLE void refreshBackend();

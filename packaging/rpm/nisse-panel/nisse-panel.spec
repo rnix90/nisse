@@ -5,7 +5,7 @@
 
 Name:           nisse-panel
 Version:        0.1
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        nisse panel: chat with the AI that looks after this computer
 License:        GPL-2.0-or-later
 BuildRequires:  cmake
@@ -49,6 +49,9 @@ install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/kglobalaccel/nisse-panel.de
 %{_datadir}/kglobalaccel/nisse-panel.desktop
 
 %changelog
+* Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-10
+- Settings tab
+
 * Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-9
 - Stop all AI button and banner
 
