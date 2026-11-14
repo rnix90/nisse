@@ -3,5 +3,6 @@
 
 pub mod approvals;
 pub mod dbus;
+pub mod remote;
 pub mod runner;
 pub mod state;

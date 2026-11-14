@@ -43,4 +43,7 @@ dbus-run-session -- bash tests/e2e/approvals_inner.sh "$daemon" "$panel" "$work"
 # N-206: three live sessions through the real daemon and the real panel client.
 dbus-run-session -- bash tests/e2e/sessions_inner.sh "$daemon" "$panel" "$work"
 
+# N-209: the remote access switch through the real daemon and panel client, with a fake claude.
+dbus-run-session -- bash tests/e2e/remote_inner.sh "$daemon" "$panel" "$work"
+
 echo "PASS: panel and daemon end to end"

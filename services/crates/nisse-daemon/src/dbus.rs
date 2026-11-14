@@ -16,6 +16,7 @@ use uuid::Uuid;
 use zbus::{interface, object_server::SignalEmitter};
 
 use crate::approvals::{Approval, ApprovalQueue, ApprovalState, DecideError, NewApproval};
+use crate::remote::{RemoteAccess, RemoteOptions};
 use crate::runner::{AgentRunner, ApprovalHook, RunEvent, RunRequest};
 use crate::state::{Keep, SessionStore};
 
@@ -41,6 +42,8 @@ struct Core {
     sessions: Arc<SessionStore>,
     /// Things the AI wants to do that need a person's yes (N-203).
     approvals: Arc<ApprovalQueue>,
+    /// The per-machine remote access switch (N-209); `None` when the daemon was built without it.
+    remote: Option<Arc<RemoteAccess>>,
     runs: Arc<Mutex<HashMap<String, RunState>>>,
     /// The config error already audited, so a file that stays broken is reported once, not on every call.
     config_error: Arc<std::sync::Mutex<Option<String>>>,
@@ -59,6 +62,12 @@ impl Core {
         if let Ok(log) = AuditLog::open(&self.audit_path) {
             let _ = log.append(&record);
         }
+    }
+
+    fn remote(&self) -> zbus::fdo::Result<Arc<RemoteAccess>> {
+        self.remote
+            .clone()
+            .ok_or_else(|| zbus::fdo::Error::Failed("remote access is not set up in this daemon".into()))
     }
 
     /// Audits a failed save of the sessions file, if there was one.
@@ -122,6 +131,7 @@ impl Daemon {
                 audit_path: audit_path.clone(),
                 sessions: Arc::new(SessionStore::in_memory()),
                 approvals: Arc::new(ApprovalQueue::in_memory().with_audit(audit_path)),
+                remote: None,
                 runs: Arc::new(Mutex::new(HashMap::new())),
                 config_error: Arc::new(std::sync::Mutex::new(None)),
             },
@@ -190,6 +200,24 @@ impl Daemon {
         self
     }
 
+    /// Adds the remote access switch (N-209). The permission mode of the server follows this daemon's authority switch,
+    /// read at every start of the server: autonomous is `bypassPermissions`, supervised (and a broken config, which
+    /// fails closed) is `default`, which makes the phone ask.
+    pub fn with_remote_access(mut self, mut opts: RemoteOptions) -> Daemon {
+        let core = self.core.clone();
+        opts.mode = Arc::new(move || match core.config().authority {
+            Authority::Autonomous => "bypassPermissions".to_string(),
+            Authority::Supervised => "default".to_string(),
+        });
+        self.core.remote = Some(RemoteAccess::new(opts));
+        self
+    }
+
+    /// The remote access switch, for the code that starts it at boot and stops it at exit.
+    pub fn remote(&self) -> Option<Arc<RemoteAccess>> {
+        self.core.remote.clone()
+    }
+
     /// The queue, for code inside the daemon that asks for approvals (the hook, the runner).
     pub fn approvals(&self) -> Arc<ApprovalQueue> {
         Arc::clone(&self.core.approvals)
@@ -202,6 +230,23 @@ fn approval_json(approval: &Approval) -> String {
 
 fn approval_error(e: DecideError) -> zbus::fdo::Error {
     zbus::fdo::Error::Failed(e.to_string())
+}
+
+/// Emits `RemoteAccessChanged` whenever the remote access status changes. Call once after the daemon is served.
+pub async fn forward_remote_signals(connection: &zbus::Connection, remote: Arc<RemoteAccess>) -> zbus::Result<()> {
+    let iface = connection
+        .object_server()
+        .interface::<_, Daemon>("/org/nisse/Daemon1")
+        .await?;
+    let emitter = iface.signal_emitter().to_owned();
+    let mut changes = remote.subscribe();
+    tokio::spawn(async move {
+        while changes.changed().await.is_ok() {
+            let json = remote.status().await.to_json();
+            let _ = Daemon::remote_access_changed(&emitter, &json).await;
+        }
+    });
+    Ok(())
 }
 
 /// Emits `ApprovalChanged` for every change to the queue and expires approvals on time. Call once after the
@@ -377,6 +422,29 @@ impl Daemon {
             }
             Err(message) => Err(zbus::fdo::Error::Failed(message)),
         }
+    }
+
+    /// Whether remote access is on and whether its server is up, as JSON: `enabled`, `running`, `restarts`, `error`.
+    /// An error if the daemon was built without the switch.
+    async fn get_remote_access(&self) -> zbus::fdo::Result<String> {
+        let remote = self.core.remote()?;
+        Ok(remote.status().await.to_json())
+    }
+
+    /// Turns remote access on (the daemon runs `claude remote-control` so claude.ai and the phone app can start
+    /// sessions on this machine) or off. Returns the status right after; the server comes up in the background, and
+    /// `RemoteAccessChanged` follows every change of it. The sessions it starts are Claude's own: they are not tabs and
+    /// their approvals are not in the approvals queue.
+    async fn set_remote_access(&self, enabled: bool) -> zbus::fdo::Result<String> {
+        let remote = self.core.remote()?;
+        let status = remote.set_enabled(enabled).await;
+        self.core.audit(
+            None,
+            "user",
+            "remote-access",
+            serde_json::json!({ "enabled": status.enabled }),
+        );
+        Ok(status.to_json())
     }
 
     /// Names a session; an empty name goes back to none. Every client is told through `SessionsChanged`.
@@ -624,6 +692,10 @@ impl Daemon {
     /// The session list changed (made, renamed or closed): clients call `ListSessions` again.
     #[zbus(signal)]
     async fn sessions_changed(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
+
+    /// The remote access status changed: the argument is the same JSON as `GetRemoteAccess`.
+    #[zbus(signal)]
+    async fn remote_access_changed(emitter: &SignalEmitter<'_>, status_json: &str) -> zbus::Result<()>;
 
     #[zbus(signal)]
     async fn approval_changed(emitter: &SignalEmitter<'_>, id: &str, state: &str) -> zbus::Result<()>;

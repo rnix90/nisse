@@ -41,6 +41,10 @@ public:
     Q_INVOKABLE QString setKeepMode(const QString &session, const QString &mode);
     // Shows a library session as a tab again.
     Q_INVOKABLE QString openSession(const QString &session);
+    // Remote access (N-209): the status as JSON ({enabled, running, restarts, error}), empty if the daemon is not reachable.
+    Q_INVOKABLE QString remoteAccess();
+    // Turns it on or off; returns an error text, or an empty string when the daemon accepted it.
+    Q_INVOKABLE QString setRemoteAccess(bool on);
     // The last n audit records, one JSON object per string.
     Q_INVOKABLE QStringList auditTail(int n);
     Q_INVOKABLE void refreshBackend();
@@ -67,6 +71,8 @@ signals:
     void pendingCountChanged();
     // A session was made, renamed or closed, by this panel or by any other client (the daemon's SessionsChanged).
     void sessionsChanged();
+    // The remote access status changed (the same JSON as remoteAccess()).
+    void remoteAccessChanged(const QString &json);
     // An approval was requested or decided (the daemon's ApprovalChanged signal).
     void approvalChanged(const QString &id, const QString &state);
     // A desktop notice was clicked: show the approvals.
@@ -78,6 +84,7 @@ private slots:
     void onFailed(const QString &session, const QString &message);
     void onApprovalChanged(const QString &id, const QString &state);
     void onSessionsChanged();
+    void onRemoteAccessChanged(const QString &json);
 
 private:
     QDBusInterface m_iface;

@@ -10,7 +10,7 @@ ApplicationWindow {
     visible: true
     title: "nisse"
 
-    // 0 chat, 1 approvals, 2 audit log
+    // 0 chat, 1 approvals, 2 audit log, 3 remote access
     property int page: 0
 
     Connections {
@@ -40,6 +40,15 @@ ApplicationWindow {
         AuditView {
             client: daemon
         }
+        Item {
+            RemoteSwitch {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 12
+                client: daemon
+            }
+        }
     }
 
     footer: ToolBar {
@@ -56,6 +65,12 @@ ApplicationWindow {
                 text: daemon.pendingCount > 0 ? "Approvals (" + daemon.pendingCount + ")" : "Approvals"
                 checked: window.page === 1
                 onClicked: window.page = 1
+            }
+            Button {
+                objectName: "remoteTab"
+                text: "Remote"
+                checked: window.page === 3
+                onClicked: window.page = 3
             }
             Button {
                 objectName: "auditTab"

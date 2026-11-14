@@ -138,11 +138,46 @@ static int selfTestSessions(int argc, char *argv[])
     return 0;
 }
 
+// Headless check for the remote access switch's client side (N-209): switch it on, wait for the daemon to say the
+// server is running, switch it off. Used by tests/e2e/panel_daemon.sh with a fake `claude`.
+static int selfTestRemote(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QTextStream out(stdout);
+    DaemonClient client;
+    const auto field = [](const QString &json, const char *name) {
+        return QJsonDocument::fromJson(json.toUtf8()).object().value(QLatin1String(name));
+    };
+    out << "before: " << (field(client.remoteAccess(), "enabled").toBool() ? "on" : "off") << Qt::endl;
+    bool seenRunning = false;
+    QObject::connect(&client, &DaemonClient::remoteAccessChanged, &app, [&](const QString &json) {
+        if (field(json, "running").toBool() && !seenRunning) {
+            seenRunning = true;
+            app.quit();
+        }
+    });
+    QTimer::singleShot(15000, &app, [&] {
+        out << "error: timed out" << Qt::endl;
+        app.exit(2);
+    });
+    const QString error = client.setRemoteAccess(true);
+    out << "set on error: " << error << Qt::endl;
+    const int rc = app.exec();
+    if (rc != 0)
+        return rc;
+    out << "running: yes" << Qt::endl;
+    out << "set off error: " << client.setRemoteAccess(false) << Qt::endl;
+    out << "after: " << (field(client.remoteAccess(), "enabled").toBool() ? "on" : "off") << Qt::endl;
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     for (int i = 1; i < argc; ++i) {
         if (QByteArray(argv[i]) == "--self-test")
             return selfTest(argc, argv);
+        if (QByteArray(argv[i]) == "--self-test-remote")
+            return selfTestRemote(argc, argv);
         if (QByteArray(argv[i]) == "--self-test-sessions")
             return selfTestSessions(argc, argv);
         if (QByteArray(argv[i]) == "--self-test-approvals")

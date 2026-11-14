@@ -28,6 +28,8 @@ DaemonClient::DaemonClient(QObject *parent)
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionDone"), this, SLOT(onDone(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionError"), this, SLOT(onFailed(QString, QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionsChanged"), this, SLOT(onSessionsChanged()));
+    bus.connect(kService, kPath, kInterface, QStringLiteral("RemoteAccessChanged"), this,
+                SLOT(onRemoteAccessChanged(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("ApprovalChanged"), this,
                 SLOT(onApprovalChanged(QString, QString)));
     refreshBackend();
@@ -94,6 +96,18 @@ QString DaemonClient::setKeepMode(const QString &session, const QString &mode)
 QString DaemonClient::openSession(const QString &session)
 {
     const QDBusMessage reply = m_iface.call(QStringLiteral("OpenSession"), session);
+    return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
+}
+
+QString DaemonClient::remoteAccess()
+{
+    QDBusReply<QString> reply = m_iface.call(QStringLiteral("GetRemoteAccess"));
+    return reply.isValid() ? reply.value() : QString();
+}
+
+QString DaemonClient::setRemoteAccess(bool on)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("SetRemoteAccess"), on);
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
@@ -183,6 +197,11 @@ void DaemonClient::enableNotifications(std::function<bool()> windowActive)
     m_notifier = std::make_unique<ApprovalNotifier>(ApprovalNotifier::Hooks{
         std::move(windowActive), [] { return Mic::inUseNow(); },
         [desktop](const QString &title, const QString &body) { desktop->show(title, body); }});
+}
+
+void DaemonClient::onRemoteAccessChanged(const QString &json)
+{
+    emit remoteAccessChanged(json);
 }
 
 void DaemonClient::onSessionsChanged()

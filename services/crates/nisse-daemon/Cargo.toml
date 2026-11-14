@@ -13,7 +13,7 @@ nisse-audit = { path = "../nisse-audit" }
 nisse-config = { path = "../nisse-config" }
 serde.workspace = true
 serde_json.workspace = true
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "net"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "net", "signal"] }
 uuid = { version = "1", features = ["v4"] }
 zbus = { version = "5", default-features = false, features = ["tokio", "p2p"] }
 

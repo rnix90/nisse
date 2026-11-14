@@ -11,7 +11,7 @@ qt_add_executable(nisse-panel src/main.cpp)
 qt_add_qml_module(nisse-panel
     URI Nisse.Panel
     VERSION 1.0
-    QML_FILES qml/Main.qml qml/ChatView.qml qml/AuditView.qml qml/StatusBar.qml qml/ApprovalsView.qml qml/SessionTabs.qml
+    QML_FILES qml/Main.qml qml/ChatView.qml qml/AuditView.qml qml/StatusBar.qml qml/ApprovalsView.qml qml/SessionTabs.qml qml/RemoteSwitch.qml
     SOURCES src/DaemonClient.h src/DaemonClient.cpp src/ApprovalNotifier.h src/ApprovalNotifier.cpp
             src/MicWatcher.h src/MicWatcher.cpp src/DesktopNotify.h src/DesktopNotify.cpp src/LauncherBadge.h src/LauncherBadge.cpp
 )

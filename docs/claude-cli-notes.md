@@ -137,6 +137,23 @@ its stdin; `claude auth status` then shows `loggedIn: true`).
 - Commands used: `claude remote-control --name nisse-probe --debug-file F` with `echo y` piped in, run for 25 seconds
   under `timeout`; the registered environment is left to expire on the account side.
 
+## The daemon starts and stops `claude remote-control` (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-209)
+
+`tools/claude-probe/live_remote.sh`: the real `nisse-daemon` (no fake runner) in a private session bus, signed in to the
+account, with a scratch `HOME`. `SetRemoteAccess(true)` over D-Bus:
+
+- the daemon started `claude remote-control --name nisse-<host> --permission-mode bypassPermissions` (autonomous is the
+  default authority; supervised gives `--permission-mode default`), in the home folder, with `y` on its stdin;
+- it wrote the trust entry for that folder into `~/.claude.json` first (`projects.<dir>.hasTrustDialogAccepted`);
+- the status went to `running: true` and stayed there for 20 more seconds with no restart, so the real CLI accepted the
+  flags and the answer to its one-time question;
+- `SetRemoteAccess(false)` ended the process (nothing named remote-control was left) and the status went to off.
+
+Not seen: the `--settings` flag (the machine's settings file is only passed when `/usr/share/nisse/claude-settings.json`
+exists, which the build VM does not have), a message sent from claude.ai or the phone into the server, and whether the
+guardrail hook runs for the sessions the server spawns. The environment it registered with the account is left to expire
+there.
+
 ## Live run of the host protocol (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-224)
 
 The real `nisse-daemon` (built in the VM, no fake runner) on a private session bus with `authority = "supervised"` and
@@ -218,5 +235,5 @@ Repeat with `tools/claude-probe/live_guard.sh`.
 
 ## Not yet verified
 
-- An interactive terminal `claude` session recorded as `terminal` (GATE 2 image check); a message from claude.ai or the phone into a `claude remote-control` session; the guardrail hook on such sessions (N-209).
+- An interactive terminal `claude` session recorded as `terminal` (GATE 2 image check); a message from claude.ai or the phone into a `claude remote-control` session and the guardrail hook on such sessions (N-209: the switch is built; a short desk step with the phone at GATE 2).
 - Host answers held longer than 90 seconds (the 25 second expiry above is shorter), and a PreToolUse hook returning `ask`.

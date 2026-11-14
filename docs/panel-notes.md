@@ -86,3 +86,20 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 - A library session is still known to the daemon: opening it, or sending it a message from any client, makes it a tab
   again. Its Claude Code conversation files are never touched (only the daemon's list forgets a dropped session), and
   its earlier messages are not shown until N-220 adds event replay.
+
+## Remote access switch (N-209)
+
+- One per-machine switch (panel tab "Remote", default off). On, the daemon runs `claude remote-control` (name
+  `nisse-<host>`, in the home folder, the machine's settings file when installed, the permission mode of the authority
+  switch read at each start: autonomous `bypassPermissions`, supervised `default`), restarts it with a wait of 5 seconds
+  growing to 5 minutes when it dies, and stops it and everything it started when the switch goes off or the daemon exits.
+  The switch stays on across a daemon restart (`remote.json` beside `sessions.json`).
+- nisse records the one-time conditions: the home folder is marked trusted in `~/.claude.json` (only that key changes; a
+  file that is not valid JSON is left alone and the server is not started) and the consent question is answered `y`.
+- The sessions the server starts belong to Claude's own server: not tabs, and their approvals are not in the nisse
+  approvals list. In supervised mode the phone asks. The panel says so next to the switch.
+- Deviation from the ledger wording: the server is a child supervised by the daemon (itself a user service), not a second
+  systemd unit; one less moving part, and it dies with the daemon.
+- Not verified: a message from the phone or claude.ai into the server, and the guardrail hook on its sessions. In
+  autonomous mode a phone session therefore has `bypassPermissions` and no confirmed guardrail: this is the first thing
+  to check at GATE 2 with the phone.

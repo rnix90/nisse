@@ -166,6 +166,11 @@ impl ClaudeCliRunner {
         self
     }
 
+    /// Where the `claude` program is (see `find_binary`); the remote access switch starts it too.
+    pub fn binary_path(&self) -> PathBuf {
+        self.find_binary()
+    }
+
     /// `NISSE_CLAUDE_BIN`, then PATH, then `~/.local/bin/claude` (where the first-boot installer puts it).
     fn find_binary(&self) -> PathBuf {
         if let Some(path) = &self.binary {
@@ -308,7 +313,7 @@ fn kill_if_alive(victims: &[(i32, u64)]) {
 }
 
 /// Stops the CLI and its tree and reaps the child: SIGTERM, a grace period, then SIGKILL for whatever is left.
-async fn kill_tree(child: &mut tokio::process::Child, root: i32) {
+pub(crate) async fn kill_tree(child: &mut tokio::process::Child, root: i32) {
     let victims = signal_tree(root, libc::SIGTERM);
     if tokio::time::timeout(KILL_GRACE, child.wait()).await.is_err() {
         let _ = child.start_kill();

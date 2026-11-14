@@ -1216,3 +1216,144 @@ async fn a_message_to_a_library_session_works_and_opens_it() {
     send_and_wait(&second, &id, "hello again").await;
     assert_eq!(list_sessions(&second).await[0]["open"], true);
 }
+
+// ---- the remote access switch over D-Bus (ledger N-209)
+
+mod remote_switch {
+    use super::*;
+    use nisse_daemon::dbus::forward_remote_signals;
+    use nisse_daemon::remote::{RemoteAccess, RemoteOptions};
+    use std::os::unix::fs::PermissionsExt;
+
+    /// A `claude` that records its arguments and stays up.
+    fn fake_claude(dir: &std::path::Path) -> PathBuf {
+        let path = dir.join("claude");
+        let body = format!(
+            "#!/bin/sh\necho \"$@\" >> \"{0}/remote-args\"\nread line\nexec sleep 600\n",
+            dir.display()
+        );
+        let tmp = dir.join("claude.tmp");
+        fs::write(&tmp, body).unwrap();
+        fs::set_permissions(&tmp, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::rename(&tmp, &path).unwrap();
+        path
+    }
+
+    struct Remote {
+        s: Setup,
+        remote: Arc<RemoteAccess>,
+        dir: PathBuf,
+    }
+
+    async fn setup_remote(name: &str, config: Option<&str>) -> Remote {
+        let dir = scratch(name);
+        let config_path = dir.join("backends.toml");
+        if let Some(text) = config {
+            fs::write(&config_path, text).unwrap();
+        }
+        let opts = RemoteOptions {
+            binary: Some(fake_claude(&dir)),
+            state_file: Some(dir.join("remote.json")),
+            claude_json: dir.join("claude.json"),
+            work_dir: dir.join("work"),
+            settings: Some(dir.join("settings.json")),
+            name: "nisse-test".into(),
+            backoff_initial: Duration::from_millis(20),
+            backoff_max: Duration::from_millis(80),
+            mode: Arc::new(|| "unset".to_string()), // replaced by the daemon: it follows the authority switch
+        };
+        let daemon = Daemon::new(Arc::new(FakeRunner), config_path.clone(), dir.join("audit.jsonl"))
+            .with_approvals_file(dir.join("approvals.json"))
+            .with_remote_access(opts);
+        let remote = daemon.remote().expect("remote access was set up");
+        let (sock_a, sock_b) = tokio::net::UnixStream::pair().unwrap();
+        let server = zbus::connection::Builder::unix_stream(sock_a)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at(PATH, daemon)
+            .unwrap()
+            .build();
+        let client = zbus::connection::Builder::unix_stream(sock_b).p2p().build();
+        let (server, client) = tokio::try_join!(server, client).unwrap();
+        forward_remote_signals(&server, Arc::clone(&remote)).await.unwrap();
+        let proxy = Proxy::new(&client, NAME, PATH, NAME).await.unwrap();
+        let approvals = Arc::new(nisse_daemon::approvals::ApprovalQueue::in_memory());
+        Remote {
+            s: Setup {
+                _server: server,
+                proxy,
+                config: config_path,
+                approvals,
+            },
+            remote,
+            dir,
+        }
+    }
+
+    async fn status(r: &Remote) -> serde_json::Value {
+        let text: String = r.s.proxy.call("GetRemoteAccess", &()).await.unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    #[tokio::test]
+    async fn the_switch_starts_off() {
+        let r = setup_remote("remote-off", None).await;
+        let s = status(&r).await;
+        assert_eq!(s["enabled"], false);
+        assert_eq!(s["running"], false);
+    }
+
+    #[tokio::test]
+    async fn turning_it_on_starts_the_server_signals_and_is_audited() {
+        let r = setup_remote("remote-on", None).await;
+        let mut changed = r.s.proxy.receive_signal("RemoteAccessChanged").await.unwrap();
+        let text: String = r.s.proxy.call("SetRemoteAccess", &(true,)).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&text).unwrap()["enabled"],
+            true
+        );
+        next_signal(&mut changed).await;
+        wait_until("the server to run", || {
+            fs::read_to_string(r.dir.join("remote-args")).is_ok_and(|a| a.contains("remote-control"))
+        })
+        .await;
+        let args = fs::read_to_string(r.dir.join("remote-args")).unwrap();
+        assert!(
+            args.contains("--permission-mode bypassPermissions"),
+            "autonomous is the default: {args}"
+        );
+        assert!(args.contains("--name nisse-test"), "{args}");
+        let lines = audit_lines(&r.s).await.join("\n");
+        assert!(lines.contains("remote-access"), "{lines}");
+
+        let _: String = r.s.proxy.call("SetRemoteAccess", &(false,)).await.unwrap();
+        assert_eq!(status(&r).await["enabled"], false);
+    }
+
+    #[tokio::test]
+    async fn the_server_follows_the_authority_switch() {
+        let r = setup_remote(
+            "remote-supervised",
+            Some("authority = \"supervised\"\nmain = \"max\"\n[[backends]]\nname = \"max\"\nkind = \"max\"\n"),
+        )
+        .await;
+        let _: String = r.s.proxy.call("SetRemoteAccess", &(true,)).await.unwrap();
+        wait_until("the server to run", || {
+            fs::read_to_string(r.dir.join("remote-args")).is_ok_and(|a| a.contains("remote-control"))
+        })
+        .await;
+        let args = fs::read_to_string(r.dir.join("remote-args")).unwrap();
+        assert!(args.contains("--permission-mode default"), "{args}");
+        r.remote.stop_for_exit().await;
+    }
+
+    #[tokio::test]
+    async fn a_daemon_without_the_feature_set_up_refuses_both_calls() {
+        let s = setup("remote-unset", Arc::new(FakeRunner)).await;
+        let got: Result<String, _> = s.proxy.call("GetRemoteAccess", &()).await;
+        assert!(got.is_err());
+        let set: Result<String, _> = s.proxy.call("SetRemoteAccess", &(true,)).await;
+        assert!(set.is_err());
+    }
+}
