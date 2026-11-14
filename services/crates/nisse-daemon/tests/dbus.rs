@@ -1357,3 +1357,191 @@ mod remote_switch {
         assert!(set.is_err());
     }
 }
+
+// ---- a session on its own backend (ledger N-211): over D-Bus
+
+mod session_backend {
+    use super::*;
+
+    const TWO_BACKENDS: &str = r#"
+main = "max"
+
+[[backends]]
+name = "max"
+kind = "max"
+
+[[backends]]
+name = "here"
+kind = "ollama"
+base_url = "http://127.0.0.1:11434"
+model = "gpt-oss:20b"
+
+[[backends]]
+name = "desk"
+kind = "ollama"
+base_url = "http://192.0.2.10:11434"
+model = "qwen3-vl:8b"
+"#;
+
+    type EnvLog = Arc<Mutex<Vec<Vec<(String, String)>>>>;
+
+    /// Records the environment of every request.
+    struct EnvSpy {
+        seen: EnvLog,
+    }
+
+    #[async_trait]
+    impl AgentRunner for EnvSpy {
+        async fn run(&self, req: RunRequest, tx: Sender<RunEvent>) {
+            self.seen.lock().unwrap().push(req.env.clone());
+            let _ = tx.send(RunEvent::Done).await;
+        }
+    }
+
+    fn env_value(env: &[(String, String)], key: &str) -> Option<String> {
+        env.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone())
+    }
+
+    async fn spy_setup(name: &str) -> (Setup, EnvLog) {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let s = setup(
+            name,
+            Arc::new(EnvSpy {
+                seen: Arc::clone(&seen),
+            }),
+        )
+        .await;
+        fs::write(&s.config, TWO_BACKENDS).unwrap();
+        (s, seen)
+    }
+
+    #[tokio::test]
+    async fn a_new_session_uses_the_default_backend_and_lists_none_of_its_own() {
+        let (s, seen) = spy_setup("sb-default").await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        assert!(list_sessions(&s).await[0]["backend"].is_null());
+        send_and_wait(&s, &id, "hi").await;
+        assert!(
+            env_value(&seen.lock().unwrap()[0], "ANTHROPIC_BASE_URL").is_none(),
+            "max sets none"
+        );
+    }
+
+    #[tokio::test]
+    async fn pointing_a_session_at_a_local_backend_sends_its_turns_there() {
+        let (s, seen) = spy_setup("sb-pin").await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let mut changed = s.proxy.receive_signal("SessionsChanged").await.unwrap();
+        let _: () = s.proxy.call("SetSessionBackend", &(id.as_str(), "here")).await.unwrap();
+        next_signal(&mut changed).await;
+        assert_eq!(list_sessions(&s).await[0]["backend"], "here");
+        send_and_wait(&s, &id, "hi").await;
+        let env = seen.lock().unwrap()[0].clone();
+        assert_eq!(
+            env_value(&env, "ANTHROPIC_BASE_URL").as_deref(),
+            Some("http://127.0.0.1:11434")
+        );
+        assert_eq!(env_value(&env, "ANTHROPIC_MODEL").as_deref(), Some("gpt-oss:20b"));
+    }
+
+    #[tokio::test]
+    async fn two_sessions_can_use_two_backends_at_once() {
+        let (s, seen) = spy_setup("sb-two").await;
+        let a: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let b: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let _: () = s.proxy.call("SetSessionBackend", &(a.as_str(), "here")).await.unwrap();
+        let _: () = s.proxy.call("SetSessionBackend", &(b.as_str(), "desk")).await.unwrap();
+        send_and_wait(&s, &a, "one").await;
+        send_and_wait(&s, &b, "two").await;
+        let seen = seen.lock().unwrap();
+        assert_eq!(env_value(&seen[0], "ANTHROPIC_MODEL").as_deref(), Some("gpt-oss:20b"));
+        assert_eq!(env_value(&seen[1], "ANTHROPIC_MODEL").as_deref(), Some("qwen3-vl:8b"));
+    }
+
+    #[tokio::test]
+    async fn an_empty_name_puts_the_session_back_on_the_default() {
+        let (s, seen) = spy_setup("sb-clear").await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let _: () = s.proxy.call("SetSessionBackend", &(id.as_str(), "here")).await.unwrap();
+        let _: () = s.proxy.call("SetSessionBackend", &(id.as_str(), "")).await.unwrap();
+        assert!(list_sessions(&s).await[0]["backend"].is_null());
+        send_and_wait(&s, &id, "hi").await;
+        assert!(env_value(&seen.lock().unwrap()[0], "ANTHROPIC_BASE_URL").is_none());
+    }
+
+    #[tokio::test]
+    async fn a_backend_that_is_not_configured_or_a_session_that_is_unknown_is_refused() {
+        let (s, _) = spy_setup("sb-refuse").await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let ghost: Result<(), _> = s.proxy.call("SetSessionBackend", &(id.as_str(), "ghost")).await;
+        assert!(ghost.is_err());
+        let unknown: Result<(), _> = s.proxy.call("SetSessionBackend", &("nope", "here")).await;
+        assert!(unknown.is_err());
+        assert!(list_sessions(&s).await[0]["backend"].is_null());
+    }
+
+    #[tokio::test]
+    async fn a_session_pinned_to_a_backend_that_left_the_config_never_falls_back_to_the_cloud() {
+        let (s, seen) = spy_setup("sb-gone").await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let _: () = s.proxy.call("SetSessionBackend", &(id.as_str(), "here")).await.unwrap();
+        fs::write(
+            &s.config,
+            "main = \"max\"\n[[backends]]\nname = \"max\"\nkind = \"max\"\n",
+        )
+        .unwrap();
+        let mut errors = s.proxy.receive_signal("SessionError").await.unwrap();
+        let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+        let _: () = s.proxy.call("SendMessage", &(id.as_str(), "private")).await.unwrap();
+        let (_, message): (String, String) = next_signal(&mut errors).await.body().deserialize().unwrap();
+        assert!(
+            message.contains("here") && message.contains("not in the configuration"),
+            "{message}"
+        );
+        next_signal(&mut done).await;
+        assert!(seen.lock().unwrap().is_empty(), "the turn was not run on any backend");
+    }
+
+    #[tokio::test]
+    async fn the_choice_survives_a_daemon_restart() {
+        let dir = scratch("sb-restart");
+        fs::write(dir.join("backends.toml"), TWO_BACKENDS).unwrap();
+        let first = start(dir.clone(), Arc::new(FakeRunner), true).await;
+        let id: String = first.proxy.call("NewSession", &()).await.unwrap();
+        let _: () = first
+            .proxy
+            .call("SetSessionBackend", &(id.as_str(), "desk"))
+            .await
+            .unwrap();
+        drop(first);
+        let second = start(dir, Arc::new(FakeRunner), true).await;
+        assert_eq!(list_sessions(&second).await[0]["backend"], "desk");
+    }
+
+    #[tokio::test]
+    async fn list_backends_describes_each_one_for_a_picker() {
+        let (s, _) = spy_setup("sb-list").await;
+        let lines: Vec<String> = s.proxy.call("ListBackends", &()).await.unwrap();
+        let rows = parse_all(&lines);
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0]["name"], "max");
+        assert_eq!(rows[0]["target"], "max-account");
+        assert_eq!(rows[0]["default"], true);
+        assert_eq!(rows[1]["name"], "here");
+        assert_eq!(rows[1]["target"], "local-ollama");
+        assert_eq!(rows[1]["model"], "gpt-oss:20b");
+        assert_eq!(rows[1]["default"], false);
+        assert_eq!(rows[2]["target"], "remote-ollama");
+    }
+
+    #[tokio::test]
+    async fn get_backend_reports_the_chat_route_not_just_main() {
+        let (s, _) = spy_setup("sb-chat-route").await;
+        fs::write(&s.config, format!("{TWO_BACKENDS}\n[routes]\nchat = \"here\"\n")).unwrap();
+        let (name, kind, _, model): (String, String, String, String) = s.proxy.call("GetBackend", &()).await.unwrap();
+        assert_eq!(
+            (name.as_str(), kind.as_str(), model.as_str()),
+            ("here", "ollama", "gpt-oss:20b")
+        );
+    }
+}

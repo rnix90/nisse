@@ -242,3 +242,28 @@ async fn a_file_from_before_the_levels_existed_loads_as_library() {
     assert_eq!(s.keep, Keep::Library);
     assert!(s.open);
 }
+
+// ---- a session's own backend (ledger N-211)
+
+#[tokio::test]
+async fn a_session_has_no_backend_of_its_own_until_one_is_set() {
+    let store = SessionStore::in_memory();
+    store.set("a", false).await;
+    assert_eq!(store.list().await[0].backend, None);
+    store.set_backend("a", Some("here".into())).await.unwrap();
+    assert_eq!(store.list().await[0].backend.as_deref(), Some("here"));
+    store.set_backend("a", None).await.unwrap();
+    assert_eq!(store.list().await[0].backend, None);
+    assert!(store.set_backend("nope", Some("x".into())).await.is_err());
+}
+
+#[tokio::test]
+async fn the_backend_survives_a_reopen_and_the_boot_rules() {
+    let path = tmp("backend-reopen");
+    let (store, _) = SessionStore::open(path.clone());
+    store.set("a", true).await;
+    store.set_backend("a", Some("desk".into())).await.unwrap();
+    drop(store);
+    let (store, _, _) = SessionStore::open_at_boot(path);
+    assert_eq!(store.list().await[0].backend.as_deref(), Some("desk"));
+}

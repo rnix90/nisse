@@ -22,6 +22,12 @@ TestCase {
         property var closed: []
         property var renamed: []
         property var keepSet: []
+        property var backendSet: []
+        property var backendList: [
+            { name: "max", kind: "max", target: "max-account", model: null, base_url: null, "default": true },
+            { name: "here", kind: "ollama", target: "local-ollama", model: "gpt-oss:20b", base_url: "http://127.0.0.1:11434", "default": false },
+            { name: "desk", kind: "ollama", target: "remote-ollama", model: "qwen3-vl:8b", base_url: "http://192.0.2.10:11434", "default": false }
+        ]
         property var opened: []
         property bool offline: false
         signal chunk(string session, string text)
@@ -39,7 +45,7 @@ TestCase {
         function add(started, title) {
             counter += 1
             var s = { id: "s" + counter, title: title === undefined ? null : title, created_at: 1700000000000 + counter * 60000,
-                      started: started === true, running: false, pending_approvals: 0, keep: "library", open: true }
+                      started: started === true, running: false, pending_approvals: 0, keep: "library", open: true, backend: null }
             list = list.concat([s])
             return s.id
         }
@@ -65,6 +71,15 @@ TestCase {
             sessionsChanged()
             return ""
         }
+        function backends() {
+            return backendList.map(function (b) { return JSON.stringify(b) })
+        }
+        function setSessionBackend(id, name) {
+            backendSet.push([id, name])
+            list = list.map(function (s) { if (s.id === id) s.backend = name === "" ? null : name; return s })
+            sessionsChanged()
+            return ""
+        }
         function setKeepMode(id, mode) {
             keepSet.push([id, mode])
             list = list.map(function (s) { if (s.id === id) s.keep = mode; return s })
@@ -85,7 +100,7 @@ TestCase {
         function setPending(id, n) {
             list = list.map(function (s) { if (s.id === id) s.pending_approvals = n; return s })
         }
-        function reset() { list = []; counter = 0; sent = []; closed = []; renamed = []; keepSet = []; opened = []; offline = false }
+        function reset() { list = []; counter = 0; sent = []; closed = []; renamed = []; keepSet = []; backendSet = []; opened = []; offline = false }
     }
 
     SessionTabs {
@@ -407,5 +422,77 @@ TestCase {
         stub.sessionsChanged()
         compare(ids().join(","), "s1")
         compare(tabs.library.length, 1)
+    }
+
+    // ---- the backend of a session (N-211)
+
+    function test_the_picker_offers_the_default_and_every_configured_backend() {
+        stub.add(false)
+        tabs.refresh()
+        var texts = tabs.backendChoices.map(function (c) { return c.text })
+        compare(texts.length, 4)
+        compare(texts[0], "Default (max)")
+        verify(texts[1].indexOf("max") >= 0 && texts[1].indexOf("Max account") >= 0, texts[1])
+        verify(texts[2].indexOf("here") >= 0 && texts[2].indexOf("this computer") >= 0, texts[2])
+        verify(texts[3].indexOf("desk") >= 0 && texts[3].indexOf("another computer") >= 0, texts[3])
+        compare(findChild(tabs, "backendPicker").count, 4)
+    }
+
+    function test_choosing_a_backend_tells_the_daemon_for_the_selected_tab() {
+        stub.add(false); stub.add(false)
+        tabs.refresh()
+        tabs.select("s1")
+        tabs.chooseBackend("here")
+        compare(stub.backendSet.length, 1)
+        compare(stub.backendSet[0][0], "s1")
+        compare(stub.backendSet[0][1], "here")
+        compare(tabs.selectedBackend, "here")
+    }
+
+    function test_choosing_the_default_sends_an_empty_name() {
+        stub.add(false)
+        stub.setSessionBackend("s1", "here")
+        stub.backendSet = []
+        tabs.refresh()
+        compare(tabs.selectedBackend, "here")
+        tabs.chooseBackend("")
+        compare(stub.backendSet[0][1], "")
+        compare(tabs.selectedBackend, "")
+    }
+
+    function test_the_picker_follows_the_selected_tab() {
+        stub.add(false); stub.add(false)
+        stub.setSessionBackend("s2", "desk")
+        stub.backendSet = []
+        tabs.refresh()
+        tabs.select("s1")
+        compare(tabs.selectedBackend, "")
+        tabs.select("s2")
+        compare(tabs.selectedBackend, "desk")
+        compare(findChild(tabs, "backendPicker").currentIndex, 3)
+    }
+
+    function test_a_tab_on_a_local_backend_says_so_in_its_label_row() {
+        stub.add(false)
+        stub.setSessionBackend("s1", "here")
+        tabs.refresh()
+        compare(tabs.backendNote, "This session runs on here (this computer).")
+        tabs.chooseBackend("")
+        compare(tabs.backendNote, "")
+    }
+
+    function test_a_session_pointed_at_a_backend_that_is_gone_is_shown_as_missing() {
+        stub.add(false)
+        stub.setSessionBackend("s1", "ghost")
+        tabs.refresh()
+        verify(tabs.backendNote.indexOf("ghost") >= 0 && tabs.backendNote.indexOf("not in the configuration") >= 0, tabs.backendNote)
+    }
+
+    function test_with_the_daemon_unreachable_there_is_no_picker_to_show() {
+        stub.backendList = []
+        stub.add(false)
+        tabs.refresh()
+        compare(tabs.backendChoices.length, 0)
+        verify(!findChild(tabs, "backendPicker").visible)
     }
 }

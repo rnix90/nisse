@@ -16,6 +16,10 @@ Item {
     // Sessions waiting in the library (not tabs): kept through a reboot, reopened on demand (N-208).
     property var library: []
     property string selectedKeep: "library"
+    // The backends the daemon knows, as picker choices (the first is "use the default"), and the choice of the selected tab.
+    property var backendChoices: []
+    property string selectedBackend: ""
+    property string backendNote: ""
     property string selectedId: ""
     property string renamingId: ""
     property string errorText: ""
@@ -35,6 +39,8 @@ Item {
         tabs = []
         library = []
         selectedKeep = "library"
+        selectedBackend = ""
+        backendNote = ""
         selectedId = ""
         renamingId = ""
         errorText = ""
@@ -99,6 +105,7 @@ Item {
             }
         }
         library = all.filter(function (s) { return !isOpen(s) })
+        loadBackends()
 
         // Sync the model in place so the transcripts of the tabs that stay are kept.
         var keep = {}
@@ -117,7 +124,7 @@ Item {
             var at = indexOfId(s.id)
             var row = { sid: s.id, title: s.title ? s.title : "", createdAt: s.created_at, started: s.started === true,
                         running: s.running === true, pending: s.pending_approvals | 0, restored: s.started === true,
-                        keep: s.keep ? s.keep : "library" }
+                        keep: s.keep ? s.keep : "library", backend: s.backend ? s.backend : "" }
             if (at < 0) {
                 tabModel.append(row)
             } else {
@@ -125,6 +132,7 @@ Item {
                 tabModel.setProperty(at, "running", row.running)
                 tabModel.setProperty(at, "pending", row.pending)
                 tabModel.setProperty(at, "keep", row.keep)
+                tabModel.setProperty(at, "backend", row.backend)
             }
         }
         tabs = list
@@ -149,6 +157,58 @@ Item {
     function updateKeep() {
         var at = indexOfId(selectedId)
         selectedKeep = at >= 0 ? tabModel.get(at).keep : "library"
+        selectedBackend = at >= 0 ? tabModel.get(at).backend : ""
+        updateBackendNote()
+    }
+
+    function targetWords(target) {
+        return target === "local-ollama" ? "this computer" : (target === "remote-ollama" ? "another computer" : "Max account")
+    }
+
+    function loadBackends() {
+        var rows = []
+        var lines = client.backends()
+        var defaultName = ""
+        for (var i = 0; i < lines.length; ++i) {
+            try {
+                var b = JSON.parse(lines[i])
+                rows.push(b)
+                if (b["default"] === true)
+                    defaultName = b.name
+            } catch (e) {
+                // a damaged entry is skipped
+            }
+        }
+        if (rows.length === 0) {
+            backendChoices = []
+            return
+        }
+        var choices = [{ text: "Default (" + defaultName + ")", value: "" }]
+        for (var j = 0; j < rows.length; ++j)
+            choices.push({ text: rows[j].name + " - " + targetWords(rows[j].target), value: rows[j].name })
+        backendChoices = choices
+    }
+
+    function updateBackendNote() {
+        if (selectedBackend === "") {
+            backendNote = ""
+            return
+        }
+        for (var i = 0; i < backendChoices.length; ++i) {
+            if (backendChoices[i].value === selectedBackend) {
+                var target = backendChoices[i].text.split(" - ")[1]
+                backendNote = "This session runs on " + selectedBackend + " (" + target + ")."
+                return
+            }
+        }
+        backendNote = "This session is set to " + selectedBackend + ", which is not in the configuration. Pick another backend."
+    }
+
+    function chooseBackend(name) {
+        if (selectedId === "")
+            return
+        errorText = client.setSessionBackend(selectedId, name)
+        refresh()
     }
 
     function keepText(keep) {
@@ -405,6 +465,38 @@ Item {
                 opacity: 0.6
                 text: "click to change"
             }
+        }
+
+        // ---- which backend the selected tab's turns go to (N-211)
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.margins: 4
+            visible: root.selectedId !== "" && root.backendChoices.length > 0
+            Label { text: "Backend:" }
+            ComboBox {
+                id: backendPicker
+                objectName: "backendPicker"
+                Layout.fillWidth: true
+                visible: root.backendChoices.length > 0
+                textRole: "text"
+                valueRole: "value"
+                model: root.backendChoices
+                currentIndex: {
+                    for (var i = 0; i < root.backendChoices.length; ++i)
+                        if (root.backendChoices[i].value === root.selectedBackend)
+                            return i
+                    return 0
+                }
+                onActivated: root.chooseBackend(root.backendChoices[currentIndex].value)
+            }
+        }
+        Label {
+            Layout.fillWidth: true
+            Layout.margins: 4
+            visible: root.backendNote !== ""
+            wrapMode: Text.Wrap
+            opacity: 0.8
+            text: root.backendNote
         }
 
         // ---- renaming one tab

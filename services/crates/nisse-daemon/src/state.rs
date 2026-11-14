@@ -4,8 +4,8 @@
 //! one with `--session-id`).
 //!
 //! File format: `{"sessions": {"<id>": {"started": true, "created_ms": 1700000000000, "title": "Taxes",
-//! "keep": "library", "open": true}}}`, written atomically. `created_ms`, `title`, `keep` and `open` are optional when
-//! reading (older files lack them).
+//! "keep": "library", "open": true, "backend": "desk"}}}`, written atomically. `created_ms`, `title`, `keep`, `open` and
+//! `backend` are optional when reading (older files lack them).
 //!
 //! What a reboot (a daemon start) does to a session depends on its `keep` level (N-208): `always` stays an open tab,
 //! `library` closes its tab but stays in the list to be reopened, `drop` is forgotten. The Claude Code conversation
@@ -94,6 +94,8 @@ pub struct SessionInfo {
     pub keep: Keep,
     /// A tab is showing it. A closed-by-boot (library) session is not open until reopened.
     pub open: bool,
+    /// The backend this session was pointed at (a name from backends.toml); `None` uses the default for chat.
+    pub backend: Option<String>,
 }
 
 /// The longest session name kept, in characters.
@@ -112,6 +114,7 @@ struct Record {
     title: Option<String>,
     keep: Keep,
     open: bool,
+    backend: Option<String>,
 }
 
 /// session id -> what is known about it.
@@ -214,6 +217,7 @@ impl SessionStore {
                 title: r.title.clone(),
                 keep: r.keep,
                 open: r.open,
+                backend: r.backend.clone(),
             })
             .collect();
         out.sort_by(|a, b| a.created_ms.cmp(&b.created_ms).then_with(|| a.id.cmp(&b.id)));
@@ -236,6 +240,7 @@ impl SessionStore {
                 title: None,
                 keep: Keep::Library,
                 open: true,
+                backend: None,
             });
         self.persist(&map)
     }
@@ -249,6 +254,17 @@ impl SessionStore {
         };
         let clean: String = title.trim().chars().take(TITLE_LIMIT).collect();
         record.title = Some(clean.trim_end().to_string()).filter(|t| !t.is_empty());
+        Ok(self.persist(&map))
+    }
+
+    /// Points the session at a backend (a name from backends.toml), or back at the default with `None`. The name is
+    /// checked against the configuration by the caller. Err for an unknown session.
+    pub async fn set_backend(&self, id: &str, backend: Option<String>) -> Result<Option<String>, String> {
+        let mut map = self.map.lock().await;
+        let Some(record) = map.get_mut(id) else {
+            return Err(format!("unknown session: {id}"));
+        };
+        record.backend = backend.filter(|b| !b.is_empty());
         Ok(self.persist(&map))
     }
 
@@ -316,6 +332,7 @@ fn load(path: &Path) -> Result<HashMap<String, Record>, String> {
         let title = entry["title"].as_str().map(String::from).filter(|t| !t.is_empty());
         let keep = entry["keep"].as_str().and_then(Keep::parse).unwrap_or(Keep::Library);
         let open = entry["open"].as_bool().unwrap_or(true);
+        let backend = entry["backend"].as_str().filter(|b| !b.is_empty()).map(String::from);
         map.insert(
             id.clone(),
             Record {
@@ -324,6 +341,7 @@ fn load(path: &Path) -> Result<HashMap<String, Record>, String> {
                 title,
                 keep,
                 open,
+                backend,
             },
         );
     }
@@ -345,6 +363,7 @@ fn save(path: &Path, map: &HashMap<String, Record>) -> io::Result<()> {
                     "title": r.title,
                     "keep": r.keep.as_str(),
                     "open": r.open,
+                    "backend": r.backend,
                 }),
             )
         })

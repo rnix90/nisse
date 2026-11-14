@@ -146,6 +146,22 @@ one-shot path (autonomous, or supervised without the approvals queue) keeps show
 (`tools/claude-probe/live_host.sh`): the deny case and the expiry case each showed exactly one `[Bash was not allowed]`
 chunk, the approve case none.
 
+## A session on a local backend (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-211)
+
+`tools/claude-probe/live_backend.sh`: the real `nisse-daemon` and the real `claude` CLI, a session pointed at a stub that
+implements the Anthropic `/v1/messages` endpoint (what Ollama serves; a Python stub that streams one text answer), the
+daemon giving the CLI `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN=ollama`, an empty `ANTHROPIC_API_KEY` and
+`ANTHROPIC_MODEL`. What reached the stub:
+
+- `HEAD /api/hello` (a reachability probe the CLI makes against a custom endpoint);
+- `POST /v1/messages?beta=true` with `model=gpt-oss:20b`, `stream=true`, an `Authorization: Bearer ollama` header and 12
+  tool definitions;
+- the stub's streamed text came back as the chat reply ("pong from the stub").
+
+No second model name was requested in this short run (no small-and-fast model call). Not checked: a long run with
+tool use against a real Ollama (the model name for background calls the CLI may make, context size limits, whether
+`gpt-oss:20b` holds a tool loop through the daemon; see the local-ollama memory note for the model findings).
+
 ## The daemon starts and stops `claude remote-control` (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-209)
 
 `tools/claude-probe/live_remote.sh`: the real `nisse-daemon` (no fake runner) in a private session bus, signed in to the

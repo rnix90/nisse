@@ -111,6 +111,18 @@ QString DaemonClient::setRemoteAccess(bool on)
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
+QStringList DaemonClient::backends()
+{
+    QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("ListBackends"));
+    return reply.isValid() ? reply.value() : QStringList();
+}
+
+QString DaemonClient::setSessionBackend(const QString &session, const QString &backend)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("SetSessionBackend"), session, backend);
+    return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
+}
+
 QStringList DaemonClient::auditTail(int n)
 {
     QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("AuditTail"), static_cast<uint>(qMax(0, n)));

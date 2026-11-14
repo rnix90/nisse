@@ -103,3 +103,17 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 - Not verified: a message from the phone or claude.ai into the server, and the guardrail hook on its sessions. In
   autonomous mode a phone session therefore has `bypassPermissions` and no confirmed guardrail: this is the first thing
   to check at GATE 2 with the phone.
+
+## A session on its own backend (N-211)
+
+- Each session can be pointed at one of the configured backends (`docs/backends-config.md`) from a picker under the tab
+  bar ("Default (max)" or a backend name with where it is: Max account, this computer, another computer). The daemon
+  stores the choice with the session (`SetSessionBackend`, `ListBackends`), so it survives a restart and every client
+  sees it. Its next turn goes there: the daemon gives the CLI that backend's environment for that turn.
+- With no choice, a session uses the default for chat: the `chat` route, or `main` when there is none.
+- A session pointed at a backend that has left the configuration is never sent anywhere else: the turn fails with a plain
+  message ("not in the configuration any more; pick another backend"), because choosing a local backend usually means
+  keeping the work off the cloud. The picker note says the same.
+- A conversation that already started continues on the new backend (the CLI resumes it from its own file); a smaller local
+  model may cope less well with a long one.
+- What happens when a remote backend is away is N-212 and N-213, not here.

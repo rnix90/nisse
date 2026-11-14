@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use nisse_audit::{now_rfc3339, AuditLog, AuditRecord};
-use nisse_config::{claude_env, load, Authority, BackendKind, Config, ConfigError};
+use nisse_config::{claude_env, load, Authority, Backend, BackendKind, Category, Config, ConfigError};
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::AbortHandle;
 use uuid::Uuid;
@@ -283,10 +283,34 @@ pub async fn forward_approval_signals(connection: &zbus::Connection, queue: Arc<
 async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &str, text: String) {
     let started = core.sessions.get(session_id).await.unwrap_or(false);
     let config = core.config();
+    // The backend this session was pointed at, else the default for chat. A session pointed at a backend that has left
+    // the configuration is NOT sent anywhere else: someone who chose a local backend chose it to keep the work off the
+    // cloud, so the turn fails loudly instead.
+    let pinned = core
+        .sessions
+        .list()
+        .await
+        .into_iter()
+        .find(|s| s.id == session_id)
+        .and_then(|s| s.backend);
+    let backend: &Backend = match &pinned {
+        Some(name) => match config.backends.iter().find(|b| &b.name == name) {
+            Some(backend) => backend,
+            None => {
+                let message = format!(
+                    "This session is set to the backend {name:?}, which is not in the configuration any more. \
+                     Pick another backend for it, or add {name:?} back."
+                );
+                let _ = Daemon::session_error(emitter, session_id, &message).await;
+                return;
+            }
+        },
+        None => config.backend_for(Category::Chat),
+    };
     let request = RunRequest {
         session_id: session_id.to_string(),
         prompt: text,
-        env: claude_env(config.main_backend()),
+        env: claude_env(backend),
         resume: started,
         authority: config.authority,
         // Every turn carries the queue: supervised turns ask through it for the CLI's own permission prompts, and the
@@ -379,6 +403,7 @@ impl Daemon {
                     "started": info.started,
                     "keep": info.keep.as_str(),
                     "open": info.open,
+                    "backend": info.backend,
                     "running": running,
                     "pending_approvals": pending,
                 })
@@ -445,6 +470,62 @@ impl Daemon {
             serde_json::json!({ "enabled": status.enabled }),
         );
         Ok(status.to_json())
+    }
+
+    /// Points a session at one of the configured backends (a name from `ListBackends`), or, with an empty name, back at
+    /// the default. Its next turn goes there; a conversation already started continues on the new backend. An error for
+    /// an unknown session or a backend that is not in the configuration.
+    async fn set_session_backend(
+        &self,
+        session_id: String,
+        backend: String,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
+        let choice = Some(backend).filter(|b| !b.is_empty());
+        if let Some(name) = &choice {
+            if !self.core.config().backends.iter().any(|b| &b.name == name) {
+                return Err(zbus::fdo::Error::InvalidArgs(format!(
+                    "no backend named {name:?} in the configuration"
+                )));
+            }
+        }
+        match self.core.sessions.set_backend(&session_id, choice.clone()).await {
+            Ok(problem) => {
+                self.core.warn_save(problem);
+                self.core.audit(
+                    Some(&session_id),
+                    "user",
+                    "session-backend",
+                    serde_json::json!({ "backend": choice }),
+                );
+                let _ = Self::sessions_changed(&emitter).await;
+                Ok(())
+            }
+            Err(message) => Err(zbus::fdo::Error::Failed(message)),
+        }
+    }
+
+    /// The configured backends for a picker, one JSON object per string: `name`, `kind`, `target` ("max-account",
+    /// "local-ollama" or "remote-ollama"), `model`, `base_url`, and `default` (it is what chat uses when a session has
+    /// no backend of its own).
+    async fn list_backends(&self) -> Vec<String> {
+        let config = self.core.config();
+        let default = config.backend_for(Category::Chat).name.clone();
+        config
+            .backends
+            .iter()
+            .map(|b| {
+                serde_json::json!({
+                    "name": b.name,
+                    "kind": match b.kind { BackendKind::Max => "max", BackendKind::Ollama => "ollama" },
+                    "target": b.target().as_str(),
+                    "model": b.model,
+                    "base_url": b.base_url,
+                    "default": b.name == default,
+                })
+                .to_string()
+            })
+            .collect()
     }
 
     /// Names a session; an empty name goes back to none. Every client is told through `SessionsChanged`.
@@ -555,10 +636,11 @@ impl Daemon {
         true
     }
 
-    /// (name, kind, base_url, model) of the main backend; empty strings where a field does not apply.
+    /// (name, kind, base_url, model) of the backend used for chat when a session has none of its own; empty strings
+    /// where a field does not apply.
     async fn get_backend(&self) -> (String, String, String, String) {
         let config = self.core.config();
-        let backend = config.main_backend();
+        let backend = config.backend_for(Category::Chat);
         let kind = match backend.kind {
             BackendKind::Max => "max",
             BackendKind::Ollama => "ollama",

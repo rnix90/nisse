@@ -45,6 +45,10 @@ public:
     Q_INVOKABLE QString remoteAccess();
     // Turns it on or off; returns an error text, or an empty string when the daemon accepted it.
     Q_INVOKABLE QString setRemoteAccess(bool on);
+    // The configured backends (N-211), one JSON object per string: name, kind, target, model, base_url, default.
+    Q_INVOKABLE QStringList backends();
+    // Points a session at a backend by name (empty: the default). Returns an error text, or an empty string.
+    Q_INVOKABLE QString setSessionBackend(const QString &session, const QString &backend);
     // The last n audit records, one JSON object per string.
     Q_INVOKABLE QStringList auditTail(int n);
     Q_INVOKABLE void refreshBackend();
