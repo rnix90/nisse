@@ -416,6 +416,7 @@ impl ApprovalQueue {
             session: session.map(String::from),
             actor: actor.into(),
             kind: kind.into(),
+            source: Some("daemon".into()),
             detail,
         };
         if let Ok(log) = AuditLog::open(path) {

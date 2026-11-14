@@ -14,6 +14,11 @@ pub struct AuditRecord {
     pub session: Option<String>,
     pub actor: String,
     pub kind: String,
+    /// Where the record came from: `daemon` (a session the nisse daemon started) or `terminal` (a `claude` run the
+    /// user started themselves, recorded by the machine-wide hook). Absent on older records and on the daemon's own
+    /// lines, which all count as `daemon`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
     pub detail: serde_json::Value,
 }
 
@@ -85,7 +90,16 @@ pub fn record_from_hook(payload: &str, now: &str) -> AuditRecord {
         session,
         actor: "claude".into(),
         kind: "tool".into(),
+        source: None,
         detail,
+    }
+}
+
+/// Like [`record_from_hook`], with the record's `source` set.
+pub fn record_from_hook_for(payload: &str, now: &str, source: &str) -> AuditRecord {
+    AuditRecord {
+        source: Some(source.to_string()),
+        ..record_from_hook(payload, now)
     }
 }
 

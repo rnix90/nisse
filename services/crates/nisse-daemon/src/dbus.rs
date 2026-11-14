@@ -53,6 +53,7 @@ impl Core {
             session: session.map(String::from),
             actor: actor.into(),
             kind: kind.into(),
+            source: Some("daemon".into()),
             detail,
         };
         if let Ok(log) = AuditLog::open(&self.audit_path) {

@@ -192,6 +192,21 @@ async fn the_backend_environment_reaches_claude() {
 }
 
 #[tokio::test]
+async fn daemon_sessions_tell_the_machine_wide_audit_hook_to_stand_aside() {
+    // N-226: the managed audit hook skips when NISSE_SESSION is set, so a daemon session is recorded once, by its own
+    // hook. The value is the session id, for both a new and a resumed turn.
+    for (name, resume) in [("session-env-new", false), ("session-env-resume", true)] {
+        let (bin, dir) = fake_claude(name, "echo \"$NISSE_SESSION\" > \"$(dirname \"$0\")/session.txt\"");
+        collect(&ClaudeCliRunner::new().with_binary(bin), request(resume)).await;
+        assert_eq!(
+            fs::read_to_string(dir.join("session.txt")).unwrap().trim(),
+            "sess-1",
+            "{name}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn a_failed_turn_after_init_still_reports_started_so_the_session_gets_resumed() {
     // Claude Code creates the session at init; a later failure must not make the next message start it again.
     let init = r#"{"type":"system","subtype":"init","session_id":"s"}"#;

@@ -560,6 +560,9 @@ impl ClaudeCliRunner {
             }
         }
         cmd.envs(req.env.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+        // The machine-wide audit hook (managed settings, N-226) skips runs that carry this, so a daemon session is
+        // recorded once, by the daemon's own hook. Set last: nothing in `req.env` may unset it.
+        cmd.env("NISSE_SESSION", &req.session_id);
         // A closed stdin: the CLI otherwise waits 3 seconds for piped data (the host protocol needs stdin open). Its
         // own process group, so that stopping it also stops the tools it started.
         cmd.stdin(if host_mode { Stdio::piped() } else { Stdio::null() })

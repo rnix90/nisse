@@ -4,7 +4,7 @@ use std::io::Write;
 use std::sync::Arc;
 use std::thread;
 
-use nisse_audit::{log_path_from, now_rfc3339, record_from_hook, tail, AuditLog, AuditRecord};
+use nisse_audit::{log_path_from, now_rfc3339, record_from_hook, record_from_hook_for, tail, AuditLog, AuditRecord};
 
 fn rec(n: usize) -> AuditRecord {
     AuditRecord {
@@ -12,6 +12,7 @@ fn rec(n: usize) -> AuditRecord {
         session: Some("s1".into()),
         actor: "claude".into(),
         kind: "message".into(),
+        source: None,
         detail: serde_json::json!({ "n": n }),
     }
 }
@@ -126,4 +127,26 @@ fn log_path_prefers_the_override_then_xdg_state_then_home() {
 fn now_is_an_rfc3339_utc_timestamp() {
     let t = now_rfc3339();
     assert!(t.contains('T') && t.ends_with('Z'), "{t}");
+}
+
+#[test]
+fn a_hook_record_can_say_where_the_call_came_from() {
+    let payload = r#"{"session_id":"abc","hook_event_name":"PreToolUse","tool_name":"Bash"}"#;
+    let r = record_from_hook_for(payload, "2026-10-29T00:00:00Z", "terminal");
+    assert_eq!(r.source.as_deref(), Some("terminal"));
+    assert_eq!(r.kind, "tool");
+    assert_eq!(r.detail["tool_name"], "Bash");
+    let line = serde_json::to_string(&r).unwrap();
+    assert!(line.contains(r#""source":"terminal""#), "{line}");
+    // The plain constructor keeps its old behavior: no source recorded.
+    assert_eq!(record_from_hook(payload, "2026-10-29T00:00:00Z").source, None);
+}
+
+#[test]
+fn a_record_without_a_source_writes_no_source_key_and_old_lines_still_parse() {
+    let line = serde_json::to_string(&rec(1)).unwrap();
+    assert!(!line.contains("source"), "{line}");
+    let old = r#"{"ts":"2026-10-29T00:00:00Z","session":null,"actor":"claude","kind":"tool","detail":{}}"#;
+    let r: AuditRecord = serde_json::from_str(old).unwrap();
+    assert_eq!(r.source, None);
 }

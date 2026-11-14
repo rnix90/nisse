@@ -22,6 +22,22 @@ for event in PreToolUse PostToolUse; do
     grep -q "\"$event\"" <<< "$settings" || fail "settings must hook $event (a command that wedges the machine never reaches PostToolUse)"
 done
 python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); assert all(d["hooks"][e][0]["hooks"][0]["command"]=="/usr/bin/nisse-audit-hook" for e in ("PreToolUse","PostToolUse"))' <<< "$settings" || fail "both hooks must run /usr/bin/nisse-audit-hook"
+# N-226: audit every claude run on the machine (terminal sessions too), but never limit one.
+printf '%s\n' "$files" | grep -qxF "/etc/claude-code/managed-settings.json" || fail "RPM lacks /etc/claude-code/managed-settings.json"
+managed="$(member etc/claude-code/managed-settings.json)"
+python3 - "$managed" <<'PY' || fail "managed settings must hold exactly the two --managed audit hooks and nothing else"
+import json, sys
+d = json.loads(sys.argv[1])
+assert set(d) == {"hooks"}, "only hooks may be set: %s" % sorted(d)   # no allowManagedHooksOnly, no permissions
+assert set(d["hooks"]) == {"PreToolUse", "PostToolUse"}, sorted(d["hooks"])
+for event, groups in d["hooks"].items():
+    cmds = [h["command"] for g in groups for h in g["hooks"]]
+    assert cmds == ["/usr/bin/nisse-audit-hook --managed"], (event, cmds)
+PY
+grep -q 'allowManagedHooksOnly' <<< "$managed" && fail "managed settings must not set allowManagedHooksOnly (it would switch off the daemon's own hook)"
+rpm -qp -c "$rpmf" | grep -qxF /etc/claude-code/managed-settings.json || fail "managed settings must be a config file (edits survive upgrades)"
+# The daemon's own settings keep the plain hook: a daemon session is recorded by it, and the managed hook skips daemon sessions.
+! grep -q -- '--managed' <<< "$settings" || fail "the daemon's own settings must not use --managed"
 member usr/share/dbus-1/services/org.nisse.Daemon1.service | grep -qx 'SystemdService=nisse-daemon.service' || fail "D-Bus service must activate the user unit"
 member usr/lib/systemd/user/nisse-daemon.service | grep -qx 'BusName=org.nisse.Daemon1' || fail "unit must claim org.nisse.Daemon1"
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpmf")" = "GPL-2.0-or-later" ] || fail "License must be GPL-2.0-or-later"

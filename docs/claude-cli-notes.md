@@ -158,7 +158,25 @@ with `busctl` (SendMessage, ListApprovals, Approve, Deny):
 - A first attempt of the script mis-parsed busctl output and never answered; all three approvals then expired by
   themselves and the CLI carried on, which is the expiry case again (and the first live proof of it).
 
+## Hooks for terminal sessions (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-226)
+
+- A managed hook (`/etc/claude-code/managed-settings.json`) sees the same payload from a run with no daemon variable as from
+  a daemon run: `session_id`, `cwd`, `hook_event_name`, `tool_name`, `tool_input`, `tool_use_id`, `permission_mode`,
+  `transcript_path`, `prompt_id`, `effort`; PostToolUse adds `tool_response` and `duration_ms`.
+- The environment of the `claude` process reaches the hook command, so `NISSE_SESSION` set by the daemon lets the managed
+  hook (`nisse-audit-hook --managed`) skip daemon sessions.
+- A managed hook whose command does not exist does not stop the run (exit 0, the model answered). A run with no tool call
+  fires no hook at all.
+- Real-CLI check with the shipped managed file and the built hook: a terminal-style call gave 2 records (PreToolUse,
+  PostToolUse) with source `terminal`; a daemon-style call (`NISSE_SESSION` set, daemon `--settings` hook, managed file
+  installed) gave exactly 2 records with source `daemon`.
+- Limits: a `claude` that a daemon session starts itself (a Bash call running `claude`) inherits `NISSE_SESSION`, so the
+  managed hook skips it; the outer Bash call is recorded, the inner run's own tool calls are not. An interactive (TUI)
+  session was not driven in the VM (the pty run never reached a tool call in 2 minutes); check it on the GATE 2 image.
+- The audit log holds tool inputs, which can contain secrets; it stays on the machine, and the RPM description says
+  terminal sessions are recorded and how to stop it (remove the managed file).
+
 ## Not yet verified
 
-- A message from claude.ai or the phone into a `claude remote-control` session; the guardrail hook on such sessions (N-209).
+- An interactive terminal `claude` session recorded as `terminal` (GATE 2 image check); a message from claude.ai or the phone into a `claude remote-control` session; the guardrail hook on such sessions (N-209).
 - Host answers held longer than 90 seconds (the 25 second expiry above is shorter), and a PreToolUse hook returning `ask`.
