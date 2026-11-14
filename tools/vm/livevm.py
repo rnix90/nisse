@@ -9,6 +9,7 @@
 import base64
 import random
 import re
+import shlex
 import socket
 import subprocess
 import threading
@@ -25,6 +26,30 @@ export XDG_CURRENT_DESKTOP=KDE
 export KDE_FULL_SESSION=true
 export XDG_DATA_DIRS=$HOME/.local/share:/usr/local/share:/usr/share
 """
+SESSION_ENV_PREFIXES = ("XDG_", "DBUS_", "WAYLAND_", "KDE_", "QT_", "XCURSOR_", "LC_")
+SESSION_ENV_NAMES = ("LANG", "DISPLAY")
+
+
+def env_script_from_environ(environ):
+    """Turn a process's /proc/PID/environ (NUL separated bytes) into `export` lines for the session variables only."""
+    lines = []
+    for item in environ.split(b"\0"):
+        key, sep, value = item.decode("utf-8", "replace").partition("=")
+        if sep and key.isidentifier() and (key.startswith(SESSION_ENV_PREFIXES) or key in SESSION_ENV_NAMES):
+            lines.append(f"export {key}={shlex.quote(value)}")
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def pick_base64(console_text):
+    """The base64 blob a `base64 -w0` command printed on the serial console (the longest line made of base64 characters)."""
+    best = ""
+    for line in console_text.splitlines():
+        line = line.strip()
+        if len(line) > len(best) and re.fullmatch(r"[A-Za-z0-9+/=]+", line):
+            best = line
+    return base64.b64decode(best) if best else b""
+
+
 # No lock screen, no dimming, no screen off while the harness takes its time.
 QUIET_SESSION = (
     "kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false; "
@@ -43,8 +68,28 @@ def clean(t):
     return CSI.sub("", OSC.sub("", t)).replace(chr(13), "")
 
 
+# The guest clock starts at a fixed night time (UTC is the live session's time zone), so Night Light, which is on by
+# default and follows day and night, tints the screen the same way on every run and the goldens do not depend on when
+# the harness is run. clock=vm: the guest time then only moves with the guest.
+RTC_BASE = "2026-11-14T03:00:00"
+
+
+def qemu_command(iso, vars_file, mon_port, serial_port, mem, rtc_base=RTC_BASE):
+    return [
+        str(QEMU_DIR / "qemu-system-x86_64.exe"), "-machine", "q35", "-accel", "whpx,kernel-irqchip=off", "-cpu", "max",
+        "-smp", "4", "-m", str(mem), "-rtc", f"base={rtc_base},clock=vm",
+        "-drive", f"if=pflash,format=raw,unit=0,readonly=on,file={(QEMU_DIR / 'share' / 'edk2-x86_64-code.fd').as_posix()}",
+        "-drive", f"if=pflash,format=raw,unit=1,file={Path(vars_file).as_posix()}",
+        "-cdrom", str(iso), "-boot", "d",
+        "-netdev", "user,id=n0", "-device", "virtio-net-pci,netdev=n0",
+        "-monitor", f"tcp:127.0.0.1:{mon_port},server,nowait",
+        "-serial", f"tcp:127.0.0.1:{serial_port},server,nowait",
+        "-display", "none",
+    ]
+
+
 class Vm:
-    def __init__(self, iso, out, mem=6144):
+    def __init__(self, iso, out, mem=6144, rtc_base=RTC_BASE):
         self.out = Path(out)
         self.out.mkdir(parents=True, exist_ok=True)
         self.buf = ""
@@ -53,17 +98,7 @@ class Vm:
         self.mon_port = self.serial_port + 1
         vars_file = self.out / "OVMF_VARS.fd"
         vars_file.write_bytes((QEMU_DIR / "share" / "edk2-i386-vars.fd").read_bytes())
-        cmd = [
-            str(QEMU_DIR / "qemu-system-x86_64.exe"), "-machine", "q35", "-accel", "whpx,kernel-irqchip=off", "-cpu", "max",
-            "-smp", "4", "-m", str(mem),
-            "-drive", f"if=pflash,format=raw,unit=0,readonly=on,file={(QEMU_DIR / 'share' / 'edk2-x86_64-code.fd').as_posix()}",
-            "-drive", f"if=pflash,format=raw,unit=1,file={vars_file.as_posix()}",
-            "-cdrom", str(iso), "-boot", "d",
-            "-netdev", "user,id=n0", "-device", "virtio-net-pci,netdev=n0",
-            "-monitor", f"tcp:127.0.0.1:{self.mon_port},server,nowait",
-            "-serial", f"tcp:127.0.0.1:{self.serial_port},server,nowait",
-            "-display", "none",
-        ]
+        cmd = qemu_command(iso, vars_file, self.mon_port, self.serial_port, mem, rtc_base)
         self.proc = subprocess.Popen(cmd, creationflags=0x08000000)
         self.sock = self._connect(self.serial_port)
         threading.Thread(target=self._reader, daemon=True).start()
@@ -178,6 +213,12 @@ class Vm:
         else:
             raise TimeoutError("plasmashell did not start")
         time.sleep(15)  # the panel and the wallpaper finish loading after the shell process exists
+        # Use the Plasma session's own XDG paths: without them an app started from the serial shell misses the system
+        # defaults that live in the kde-settings profile directory (seen at GATE 1: the first terminal came up "Built-in").
+        blob, _ = self.run("base64 -w0 /proc/$(pgrep -x plasmashell | head -1)/environ; echo", 30)
+        script = env_script_from_environ(pick_base64(blob))
+        if "XDG_CONFIG_DIRS" in script:
+            self.put("/tmp/env.sh", (SESSION_ENV + script).encode())
         self.sh(QUIET_SESSION, 30)
 
     def close(self):
