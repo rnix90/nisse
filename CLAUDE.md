@@ -9,6 +9,8 @@ nisse is a custom Fedora 44 based, AI-native KDE Plasma distro that Bert (Robert
 (also "nisse next"). Plain "next task" belongs to the Cozy Crab project. On the trigger: take the first open task in
 the ledger, give Bert that one task only (phone-sized, with a concrete proposal), develop it until he approves, then do
 the work, commit, tick the box, update the NOW pointer, commit, and reply exactly **"Ready for next nisse task."**
+Every time you prompt for the next task, open with a quick status read: steps completed, steps remaining and a rough
+completion percentage by actual amount of work (`python tools/ledger/progress.py`; Bert, 2026-11-14).
 Never batch, never work ahead. The ledger's PROTOCOL, GATES and Ledger rules sections are the full text.
 
 The design is `docs/superpowers/specs/2026-10-28-nisse-os-design.md` (plus the kiwi amendment). The roadmap is the why

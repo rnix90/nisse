@@ -18,7 +18,9 @@ When Bert says it:
 
 1. Read this file. Find the **first task not marked done**, whatever its tag, in file order. If it needs Bert (his eyes,
    his hands, his sign-in), say so and wait. Do not skip ahead to something easier.
-2. Give him **that one task only**. Phone-sized: what it is, why it is next, and a concrete proposal to react to.
+2. Start with a **quick status read** (Bert, 2026-11-14): steps completed, steps remaining, and a rough completion
+   percentage by actual amount of work, from `python tools/ledger/progress.py` (weights are in that file; a gate
+   counts for much more than a phone decision). Then give him **that one task only**. Phone-sized: what it is, why it is next, and a concrete proposal to react to.
 3. Develop it with him until he approves. Decisions go to him one at a time through the interactive prompt.
 4. On approval: do the work, commit it, tick the box here, update the NOW pointer, commit that, and reply exactly
    **"Ready for next nisse task."**
