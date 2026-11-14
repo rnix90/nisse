@@ -7,3 +7,4 @@ pub mod dbus;
 pub mod remote;
 pub mod runner;
 pub mod state;
+pub mod usage;

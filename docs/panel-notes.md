@@ -117,3 +117,18 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 - A conversation that already started continues on the new backend (the CLI resumes it from its own file); a smaller local
   model may cope less well with a long one.
 - What happens when a remote backend is away is N-212 and N-213, not here.
+
+## Usage in the status bar (N-214)
+
+- The middle of the top bar reads "Usage: 5h 25% | 7d 54%" from the daemon's `GetUsage` JSON: the Max account's five-hour
+  and seven-day windows. Amber from 80%, Ember red from 95% (of the fullest window that has not reset). A window whose
+  reset time has passed since it was read shows "-" (the number would be stale); nothing known reads "Usage: unknown".
+- Hover for the detail: each window with its reset in words ("resets in 2 h 1 min"), how old the reading is when it is
+  over half an hour old, and the tokens used today per backend ("here: 12.3k, max: 41.6k"; cached tokens included), so a
+  local backend's use is counted too. Clicking the bar reads the limits again.
+- The numbers come from Claude Code itself (see `docs/claude-cli-notes.md`): the `rate_limit_event` of each turn and the
+  `/usage` report (`RefreshUsage`, no model call). The daemon keeps them in `usage.json` beside the sessions file, and the
+  token counts for 30 days. They are only as new as the last turn or refresh; a Max account used from another computer
+  moves the real numbers in between.
+- Not shown: the per-model weekly limits (the daemon keeps them under `others`), and any cost (the CLI's cost is a list-price
+  estimate, and a subscription is not billed per token).

@@ -18,6 +18,8 @@ class DaemonClient : public QObject
     Q_PROPERTY(QString backendLabel READ backendLabel NOTIFY backendLabelChanged)
     Q_PROPERTY(QString authorityLabel READ authorityLabel NOTIFY authorityLabelChanged)
     Q_PROPERTY(int pendingCount READ pendingCount NOTIFY pendingCountChanged)
+    // The usage status as the daemon's JSON (N-214); empty until it is known.
+    Q_PROPERTY(QString usageJson READ usageJson NOTIFY usageChanged)
 
 public:
     explicit DaemonClient(QObject *parent = nullptr);
@@ -60,6 +62,9 @@ public:
     Q_INVOKABLE QString approve(const QString &id);
     Q_INVOKABLE QString deny(const QString &id, const QString &reason);
     int pendingCount() const { return m_pendingCount; }
+    QString usageJson() const { return m_usageJson; }
+    // Asks the daemon to read the account's limits now (no model call); the answer arrives as usageJson.
+    Q_INVOKABLE void refreshUsage();
     // Starts desktop notices for new approvals. `windowActive` says whether the panel window is in the foreground.
     void enableNotifications(std::function<bool()> windowActive);
 
@@ -75,6 +80,7 @@ signals:
     void pendingCountChanged();
     // A session was made, renamed or closed, by this panel or by any other client (the daemon's SessionsChanged).
     void sessionsChanged();
+    void usageChanged();
     // The remote access status changed (the same JSON as remoteAccess()).
     void remoteAccessChanged(const QString &json);
     // An approval was requested or decided (the daemon's ApprovalChanged signal).
@@ -88,6 +94,7 @@ private slots:
     void onFailed(const QString &session, const QString &message);
     void onApprovalChanged(const QString &id, const QString &state);
     void onSessionsChanged();
+    void onUsageChanged(const QString &json);
     void onRemoteAccessChanged(const QString &json);
 
 private:
@@ -95,6 +102,7 @@ private:
     QString m_backendLabel = QStringLiteral("daemon offline");
     QString m_authorityLabel = QStringLiteral("daemon offline");
     int m_pendingCount = 0;
+    QString m_usageJson;
     std::unique_ptr<ApprovalNotifier> m_notifier;
     std::unique_ptr<DesktopNotify> m_desktop;
 

@@ -20,6 +20,7 @@ use crate::backend::{HealthOptions, NetworkProber, Prober, Resolver};
 use crate::remote::{RemoteAccess, RemoteOptions};
 use crate::runner::{AgentRunner, ApprovalHook, RunEvent, RunRequest};
 use crate::state::{Keep, SessionStore};
+use crate::usage::{parse_usage_text, UsageTracker};
 
 /// What one session is doing right now (in memory only; only the started flag is persisted).
 #[derive(Default)]
@@ -47,6 +48,8 @@ struct Core {
     remote: Option<Arc<RemoteAccess>>,
     /// Decides which backend a turn really goes to when one may be away (N-212, N-213).
     resolver: Arc<Resolver>,
+    /// The account's limit windows and the tokens used per backend (N-214).
+    usage: Arc<UsageTracker>,
     runs: Arc<Mutex<HashMap<String, RunState>>>,
     /// The config error already audited, so a file that stays broken is reported once, not on every call.
     config_error: Arc<std::sync::Mutex<Option<String>>>,
@@ -65,6 +68,18 @@ impl Core {
         if let Ok(log) = AuditLog::open(&self.audit_path) {
             let _ = log.append(&record);
         }
+    }
+
+    async fn refresh_usage(&self) -> bool {
+        let Some(text) = self.runner.usage_report().await else {
+            return false;
+        };
+        let windows = parse_usage_text(&text);
+        if windows.is_empty() {
+            return false;
+        }
+        self.usage.record_text(&windows, now_secs());
+        true
     }
 
     fn remote(&self) -> zbus::fdo::Result<Arc<RemoteAccess>> {
@@ -139,6 +154,7 @@ impl Daemon {
                     Arc::new(NetworkProber::default()),
                     HealthOptions::default(),
                 )),
+                usage: Arc::new(UsageTracker::in_memory()),
                 runs: Arc::new(Mutex::new(HashMap::new())),
                 config_error: Arc::new(std::sync::Mutex::new(None)),
             },
@@ -207,6 +223,27 @@ impl Daemon {
         self
     }
 
+    /// Keep the usage numbers in `path` so they survive a daemon restart (an unreadable file is set aside and audited).
+    pub fn with_usage_file(mut self, path: PathBuf) -> Daemon {
+        let (tracker, warning) = UsageTracker::open(path);
+        self.core.usage = Arc::new(tracker);
+        if let Some(warning) = warning {
+            self.core
+                .audit(None, "daemon", "state-warning", serde_json::json!({ "error": warning }));
+        }
+        self
+    }
+
+    /// The usage tracker, for the code that forwards its changes as signals.
+    pub fn usage(&self) -> Arc<UsageTracker> {
+        Arc::clone(&self.core.usage)
+    }
+
+    /// A handle that can read `claude -p /usage` and record it, for the code that does so at the daemon's start.
+    pub fn usage_refresher(&self) -> UsageRefresher {
+        UsageRefresher(self.core.clone())
+    }
+
     /// Replaces how a backend's reachability is checked (tests use a switchboard instead of the network).
     pub fn with_prober(mut self, prober: Arc<dyn Prober>) -> Daemon {
         self.core.resolver = Arc::new(Resolver::new(prober, HealthOptions::default()));
@@ -243,6 +280,23 @@ fn approval_json(approval: &Approval) -> String {
 
 fn approval_error(e: DecideError) -> zbus::fdo::Error {
     zbus::fdo::Error::Failed(e.to_string())
+}
+
+/// Emits `UsageChanged` whenever usage was recorded. Call once after the daemon is served.
+pub async fn forward_usage_signals(connection: &zbus::Connection, usage: Arc<UsageTracker>) -> zbus::Result<()> {
+    let iface = connection
+        .object_server()
+        .interface::<_, Daemon>("/org/nisse/Daemon1")
+        .await?;
+    let emitter = iface.signal_emitter().to_owned();
+    let mut changes = usage.subscribe();
+    tokio::spawn(async move {
+        while changes.changed().await.is_ok() {
+            let json = usage.snapshot(now_secs()).to_string();
+            let _ = Daemon::usage_changed(&emitter, &json).await;
+        }
+    });
+    Ok(())
 }
 
 /// Emits `RemoteAccessChanged` whenever the remote access status changes. Call once after the daemon is served.
@@ -292,6 +346,23 @@ pub async fn forward_approval_signals(connection: &zbus::Connection, queue: Arc<
     Ok(())
 }
 
+/// Reads the account's limits through the CLI's `/usage` report and records them (see `Daemon::usage_refresher`).
+pub struct UsageRefresher(Core);
+
+impl UsageRefresher {
+    /// True if a report was read and understood.
+    pub async fn refresh(&self) -> bool {
+        self.0.refresh_usage().await
+    }
+}
+
+fn now_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
 /// One turn: run the agent for `text` and turn its events into D-Bus signals. `drive` sends the `SessionDone`.
 async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &str, text: String) {
     let started = core.sessions.get(session_id).await.unwrap_or(false);
@@ -339,6 +410,7 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
         let _ = Daemon::message_chunk(emitter, session_id, &format!("{note}\n\n")).await;
     }
     let backend = &resolved.backend;
+    let backend_name = backend.name.clone();
     let request = RunRequest {
         session_id: session_id.to_string(),
         prompt: text,
@@ -373,6 +445,8 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
                     let _ = Daemon::session_error(emitter, session_id, &message).await;
                 }
                 RunEvent::Done => saw_done = true,
+                RunEvent::RateLimit(limits) => core.usage.record_rate_limit(limits, now_secs()),
+                RunEvent::Tokens(used) => core.usage.record_tokens(&backend_name, &used, now_secs()),
             }
         }
         if !saw_done {
@@ -584,6 +658,24 @@ impl Daemon {
             "note": resolved.note,
         })
         .to_string())
+    }
+
+    /// How much of the account's limits is used and how many tokens went where, as JSON: `max` (`five_hour` and
+    /// `seven_day` with `utilization` 0 to 1, `resets_at`, `status`, `expired`; `observed_at`; `others`) and `tokens`
+    /// (`today` and `week`, per backend). The windows come from what the CLI reported at the start of the last turn
+    /// (and from `RefreshUsage`), so they are as old as `observed_at`.
+    async fn get_usage(&self) -> String {
+        self.core.usage.snapshot(now_secs()).to_string()
+    }
+
+    /// Reads the account's limits now (the CLI's `/usage` report: no model call, no cost) and returns the same JSON as
+    /// `GetUsage` plus `refreshed`, false when the report could not be had or understood (the numbers are then the
+    /// last known).
+    async fn refresh_usage(&self) -> String {
+        let refreshed = self.core.refresh_usage().await;
+        let mut snapshot = self.core.usage.snapshot(now_secs());
+        snapshot["refreshed"] = serde_json::Value::Bool(refreshed);
+        snapshot.to_string()
     }
 
     /// Names a session; an empty name goes back to none. Every client is told through `SessionsChanged`.
@@ -832,6 +924,10 @@ impl Daemon {
     /// The session list changed (made, renamed or closed): clients call `ListSessions` again.
     #[zbus(signal)]
     async fn sessions_changed(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
+
+    /// Usage numbers changed: the argument is the same JSON as `GetUsage`.
+    #[zbus(signal)]
+    async fn usage_changed(emitter: &SignalEmitter<'_>, usage_json: &str) -> zbus::Result<()>;
 
     /// The remote access status changed: the argument is the same JSON as `GetRemoteAccess`.
     #[zbus(signal)]

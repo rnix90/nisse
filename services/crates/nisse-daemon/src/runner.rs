@@ -17,8 +17,9 @@ use tokio::sync::mpsc::{self, Sender, UnboundedSender};
 use tokio::task::JoinSet;
 
 use crate::approvals::{ApprovalQueue, ApprovalState, NewApproval};
+use crate::usage::{parse_rate_limit_event, parse_result_tokens, RateLimit, TokenUse};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RunEvent {
     /// Claude Code created the session (its `init` line). From here on the session exists, even if the turn
     /// later fails, and must be continued with `--resume`.
@@ -26,6 +27,10 @@ pub enum RunEvent {
     Text(String),
     Done,
     Error(String),
+    /// The account's limit windows, as the CLI reports them at the start of a turn (N-214).
+    RateLimit(RateLimit),
+    /// What the turn used (N-214).
+    Tokens(TokenUse),
 }
 
 /// Where a supervised run sends the CLI's permission prompts: the approvals queue (N-203).
@@ -65,6 +70,11 @@ pub struct RunRequest {
 #[async_trait]
 pub trait AgentRunner: Send + Sync {
     async fn run(&self, req: RunRequest, tx: Sender<RunEvent>);
+
+    /// What `claude -p /usage` prints (the account's limits as text, no model call), or `None` when it cannot be had.
+    async fn usage_report(&self) -> Option<String> {
+        None
+    }
 }
 
 /// The CLI is checked for a sign of life every 30 seconds (hard-coded; see `ClaudeCliRunner`).
@@ -108,9 +118,18 @@ pub fn parse_line(line: &str) -> Vec<RunEvent> {
             let tool = value["tool_name"].as_str().unwrap_or("A tool");
             vec![RunEvent::Text(format!("[{tool} was not allowed]"))]
         }
-        Some("result") if value["is_error"] == true => {
-            let message = value["result"].as_str().unwrap_or("Claude Code reported an error");
-            vec![RunEvent::Error(message.to_string())]
+        Some("rate_limit_event") => parse_rate_limit_event(&value)
+            .map(RunEvent::RateLimit)
+            .into_iter()
+            .collect(),
+        Some("result") => {
+            let mut events = Vec::new();
+            if value["is_error"] == true {
+                let message = value["result"].as_str().unwrap_or("Claude Code reported an error");
+                events.push(RunEvent::Error(message.to_string()));
+            }
+            events.extend(parse_result_tokens(&value).map(RunEvent::Tokens));
+            events
         }
         _ => Vec::new(),
     }
@@ -128,6 +147,7 @@ pub struct ClaudeCliRunner {
     settings: Option<PathBuf>,
     hung_after: Duration,
     check_in: Duration,
+    usage_timeout: Duration,
 }
 
 impl Default for ClaudeCliRunner {
@@ -143,7 +163,14 @@ impl ClaudeCliRunner {
             settings: None,
             hung_after: DEFAULT_HUNG_AFTER,
             check_in: CHECK_IN_INTERVAL,
+            usage_timeout: Duration::from_secs(30),
         }
+    }
+
+    /// How long `usage_report` waits for the CLI (30 seconds by default).
+    pub fn with_usage_timeout(mut self, timeout: Duration) -> Self {
+        self.usage_timeout = timeout;
+        self
     }
 
     pub fn with_binary(mut self, path: impl Into<PathBuf>) -> Self {
@@ -725,6 +752,25 @@ impl ClaudeCliRunner {
 
 #[async_trait]
 impl AgentRunner for ClaudeCliRunner {
+    async fn usage_report(&self) -> Option<String> {
+        let mut cmd = Command::new(self.find_binary());
+        cmd.args(["-p", "/usage", "--no-session-persistence"])
+            .current_dir(std::env::temp_dir())
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .kill_on_drop(true);
+        let output = tokio::time::timeout(self.usage_timeout, cmd.output())
+            .await
+            .ok()?
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let text = String::from_utf8_lossy(&output.stdout).to_string();
+        (!text.trim().is_empty()).then_some(text)
+    }
+
     async fn run(&self, req: RunRequest, tx: Sender<RunEvent>) {
         let mut req = req;
         for attempt in 0..2 {

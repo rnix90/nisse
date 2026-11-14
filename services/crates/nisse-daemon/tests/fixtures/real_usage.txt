@@ -1,0 +1,14 @@
+You are currently using your subscription to power your Claude Code usage
+
+Current session: 20% used {DOT} resets Nov 15, 12:30am (UTC)
+Current week (all models): 53% used {DOT} resets Nov 18, 10am (UTC)
+Current week (Fable): 0% used {DOT} resets Nov 18, 10am (UTC)
+
+What's contributing to your usage?
+Approximate {DOT} sessions on this machine only {DOT} shares overlap
+
+Last 24h {DOT} 57 requests {DOT} 23 sessions
+  69%  Turn off MCP servers you don't use {DOT} 18k tokens per request
+
+Last 7d {DOT} 57 requests {DOT} 23 sessions
+  69%  Turn off MCP servers you don't use {DOT} 18k tokens per request

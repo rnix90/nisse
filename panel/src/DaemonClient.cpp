@@ -28,12 +28,16 @@ DaemonClient::DaemonClient(QObject *parent)
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionDone"), this, SLOT(onDone(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionError"), this, SLOT(onFailed(QString, QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionsChanged"), this, SLOT(onSessionsChanged()));
+    bus.connect(kService, kPath, kInterface, QStringLiteral("UsageChanged"), this, SLOT(onUsageChanged(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("RemoteAccessChanged"), this,
                 SLOT(onRemoteAccessChanged(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("ApprovalChanged"), this,
                 SLOT(onApprovalChanged(QString, QString)));
     refreshBackend();
     updatePendingCount();
+    const QDBusReply<QString> usage = m_iface.call(QStringLiteral("GetUsage"));
+    if (usage.isValid())
+        m_usageJson = usage.value();
 }
 
 DaemonClient::~DaemonClient() = default;
@@ -214,6 +218,25 @@ void DaemonClient::enableNotifications(std::function<bool()> windowActive)
 void DaemonClient::onRemoteAccessChanged(const QString &json)
 {
     emit remoteAccessChanged(json);
+}
+
+void DaemonClient::refreshUsage()
+{
+    auto *watcher = new QDBusPendingCallWatcher(m_iface.asyncCall(QStringLiteral("RefreshUsage")), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        const QDBusPendingReply<QString> reply = *w;
+        if (reply.isValid())
+            onUsageChanged(reply.value());
+        w->deleteLater();
+    });
+}
+
+void DaemonClient::onUsageChanged(const QString &json)
+{
+    if (json == m_usageJson)
+        return;
+    m_usageJson = json;
+    emit usageChanged();
 }
 
 void DaemonClient::onSessionsChanged()

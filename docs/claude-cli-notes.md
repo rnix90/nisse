@@ -173,6 +173,30 @@ named as its fallback:
 - with `fallback = "off"` at the top of the config the same session failed at once with "The backend "away" is not
   reachable ... Fallbacks are switched off in the configuration." and nothing reached the stub.
 
+## Reading the account's usage (verified 2026-11-14, CLI 2.1.325 in the VM, signed in to a Max account, ledger N-214)
+
+Two sources, both from the CLI itself (nothing was found, or assumed, beyond it):
+
+1. **Every real turn's stream-json carries a `rate_limit_event` line** (between the assistant line and the result line):
+   `rate_limit_info` has `status`, `resetsAt`, `rateLimitType`, `overageStatus`, `isUsingOverage` and
+   `unifiedWindows`: `five_hour` and `seven_day`, each with `utilization` (0 to 1), `resetsAt` (unix seconds) and `status`.
+   Seen: five-hour 0.2, seven-day 0.53. The turn's `result` line carries `usage` (input, output, cache read and cache
+   creation tokens), `modelUsage` (per model) and `total_cost_usd` (a list-price estimate; a subscription is not billed
+   per token). Real lines are the fixtures `services/crates/nisse-daemon/tests/fixtures/real_*`.
+2. **`claude -p "/usage"` prints the account's limits as text with no model call** (`num_turns` 0, cost 0; add
+   `--no-session-persistence`): "Current session: 20% used (dot) resets Nov 15, 12:30am (UTC)", "Current week (all models):
+   53% used ...", and one line per model that has its own week ("Current week (Fable): 0% used ..."), then a breakdown of
+   what contributed. Percentages are rounded and the reset is printed text, so the daemon reads only the "Current ...: N%
+   used ... resets ..." lines and ignores anything else; a changed report gives fewer numbers, never wrong ones.
+
+So the numbers are as new as the last turn or the last `RefreshUsage` (the panel asks when it starts and every 10
+minutes). There is no way found to read them with no CLI at all. The percentages from the two sources agreed (25% and
+0.25 in one live run; 54% against 0.53 for the week, which is the rounding).
+
+Live run (`tools/claude-probe/live_usage.sh`): GetUsage empty at start; RefreshUsage filled both windows from the report
+(`refreshed: true`); one real turn then gave the exact `resets_at` times and the token counts under `max`, and two
+`UsageChanged` signals went out.
+
 ## The daemon starts and stops `claude remote-control` (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-209)
 
 `tools/claude-probe/live_remote.sh`: the real `nisse-daemon` (no fake runner) in a private session bus, signed in to the

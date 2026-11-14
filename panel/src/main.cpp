@@ -20,6 +20,9 @@ static int selfTest(int argc, char *argv[])
     DaemonClient client;
     out << "backend: " << client.backendLabel() << Qt::endl;
     out << "authority: " << client.authorityLabel() << Qt::endl;
+    out << "usage: "
+        << (QJsonDocument::fromJson(client.usageJson().toUtf8()).object().contains(QStringLiteral("max")) ? "available" : "missing")
+        << Qt::endl;
 
     const QString session = client.newSession();
     if (session.isEmpty()) {

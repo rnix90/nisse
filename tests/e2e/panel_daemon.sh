@@ -33,6 +33,7 @@ grep -q "\"kind\":\"message\"" "$NISSE_AUDIT_LOG" || { echo "FAIL: no message re
 out="$("$1" --self-test)"
 echo "$out"
 echo "$out" | grep -qx "authority: autonomous" || { echo "FAIL: panel did not report the autonomous authority" >&2; exit 1; }
+echo "$out" | grep -qx "usage: available" || { echo "FAIL: panel did not get the usage status from the daemon" >&2; exit 1; }
 echo "$out" | grep -qx "backend: max" || { echo "FAIL: panel did not report the max backend" >&2; exit 1; }
 echo "$out" | grep -qx "reply: echo: ping" || { echo "FAIL: panel did not get the fake agent reply" >&2; exit 1; }
 ' "$daemon" "$panel"
