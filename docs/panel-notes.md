@@ -72,3 +72,17 @@ Decision (Bert): native badge only.
   "3" on the pinned panel launcher and the badge gone after the app exited (`tools/vm/badge_spike.py --real`,
   `tools/vm/badge_probe.cpp`). Not verified: the font of the digit (it is the system font, which the nisse look sets to
   Nunito); a badge from the full panel app in a session with the daemon (GATE 2).
+
+## After a reboot: three levels (N-208)
+
+Decision (Bert): three levels with a click-cycle toggle, default "keep in library".
+
+- Each session has a `keep` level: `always` (comes back as an open tab), `library` (the default: comes back in the
+  library, not as a tab, to be reopened from the Library button) and `drop` (forgotten). The panel's toggle under the tab
+  bar cycles library, always, drop and back; the daemon stores it, so every client sees the same choice.
+- "After a reboot" means a daemon start (the daemon starts with the user session): `Daemon::with_state_file` applies the
+  levels once, saves the result, and audits `sessions-at-boot` (kept open, moved to the library, dropped). A closed tab is
+  still removed for good (Close, or Delete in the library).
+- A library session is still known to the daemon: opening it, or sending it a message from any client, makes it a tab
+  again. Its Claude Code conversation files are never touched (only the daemon's list forgets a dropped session), and
+  its earlier messages are not shown until N-220 adds event replay.

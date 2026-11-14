@@ -85,6 +85,18 @@ QString DaemonClient::closeSession(const QString &session)
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
+QString DaemonClient::setKeepMode(const QString &session, const QString &mode)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("SetKeepMode"), session, mode);
+    return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
+}
+
+QString DaemonClient::openSession(const QString &session)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("OpenSession"), session);
+    return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
+}
+
 QStringList DaemonClient::auditTail(int n)
 {
     QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("AuditTail"), static_cast<uint>(qMax(0, n)));

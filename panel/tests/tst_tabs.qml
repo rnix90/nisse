@@ -21,6 +21,8 @@ TestCase {
         property var sent: []
         property var closed: []
         property var renamed: []
+        property var keepSet: []
+        property var opened: []
         property bool offline: false
         signal chunk(string session, string text)
         signal done(string session)
@@ -37,7 +39,7 @@ TestCase {
         function add(started, title) {
             counter += 1
             var s = { id: "s" + counter, title: title === undefined ? null : title, created_at: 1700000000000 + counter * 60000,
-                      started: started === true, running: false, pending_approvals: 0 }
+                      started: started === true, running: false, pending_approvals: 0, keep: "library", open: true }
             list = list.concat([s])
             return s.id
         }
@@ -63,10 +65,27 @@ TestCase {
             sessionsChanged()
             return ""
         }
+        function setKeepMode(id, mode) {
+            keepSet.push([id, mode])
+            list = list.map(function (s) { if (s.id === id) s.keep = mode; return s })
+            sessionsChanged()
+            return ""
+        }
+        function openSession(id) {
+            opened.push(id)
+            list = list.map(function (s) { if (s.id === id) s.open = true; return s })
+            sessionsChanged()
+            return ""
+        }
+        function addToLibrary(title) {
+            var id = add(true, title)
+            list = list.map(function (s) { if (s.id === id) s.open = false; return s })
+            return id
+        }
         function setPending(id, n) {
             list = list.map(function (s) { if (s.id === id) s.pending_approvals = n; return s })
         }
-        function reset() { list = []; counter = 0; sent = []; closed = []; renamed = []; offline = false }
+        function reset() { list = []; counter = 0; sent = []; closed = []; renamed = []; keepSet = []; opened = []; offline = false }
     }
 
     SessionTabs {
@@ -299,5 +318,94 @@ TestCase {
         stub.list = stub.list.map(function (s) { s.running = true; return s })
         tabs.refresh()
         compare(findChild(tabs, "tab-s1").status, "working")
+    }
+
+    // ---- what happens after a reboot, and the library (N-208)
+
+    function test_a_new_tab_says_it_is_kept_in_the_library_after_a_reboot() {
+        stub.add(false)
+        tabs.refresh()
+        compare(findChild(tabs, "keepToggle").text, "After a reboot: keep in library")
+    }
+
+    function test_clicking_the_toggle_cycles_library_always_drop_and_tells_the_daemon() {
+        stub.add(false)
+        tabs.refresh()
+        var toggle = findChild(tabs, "keepToggle")
+        mouseClick(toggle)
+        compare(stub.keepSet[0][1], "always")
+        compare(toggle.text, "After a reboot: keep open")
+        mouseClick(toggle)
+        compare(stub.keepSet[1][1], "drop")
+        compare(toggle.text, "After a reboot: drop")
+        mouseClick(toggle)
+        compare(stub.keepSet[2][1], "library")
+        compare(toggle.text, "After a reboot: keep in library")
+        compare(stub.keepSet[2][0], "s1")
+    }
+
+    function test_the_toggle_follows_the_selected_tab() {
+        stub.add(false); stub.add(false)
+        stub.setKeepMode("s1", "drop")
+        stub.keepSet = []
+        tabs.refresh()
+        tabs.select("s1")
+        compare(findChild(tabs, "keepToggle").text, "After a reboot: drop")
+        tabs.select("s2")
+        compare(findChild(tabs, "keepToggle").text, "After a reboot: keep in library")
+    }
+
+    function test_library_sessions_are_not_tabs_but_are_listed_in_the_library() {
+        stub.add(true)
+        stub.addToLibrary("Old taxes")
+        tabs.refresh()
+        compare(ids().join(","), "s1")
+        compare(tabs.library.length, 1)
+        compare(tabs.library[0].id, "s2")
+        compare(findChild(tabs, "libraryButton").text, "Library (1)")
+    }
+
+    function test_an_empty_library_says_so_on_its_button() {
+        stub.add(false)
+        tabs.refresh()
+        compare(findChild(tabs, "libraryButton").text, "Library")
+    }
+
+    function test_reopening_from_the_library_makes_it_a_selected_tab() {
+        stub.add(true)
+        var lib = stub.addToLibrary("Old taxes")
+        tabs.refresh()
+        tabs.openFromLibrary(lib)
+        compare(stub.opened[0], lib)
+        compare(ids().join(","), "s1," + lib)
+        compare(tabs.selectedId, lib)
+        compare(tabs.library.length, 0)
+        compare(findChild(tabs, "tabLabel-" + lib).text, "Old taxes")
+    }
+
+    function test_deleting_from_the_library_removes_the_session_in_the_daemon() {
+        stub.add(true)
+        var lib = stub.addToLibrary("Old taxes")
+        tabs.refresh()
+        tabs.deleteFromLibrary(lib)
+        compare(stub.closed[0], lib)
+        compare(tabs.library.length, 0)
+        compare(ids().join(","), "s1")
+    }
+
+    function test_with_only_library_sessions_left_a_fresh_tab_is_made() {
+        stub.addToLibrary("Old taxes")
+        tabs.refresh()
+        compare(ids().length, 1)
+        compare(tabs.library.length, 1)
+    }
+
+    function test_a_session_moved_to_the_library_by_another_client_leaves_the_tabs() {
+        stub.add(true); stub.add(true)
+        tabs.refresh()
+        stub.list = stub.list.map(function (s) { if (s.id === "s2") s.open = false; return s })
+        stub.sessionsChanged()
+        compare(ids().join(","), "s1")
+        compare(tabs.library.length, 1)
     }
 }

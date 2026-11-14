@@ -37,6 +37,10 @@ public:
     // Each returns an error text, or an empty string when the daemon accepted it.
     Q_INVOKABLE QString renameSession(const QString &session, const QString &title);
     Q_INVOKABLE QString closeSession(const QString &session);
+    // What the next daemon start does to a session: "always", "library" or "drop" (N-208).
+    Q_INVOKABLE QString setKeepMode(const QString &session, const QString &mode);
+    // Shows a library session as a tab again.
+    Q_INVOKABLE QString openSession(const QString &session);
     // The last n audit records, one JSON object per string.
     Q_INVOKABLE QStringList auditTail(int n);
     Q_INVOKABLE void refreshBackend();

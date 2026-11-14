@@ -13,6 +13,9 @@ Item {
 
     // The daemon's list, as plain objects (id, title, created_at, started, running, pending_approvals).
     property var tabs: []
+    // Sessions waiting in the library (not tabs): kept through a reboot, reopened on demand (N-208).
+    property var library: []
+    property string selectedKeep: "library"
     property string selectedId: ""
     property string renamingId: ""
     property string errorText: ""
@@ -30,6 +33,8 @@ Item {
     function reset() {
         tabModel.clear()
         tabs = []
+        library = []
+        selectedKeep = "library"
         selectedId = ""
         renamingId = ""
         errorText = ""
@@ -77,17 +82,23 @@ Item {
         return null
     }
 
+    function isOpen(s) { return s.open !== false }
+
     function refresh() {
         if (creating)
             return
-        var list = parseList()
+        var all = parseList()
+        var list = all.filter(isOpen)
         if (list.length === 0) {
             creating = true
             var made = client.newSession()
             creating = false
-            if (made !== "")
-                list = parseList()
+            if (made !== "") {
+                all = parseList()
+                list = all.filter(isOpen)
+            }
         }
+        library = all.filter(function (s) { return !isOpen(s) })
 
         // Sync the model in place so the transcripts of the tabs that stay are kept.
         var keep = {}
@@ -105,13 +116,15 @@ Item {
             var s = list[j]
             var at = indexOfId(s.id)
             var row = { sid: s.id, title: s.title ? s.title : "", createdAt: s.created_at, started: s.started === true,
-                        running: s.running === true, pending: s.pending_approvals | 0, restored: s.started === true }
+                        running: s.running === true, pending: s.pending_approvals | 0, restored: s.started === true,
+                        keep: s.keep ? s.keep : "library" }
             if (at < 0) {
                 tabModel.append(row)
             } else {
                 tabModel.setProperty(at, "title", row.title)
                 tabModel.setProperty(at, "running", row.running)
                 tabModel.setProperty(at, "pending", row.pending)
+                tabModel.setProperty(at, "keep", row.keep)
             }
         }
         tabs = list
@@ -130,6 +143,35 @@ Item {
                 select(next)
         }
         countUnread()
+        updateKeep()
+    }
+
+    function updateKeep() {
+        var at = indexOfId(selectedId)
+        selectedKeep = at >= 0 ? tabModel.get(at).keep : "library"
+    }
+
+    function keepText(keep) {
+        return keep === "always" ? "keep open" : (keep === "drop" ? "drop" : "keep in library")
+    }
+
+    function cycleKeep() {
+        if (selectedId === "")
+            return
+        var next = selectedKeep === "library" ? "always" : (selectedKeep === "always" ? "drop" : "library")
+        errorText = client.setKeepMode(selectedId, next)
+        refresh()
+    }
+
+    function openFromLibrary(id) {
+        errorText = client.openSession(id)
+        refresh()
+        select(id)
+    }
+
+    function deleteFromLibrary(id) {
+        errorText = client.closeSession(id)
+        refresh()
     }
 
     function countUnread() {
@@ -148,6 +190,7 @@ Item {
         u[id] = false
         unreadMap = u
         countUnread()
+        updateKeep()
     }
 
     function newTab() {
@@ -337,6 +380,30 @@ Item {
                     text: "+"
                     onClicked: root.newTab()
                 }
+                ToolButton {
+                    objectName: "libraryButton"
+                    text: root.library.length > 0 ? "Library (" + root.library.length + ")" : "Library"
+                    onClicked: libraryPopup.open()
+                }
+            }
+        }
+
+        // ---- what a reboot does to the selected tab
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.margins: 4
+            visible: root.selectedId !== ""
+            Button {
+                objectName: "keepToggle"
+                flat: true
+                text: "After a reboot: " + root.keepText(root.selectedKeep)
+                onClicked: root.cycleKeep()
+            }
+            Label {
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+                opacity: 0.6
+                text: "click to change"
             }
         }
 
@@ -400,6 +467,47 @@ Item {
                     text: "Try again"
                     Layout.alignment: Qt.AlignHCenter
                     onClicked: root.refresh()
+                }
+            }
+        }
+    }
+
+    Popup {
+        id: libraryPopup
+        objectName: "libraryPopup"
+        modal: true
+        anchors.centerIn: parent
+        width: Math.min(parent.width - 24, 420)
+        padding: 12
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 6
+            Label { text: "Library"; font.bold: true }
+            Label {
+                visible: root.library.length === 0
+                opacity: 0.7
+                text: "Nothing here. Sessions kept in the library after a reboot show up here."
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            Repeater {
+                model: root.library
+                delegate: RowLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Label {
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                        text: modelData.title ? modelData.title : root.defaultTitle(modelData.created_at)
+                    }
+                    Button {
+                        text: "Open"
+                        onClicked: { libraryPopup.close(); root.openFromLibrary(modelData.id) }
+                    }
+                    Button {
+                        text: "Delete"
+                        onClicked: root.deleteFromLibrary(modelData.id)
+                    }
                 }
             }
         }

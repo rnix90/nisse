@@ -37,4 +37,28 @@ second="$(busctl --user --json=short call org.nisse.Daemon1 /org/nisse/Daemon1 o
     python3 -c 'import json,sys; rows=[json.loads(x) for x in json.load(sys.stdin)["data"][0]]; print(len(rows), rows[1]["title"])')"
 [ "$second" = "2 Taxes" ] || fail "a second client sees: $second"
 grep -q '"kind":"session-closed"' "$NISSE_AUDIT_LOG" || fail "the close was not audited"
+
+# N-208: after a daemon restart only the flagged sessions come back. One session of each level.
+call() { busctl --user --json=short call org.nisse.Daemon1 /org/nisse/Daemon1 org.nisse.Daemon1 "$@"; }
+ids="$(call ListSessions | python3 -c 'import json,sys; print(" ".join(json.loads(x)["id"] for x in json.load(sys.stdin)["data"][0]))')"
+set -- $ids
+third="$(call NewSession | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"][0])')"
+call SetKeepMode ss "$1" always >/dev/null
+call SetKeepMode ss "$2" drop >/dev/null
+call SetKeepMode ss "$third" library >/dev/null
+kill "$daemon_pid"; wait "$daemon_pid" 2>/dev/null || true
+"$daemon" &
+daemon_pid=$!
+for _ in $(seq 1 50); do
+    busctl --user introspect org.nisse.Daemon1 /org/nisse/Daemon1 >/dev/null 2>&1 && break
+    sleep 0.2
+done
+after="$(call ListSessions | python3 -c '
+import json, sys
+rows = [json.loads(x) for x in json.load(sys.stdin)["data"][0]]
+print(",".join("%s:%s" % (r["keep"], "open" if r["open"] else "library") for r in rows))')"
+[ "$after" = "always:open,library:library" ] || fail "after a restart the sessions are: $after"
+call OpenSession s "$third" >/dev/null
+reopened="$(call ListSessions | python3 -c 'import json,sys; print(sum(1 for x in json.load(sys.stdin)["data"][0] if json.loads(x)["open"]))')"
+[ "$reopened" = "2" ] || fail "the library session did not reopen: $reopened open"
 echo "sessions e2e ok"

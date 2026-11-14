@@ -3,8 +3,13 @@
 //! them, and whether Claude Code has started them (a started session must be continued with `--resume`, an unstarted
 //! one with `--session-id`).
 //!
-//! File format: `{"sessions": {"<id>": {"started": true, "created_ms": 1700000000000, "title": "Taxes"}}}`, written
-//! atomically. `created_ms` and `title` are optional when reading (files from before N-206 have neither).
+//! File format: `{"sessions": {"<id>": {"started": true, "created_ms": 1700000000000, "title": "Taxes",
+//! "keep": "library", "open": true}}}`, written atomically. `created_ms`, `title`, `keep` and `open` are optional when
+//! reading (older files lack them).
+//!
+//! What a reboot (a daemon start) does to a session depends on its `keep` level (N-208): `always` stays an open tab,
+//! `library` closes its tab but stays in the list to be reopened, `drop` is forgotten. The Claude Code conversation
+//! files are never touched.
 
 use std::collections::HashMap;
 use std::io;
@@ -37,6 +42,44 @@ pub fn default_state_path() -> PathBuf {
     )
 }
 
+/// What a daemon start does to a session. The default is `Library`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Keep {
+    /// Comes back as an open tab.
+    Always,
+    /// Comes back in the library: not a tab, but listed so it can be reopened.
+    Library,
+    /// Is forgotten at the next start.
+    Drop,
+}
+
+impl Keep {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Keep::Always => "always",
+            Keep::Library => "library",
+            Keep::Drop => "drop",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Keep> {
+        match text {
+            "always" => Some(Keep::Always),
+            "library" => Some(Keep::Library),
+            "drop" => Some(Keep::Drop),
+            _ => None,
+        }
+    }
+}
+
+/// What a daemon start did to the sessions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct BootReport {
+    pub kept_open: usize,
+    pub to_library: usize,
+    pub dropped: usize,
+}
+
 /// What the daemon knows about one session.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionInfo {
@@ -47,6 +90,10 @@ pub struct SessionInfo {
     pub created_ms: i64,
     /// What the person called it; `None` until renamed.
     pub title: Option<String>,
+    /// What the next daemon start does to it.
+    pub keep: Keep,
+    /// A tab is showing it. A closed-by-boot (library) session is not open until reopened.
+    pub open: bool,
 }
 
 /// The longest session name kept, in characters.
@@ -63,6 +110,8 @@ struct Record {
     started: bool,
     created_ms: i64,
     title: Option<String>,
+    keep: Keep,
+    open: bool,
 }
 
 /// session id -> what is known about it.
@@ -86,6 +135,42 @@ impl SessionStore {
     /// Opens the store at `path`. If the file exists but cannot be read, it is renamed to `<path>.bad` and the store
     /// starts empty; if even that fails the store keeps its sessions in memory only, so the unreadable file is never
     /// written over. The second value describes what happened (the daemon audits it).
+    /// Like `open`, then applies what a start does to each session (see the module notes) and saves the result.
+    pub fn open_at_boot(path: PathBuf) -> (SessionStore, Option<String>, BootReport) {
+        let (store, warning) = SessionStore::open(path);
+        let mut report = BootReport::default();
+        {
+            // Nothing else holds the lock yet: the store has just been made.
+            let mut map = store.map.try_lock().expect("a new store is not shared yet");
+            map.retain(|_, r| {
+                if r.keep == Keep::Drop {
+                    report.dropped += 1;
+                    return false;
+                }
+                true
+            });
+            for r in map.values_mut() {
+                match r.keep {
+                    Keep::Always => {
+                        r.open = true;
+                        report.kept_open += 1;
+                    }
+                    Keep::Library => {
+                        if r.open {
+                            report.to_library += 1;
+                        }
+                        r.open = false;
+                    }
+                    Keep::Drop => {}
+                }
+            }
+            if report.dropped + report.to_library > 0 {
+                let _ = store.persist(&map);
+            }
+        }
+        (store, warning, report)
+    }
+
     pub fn open(path: PathBuf) -> (SessionStore, Option<String>) {
         let (map, warning, path) = match load(&path) {
             Ok(map) => (map, None, Some(path)),
@@ -127,6 +212,8 @@ impl SessionStore {
                 started: r.started,
                 created_ms: r.created_ms,
                 title: r.title.clone(),
+                keep: r.keep,
+                open: r.open,
             })
             .collect();
         out.sort_by(|a, b| a.created_ms.cmp(&b.created_ms).then_with(|| a.id.cmp(&b.id)));
@@ -147,6 +234,8 @@ impl SessionStore {
                 started,
                 created_ms: now_ms().max(next),
                 title: None,
+                keep: Keep::Library,
+                open: true,
             });
         self.persist(&map)
     }
@@ -160,6 +249,29 @@ impl SessionStore {
         };
         let clean: String = title.trim().chars().take(TITLE_LIMIT).collect();
         record.title = Some(clean.trim_end().to_string()).filter(|t| !t.is_empty());
+        Ok(self.persist(&map))
+    }
+
+    /// Sets what the next daemon start does to the session. Err for an unknown session.
+    pub async fn set_keep(&self, id: &str, keep: Keep) -> Result<Option<String>, String> {
+        let mut map = self.map.lock().await;
+        let Some(record) = map.get_mut(id) else {
+            return Err(format!("unknown session: {id}"));
+        };
+        record.keep = keep;
+        Ok(self.persist(&map))
+    }
+
+    /// Marks the session as showing in a tab (or not). Err for an unknown session.
+    pub async fn set_open(&self, id: &str, open: bool) -> Result<Option<String>, String> {
+        let mut map = self.map.lock().await;
+        let Some(record) = map.get_mut(id) else {
+            return Err(format!("unknown session: {id}"));
+        };
+        if record.open == open {
+            return Ok(None);
+        }
+        record.open = open;
         Ok(self.persist(&map))
     }
 
@@ -202,12 +314,16 @@ fn load(path: &Path) -> Result<HashMap<String, Record>, String> {
             .ok_or_else(|| format!("session {id} has no boolean \"started\""))?;
         let created_ms = entry["created_ms"].as_i64().unwrap_or_else(now_ms);
         let title = entry["title"].as_str().map(String::from).filter(|t| !t.is_empty());
+        let keep = entry["keep"].as_str().and_then(Keep::parse).unwrap_or(Keep::Library);
+        let open = entry["open"].as_bool().unwrap_or(true);
         map.insert(
             id.clone(),
             Record {
                 started,
                 created_ms,
                 title,
+                keep,
+                open,
             },
         );
     }
@@ -223,7 +339,13 @@ fn save(path: &Path, map: &HashMap<String, Record>) -> io::Result<()> {
         .map(|(id, r)| {
             (
                 id.clone(),
-                serde_json::json!({ "started": r.started, "created_ms": r.created_ms, "title": r.title }),
+                serde_json::json!({
+                    "started": r.started,
+                    "created_ms": r.created_ms,
+                    "title": r.title,
+                    "keep": r.keep.as_str(),
+                    "open": r.open,
+                }),
             )
         })
         .collect();

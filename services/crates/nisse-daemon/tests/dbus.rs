@@ -1133,3 +1133,86 @@ async fn names_and_closed_sessions_survive_a_daemon_restart() {
     assert_eq!(list[0]["id"], a.as_str());
     assert_eq!(list[0]["title"], "Taxes");
 }
+
+// ---- keep levels over D-Bus (ledger N-208)
+
+#[tokio::test]
+async fn list_sessions_shows_the_level_and_whether_it_is_open() {
+    let s = setup("keep-fields", Arc::new(FakeRunner)).await;
+    let _: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let v = &list_sessions(&s).await[0];
+    assert_eq!(v["keep"], "library");
+    assert_eq!(v["open"], true);
+}
+
+#[tokio::test]
+async fn set_keep_mode_changes_the_level_signals_and_refuses_bad_input() {
+    let s = setup("keep-set", Arc::new(FakeRunner)).await;
+    let mut changed = s.proxy.receive_signal("SessionsChanged").await.unwrap();
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    next_signal(&mut changed).await;
+    let _: () = s.proxy.call("SetKeepMode", &(id.as_str(), "always")).await.unwrap();
+    next_signal(&mut changed).await;
+    assert_eq!(list_sessions(&s).await[0]["keep"], "always");
+
+    let bad: Result<(), _> = s.proxy.call("SetKeepMode", &(id.as_str(), "sometimes")).await;
+    assert!(bad.is_err());
+    let unknown: Result<(), _> = s.proxy.call("SetKeepMode", &("nope", "drop")).await;
+    assert!(unknown.is_err());
+    assert_eq!(list_sessions(&s).await[0]["keep"], "always");
+}
+
+#[tokio::test]
+async fn after_a_daemon_restart_only_the_flagged_sessions_come_back() {
+    let dir = scratch("keep-restart");
+    let first = start(dir.clone(), Arc::new(FakeRunner), true).await;
+    let mut ids = Vec::new();
+    for (mode, title) in [("always", "A"), ("library", "L"), ("drop", "D")] {
+        let id: String = first.proxy.call("NewSession", &()).await.unwrap();
+        let _: () = first.proxy.call("SetKeepMode", &(id.as_str(), mode)).await.unwrap();
+        let _: () = first.proxy.call("RenameSession", &(id.as_str(), title)).await.unwrap();
+        ids.push(id);
+        tokio::time::sleep(Duration::from_millis(2)).await;
+    }
+    drop(first);
+
+    let second = start(dir.clone(), Arc::new(FakeRunner), true).await;
+    let list = list_sessions(&second).await;
+    let titles: Vec<&str> = list.iter().map(|v| v["title"].as_str().unwrap()).collect();
+    assert_eq!(titles, ["A", "L"], "the dropped one is gone");
+    assert_eq!(list[0]["open"], true, "keep always: back as a tab");
+    assert_eq!(list[1]["open"], false, "library: waiting to be reopened");
+    let audit = audit_lines(&second).await.join("\n");
+    assert!(
+        audit.contains("sessions-at-boot"),
+        "the boot choices are audited: {audit}"
+    );
+}
+
+#[tokio::test]
+async fn open_session_brings_a_library_session_back_as_a_tab() {
+    let dir = scratch("keep-open");
+    let first = start(dir.clone(), Arc::new(FakeRunner), true).await;
+    let id: String = first.proxy.call("NewSession", &()).await.unwrap();
+    drop(first);
+    let second = start(dir, Arc::new(FakeRunner), true).await;
+    assert_eq!(list_sessions(&second).await[0]["open"], false);
+    let mut changed = second.proxy.receive_signal("SessionsChanged").await.unwrap();
+    let _: () = second.proxy.call("OpenSession", &(id.as_str(),)).await.unwrap();
+    next_signal(&mut changed).await;
+    assert_eq!(list_sessions(&second).await[0]["open"], true);
+    let unknown: Result<(), _> = second.proxy.call("OpenSession", &("nope",)).await;
+    assert!(unknown.is_err());
+}
+
+#[tokio::test]
+async fn a_message_to_a_library_session_works_and_opens_it() {
+    let dir = scratch("keep-message");
+    let first = start(dir.clone(), Arc::new(FakeRunner), true).await;
+    let id: String = first.proxy.call("NewSession", &()).await.unwrap();
+    drop(first);
+    let second = start(dir, Arc::new(FakeRunner), true).await;
+    assert_eq!(list_sessions(&second).await[0]["open"], false);
+    send_and_wait(&second, &id, "hello again").await;
+    assert_eq!(list_sessions(&second).await[0]["open"], true);
+}

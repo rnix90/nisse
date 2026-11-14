@@ -138,3 +138,107 @@ async fn sessions_made_in_the_same_instant_still_keep_their_creation_order() {
     let listed: Vec<String> = store.list().await.into_iter().map(|s| s.id).collect();
     assert_eq!(listed, ids);
 }
+
+// ---- what happens to a session after a reboot (ledger N-208): keep open always, keep in the library, drop
+
+use nisse_daemon::state::Keep;
+
+#[tokio::test]
+async fn a_new_session_is_open_and_kept_in_the_library_by_default() {
+    let store = SessionStore::in_memory();
+    store.set("a", false).await;
+    let s = &store.list().await[0];
+    assert_eq!(s.keep, Keep::Library);
+    assert!(s.open);
+}
+
+#[test]
+fn the_three_levels_have_stable_names() {
+    for (name, keep) in [
+        ("always", Keep::Always),
+        ("library", Keep::Library),
+        ("drop", Keep::Drop),
+    ] {
+        assert_eq!(Keep::parse(name), Some(keep));
+        assert_eq!(keep.as_str(), name);
+    }
+    assert_eq!(Keep::parse("sometimes"), None);
+    assert_eq!(Keep::parse(""), None);
+}
+
+#[tokio::test]
+async fn the_level_and_the_open_flag_can_be_changed_and_unknown_sessions_are_refused() {
+    let store = SessionStore::in_memory();
+    store.set("a", false).await;
+    store.set_keep("a", Keep::Always).await.unwrap();
+    store.set_open("a", false).await.unwrap();
+    let s = &store.list().await[0];
+    assert_eq!(s.keep, Keep::Always);
+    assert!(!s.open);
+    assert!(store.set_keep("nope", Keep::Drop).await.is_err());
+    assert!(store.set_open("nope", true).await.is_err());
+}
+
+#[tokio::test]
+async fn at_boot_only_the_always_sessions_stay_open_the_library_ones_close_and_the_drop_ones_go() {
+    let path = tmp("boot");
+    let (store, _) = SessionStore::open(path.clone());
+    for (id, keep) in [
+        ("always", Keep::Always),
+        ("library", Keep::Library),
+        ("drop", Keep::Drop),
+    ] {
+        store.set(id, true).await;
+        store.set_keep(id, keep).await.unwrap();
+    }
+    store.rename("library", "Taxes").await.unwrap();
+    drop(store);
+
+    let (after, warning, report) = SessionStore::open_at_boot(path.clone());
+    assert!(warning.is_none());
+    assert_eq!((report.kept_open, report.to_library, report.dropped), (1, 1, 1));
+    let list = after.list().await;
+    let ids: Vec<&str> = list.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        ["always", "library"],
+        "the dropped session is gone, the others keep their order"
+    );
+    assert!(list[0].open && list[0].started);
+    assert!(!list[1].open, "a library session is not a tab until it is reopened");
+    assert_eq!(list[1].title.as_deref(), Some("Taxes"));
+    assert!(list[1].started, "its conversation can still be resumed");
+    drop(after);
+
+    // the result was saved, and a second boot changes nothing more
+    let (again, _, report) = SessionStore::open_at_boot(path);
+    assert_eq!((report.kept_open, report.to_library, report.dropped), (1, 0, 0));
+    assert_eq!(again.list().await.len(), 2);
+}
+
+#[tokio::test]
+async fn reopening_a_library_session_makes_it_a_tab_again() {
+    let path = tmp("reopen-library");
+    let (store, _) = SessionStore::open(path.clone());
+    store.set("a", true).await;
+    drop(store);
+    let (store, _, _) = SessionStore::open_at_boot(path);
+    assert!(!store.list().await[0].open);
+    store.set_open("a", true).await.unwrap();
+    assert!(store.list().await[0].open);
+}
+
+#[tokio::test]
+async fn a_file_from_before_the_levels_existed_loads_as_library() {
+    let path = tmp("old-levels");
+    std::fs::write(
+        &path,
+        r#"{"sessions": {"old": {"started": true, "created_ms": 5, "title": null}}}"#,
+    )
+    .unwrap();
+    let (store, warning) = SessionStore::open(path);
+    assert!(warning.is_none(), "{warning:?}");
+    let s = &store.list().await[0];
+    assert_eq!(s.keep, Keep::Library);
+    assert!(s.open);
+}

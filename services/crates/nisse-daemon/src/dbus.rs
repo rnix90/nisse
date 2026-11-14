@@ -17,7 +17,7 @@ use zbus::{interface, object_server::SignalEmitter};
 
 use crate::approvals::{Approval, ApprovalQueue, ApprovalState, DecideError, NewApproval};
 use crate::runner::{AgentRunner, ApprovalHook, RunEvent, RunRequest};
-use crate::state::SessionStore;
+use crate::state::{Keep, SessionStore};
 
 /// What one session is doing right now (in memory only; only the started flag is persisted).
 #[derive(Default)]
@@ -58,6 +58,13 @@ impl Core {
         };
         if let Ok(log) = AuditLog::open(&self.audit_path) {
             let _ = log.append(&record);
+        }
+    }
+
+    /// Audits a failed save of the sessions file, if there was one.
+    fn warn_save(&self, problem: Option<String>) {
+        if let Some(problem) = problem {
+            self.audit(None, "daemon", "state-warning", serde_json::json!({ "error": problem }));
         }
     }
 
@@ -146,12 +153,27 @@ impl Daemon {
 
     /// Keep the session list in `path` so sessions survive a daemon restart. An unreadable file is set aside as
     /// `<path>.bad`, the daemon starts with no sessions, and a `state-warning` audit record says why.
+    ///
+    /// This is a daemon start, so each session gets what its keep level says (N-208): `always` stays an open tab,
+    /// `library` closes its tab but stays listed, `drop` is forgotten. What was done is audited as `sessions-at-boot`.
     pub fn with_state_file(mut self, path: PathBuf) -> Daemon {
-        let (store, warning) = SessionStore::open(path);
+        let (store, warning, report) = SessionStore::open_at_boot(path);
         self.core.sessions = Arc::new(store);
         if let Some(warning) = warning {
             self.core
                 .audit(None, "daemon", "state-warning", serde_json::json!({ "error": warning }));
+        }
+        if report.kept_open + report.to_library + report.dropped > 0 {
+            self.core.audit(
+                None,
+                "daemon",
+                "sessions-at-boot",
+                serde_json::json!({
+                    "kept_open": report.kept_open,
+                    "to_library": report.to_library,
+                    "dropped": report.dropped,
+                }),
+            );
         }
         self
     }
@@ -296,8 +318,9 @@ impl Daemon {
     }
 
     /// The sessions, oldest first, one JSON object per string: `id`, `title` (null until renamed: clients show the
-    /// date and time), `created_at` (unix milliseconds), `started`, `running` (a turn is in progress) and
-    /// `pending_approvals` (how many are waiting on it).
+    /// date and time), `created_at` (unix milliseconds), `started`, `keep` ("always", "library" or "drop": what the
+    /// next daemon start does to it), `open` (false for a library session waiting to be reopened: clients show it in
+    /// their library, not as a tab), `running` (a turn is in progress) and `pending_approvals` (how many are waiting).
     async fn list_sessions(&self) -> Vec<String> {
         let mut out = Vec::new();
         for info in self.core.sessions.list().await {
@@ -309,6 +332,8 @@ impl Daemon {
                     "title": info.title,
                     "created_at": info.created_ms,
                     "started": info.started,
+                    "keep": info.keep.as_str(),
+                    "open": info.open,
                     "running": running,
                     "pending_approvals": pending,
                 })
@@ -316,6 +341,42 @@ impl Daemon {
             );
         }
         out
+    }
+
+    /// Sets what the next daemon start does to a session: "always" (comes back as a tab), "library" (comes back in the
+    /// library, the default) or "drop" (forgotten). An error for an unknown session or level.
+    async fn set_keep_mode(
+        &self,
+        session_id: String,
+        mode: String,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
+        let keep =
+            Keep::parse(&mode).ok_or_else(|| zbus::fdo::Error::InvalidArgs(format!("unknown keep mode: {mode}")))?;
+        match self.core.sessions.set_keep(&session_id, keep).await {
+            Ok(problem) => {
+                self.core.warn_save(problem);
+                let _ = Self::sessions_changed(&emitter).await;
+                Ok(())
+            }
+            Err(message) => Err(zbus::fdo::Error::Failed(message)),
+        }
+    }
+
+    /// Shows a library session as a tab again. An error for an unknown session.
+    async fn open_session(
+        &self,
+        session_id: String,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
+        match self.core.sessions.set_open(&session_id, true).await {
+            Ok(problem) => {
+                self.core.warn_save(problem);
+                let _ = Self::sessions_changed(&emitter).await;
+                Ok(())
+            }
+            Err(message) => Err(zbus::fdo::Error::Failed(message)),
+        }
     }
 
     /// Names a session; an empty name goes back to none. Every client is told through `SessionsChanged`.
@@ -375,6 +436,20 @@ impl Daemon {
             let _ = Self::session_error(&emitter, &session_id, &format!("unknown session: {session_id}")).await;
             let _ = Self::session_done(&emitter, &session_id).await; // every message ends with a Done: the panel unlocks
             return;
+        }
+        // Talking to a library session (from any client) brings it back as a tab.
+        if self
+            .core
+            .sessions
+            .list()
+            .await
+            .iter()
+            .any(|s| s.id == session_id && !s.open)
+        {
+            if let Ok(problem) = self.core.sessions.set_open(&session_id, true).await {
+                self.core.warn_save(problem);
+                let _ = Self::sessions_changed(&emitter).await;
+            }
         }
         self.core.audit(
             Some(&session_id),
