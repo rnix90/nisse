@@ -5,13 +5,18 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use nisse_config::Authority;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{self, Sender, UnboundedSender};
+use tokio::task::JoinSet;
+
+use crate::approvals::{ApprovalQueue, ApprovalState, NewApproval};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunEvent {
@@ -23,6 +28,25 @@ pub enum RunEvent {
     Error(String),
 }
 
+/// Where a supervised run sends the CLI's permission prompts: the approvals queue (N-203).
+#[derive(Clone)]
+pub struct ApprovalHook {
+    pub queue: Arc<ApprovalQueue>,
+    /// How long an approval waits for an answer before it expires (and counts as denied).
+    pub expiry_secs: u64,
+    /// The device named as the asker ("desktop" until pairing, N-221, supplies real devices).
+    pub asked_by: String,
+}
+
+impl std::fmt::Debug for ApprovalHook {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ApprovalHook")
+            .field("expiry_secs", &self.expiry_secs)
+            .field("asked_by", &self.asked_by)
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RunRequest {
     pub session_id: String,
@@ -31,6 +55,9 @@ pub struct RunRequest {
     /// False for the first message of a session (`--session-id`), true for later ones (`--resume`).
     pub resume: bool,
     pub authority: Authority,
+    /// Supervised runs with a hook use the CLI's host protocol: each permission prompt becomes an approval. Without
+    /// one, supervised falls back to the CLI's default mode, which denies whatever needs a prompt.
+    pub approvals: Option<ApprovalHook>,
 }
 
 #[async_trait]
@@ -75,6 +102,10 @@ pub fn parse_line(line: &str) -> Vec<RunEvent> {
             .map(|text| RunEvent::Text(text.to_string()))
             .collect(),
         Some("system") if value["subtype"] == "init" => vec![RunEvent::Started],
+        Some("system") if value["subtype"] == "permission_denied" => {
+            let tool = value["tool_name"].as_str().unwrap_or("A tool");
+            vec![RunEvent::Text(format!("[{tool} was not allowed]"))]
+        }
         Some("result") if value["is_error"] == true => {
             let message = value["result"].as_str().unwrap_or("Claude Code reported an error");
             vec![RunEvent::Error(message.to_string())]
@@ -293,24 +324,245 @@ async fn next_line(lines: &mut Option<StdoutLines>) -> std::io::Result<Option<St
     }
 }
 
+/// The first line of the input: the user's message in stream-json form.
+fn user_line(prompt: &str) -> String {
+    serde_json::json!({"type": "user", "message": {"role": "user", "content": prompt}}).to_string()
+}
+
+/// A short line saying what is being asked: the tool and its main argument.
+fn approval_summary(tool: &str, request: &serde_json::Value) -> String {
+    let input = &request["input"];
+    let main = ["command", "file_path", "url", "pattern", "path"]
+        .iter()
+        .find_map(|key| input[*key].as_str())
+        .or_else(|| request["description"].as_str().filter(|d| !d.is_empty()))
+        .map(String::from)
+        .unwrap_or_else(|| input.to_string());
+    let shown: String = main.chars().take(200).collect();
+    format!("{tool}: {shown}")
+}
+
+fn control_response(request_id: &str, body: serde_json::Value) -> String {
+    serde_json::json!({
+        "type": "control_response",
+        "response": {"subtype": "success", "request_id": request_id, "response": body}
+    })
+    .to_string()
+}
+
+fn control_error(request_id: &str, why: &str) -> String {
+    serde_json::json!({
+        "type": "control_response",
+        "response": {"subtype": "error", "request_id": request_id, "error": why}
+    })
+    .to_string()
+}
+
+/// What the CLI is told once an approval is decided or has expired.
+fn answer_for(approval: &crate::approvals::Approval, input: serde_json::Value) -> serde_json::Value {
+    match approval.state {
+        ApprovalState::Approved => serde_json::json!({"behavior": "allow", "updatedInput": input}),
+        ApprovalState::Denied => {
+            let who = approval.decided_by.as_deref().unwrap_or("someone");
+            let message = match approval.reason.as_deref() {
+                Some(reason) => format!("Denied by {who}: {reason}"),
+                None => format!("Denied by {who}"),
+            };
+            serde_json::json!({"behavior": "deny", "message": message})
+        }
+        _ => serde_json::json!({
+            "behavior": "deny",
+            "message": "The approval expired with no answer, so this was not allowed"
+        }),
+    }
+}
+
+/// Denies the approvals of a turn that are still pending when the turn ends, so nobody can answer them later.
+async fn deny_open(queue: &ApprovalQueue, ids: &std::sync::Mutex<Vec<String>>, reason: &str) {
+    let open: Vec<String> = std::mem::take(&mut *ids.lock().unwrap_or_else(|e| e.into_inner()));
+    for id in open {
+        let _ = queue.decide(&id, false, "daemon", reason).await;
+    }
+}
+
+/// If the run future is dropped (Cancel) while approvals are pending, denies them: nobody is waiting for the answer.
+struct PendingGuard {
+    queue: Arc<ApprovalQueue>,
+    ids: Arc<std::sync::Mutex<Vec<String>>>,
+}
+
+impl Drop for PendingGuard {
+    fn drop(&mut self) {
+        let open: Vec<String> = std::mem::take(&mut *self.ids.lock().unwrap_or_else(|e| e.into_inner()));
+        if open.is_empty() {
+            return;
+        }
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            let queue = Arc::clone(&self.queue);
+            runtime.spawn(async move {
+                for id in open {
+                    let _ = queue.decide(&id, false, "daemon", "the turn was stopped").await;
+                }
+            });
+        }
+    }
+}
+
+/// One supervised run in host-protocol form: what the daemon holds besides the process while it answers prompts.
+struct HostSession {
+    hook: ApprovalHook,
+    session: String,
+    /// Lines for the CLI's stdin; `None` once the turn is over, which closes stdin.
+    out: Option<UnboundedSender<String>>,
+    waiters: JoinSet<()>,
+    /// Approvals asked and not yet answered to the CLI; counts as a sign of life while above zero.
+    waiting: Arc<AtomicUsize>,
+    open: Arc<std::sync::Mutex<Vec<String>>>,
+    _guard: PendingGuard,
+}
+
+impl HostSession {
+    fn new(hook: ApprovalHook, session: String, out: UnboundedSender<String>) -> HostSession {
+        let open = Arc::new(std::sync::Mutex::new(Vec::new()));
+        HostSession {
+            _guard: PendingGuard {
+                queue: Arc::clone(&hook.queue),
+                ids: Arc::clone(&open),
+            },
+            hook,
+            session,
+            out: Some(out),
+            waiters: JoinSet::new(),
+            waiting: Arc::new(AtomicUsize::new(0)),
+            open,
+        }
+    }
+
+    fn send(&self, line: String) {
+        if let Some(out) = &self.out {
+            let _ = out.send(line);
+        }
+    }
+
+    fn anyone_deciding(&self) -> bool {
+        self.waiting.load(Ordering::SeqCst) > 0
+    }
+
+    /// One control request from the CLI: a permission prompt becomes an approval; anything else is refused (never
+    /// ignored: the CLI would wait for an answer that never comes).
+    async fn on_control_request(&mut self, value: &serde_json::Value) {
+        let request_id = value["request_id"].as_str().unwrap_or_default().to_string();
+        let request = &value["request"];
+        if request["subtype"] != "can_use_tool" {
+            self.send(control_error(&request_id, "nisse does not handle this request"));
+            return;
+        }
+        let tool = request["tool_name"].as_str().unwrap_or("unknown").to_string();
+        let mut detail = request.clone();
+        if let Some(map) = detail.as_object_mut() {
+            map.remove("subtype");
+        }
+        let approval = self
+            .hook
+            .queue
+            .request(
+                NewApproval {
+                    session: Some(self.session.clone()),
+                    asked_by: self.hook.asked_by.clone(),
+                    summary: approval_summary(&tool, request),
+                    tool,
+                    detail,
+                },
+                self.hook.expiry_secs,
+            )
+            .await;
+        self.open
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(approval.id.clone());
+        self.waiting.fetch_add(1, Ordering::SeqCst);
+        let queue = Arc::clone(&self.hook.queue);
+        let out = self.out.clone();
+        let waiting = Arc::clone(&self.waiting);
+        let input = request["input"].clone();
+        self.waiters.spawn(async move {
+            if let Some(done) = queue.wait(&approval.id).await {
+                if let Some(out) = out {
+                    let _ = out.send(control_response(&request_id, answer_for(&done, input)));
+                }
+            }
+            waiting.fetch_sub(1, Ordering::SeqCst);
+        });
+    }
+
+    /// The turn is over: stop answering, deny what is still pending and close stdin.
+    async fn close(&mut self, reason: &str) {
+        self.waiters.abort_all();
+        self.out = None;
+        self.waiting.store(0, Ordering::SeqCst);
+        deny_open(&self.hook.queue, &self.open, reason).await;
+    }
+}
+
+/// Writes each line to the CLI's stdin; ends (closing stdin) when every sender is gone.
+fn spawn_stdin_writer(mut stdin: tokio::process::ChildStdin) -> UnboundedSender<String> {
+    let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+    tokio::spawn(async move {
+        while let Some(line) = rx.recv().await {
+            let sent = stdin.write_all(line.as_bytes()).await.is_ok()
+                && stdin.write_all(b"\n").await.is_ok()
+                && stdin.flush().await.is_ok();
+            if !sent {
+                break;
+            }
+        }
+    });
+    tx
+}
+
 impl ClaudeCliRunner {
     /// Runs the CLI once for `req` under the watchdog.
     async fn attempt(&self, req: &RunRequest, tx: &Sender<RunEvent>) -> Attempt {
+        let host_mode = req.authority == Authority::Supervised && req.approvals.is_some();
         let mut cmd = Command::new(self.find_binary());
-        cmd.args(["-p", &req.prompt, "--output-format", "stream-json", "--verbose"]);
+        if host_mode {
+            // The host protocol (docs/claude-cli-notes.md): the prompt goes in on stdin, permission prompts come out
+            // as control requests and are answered on stdin.
+            cmd.args([
+                "-p",
+                "--input-format",
+                "stream-json",
+                "--output-format",
+                "stream-json",
+                "--verbose",
+                "--permission-mode",
+                "manual",
+                "--permission-prompts",
+                "host",
+                "--permission-prompt-tool",
+                "stdio",
+            ]);
+        } else {
+            cmd.args(["-p", &req.prompt, "--output-format", "stream-json", "--verbose"]);
+        }
         let session_flag = if req.resume { "--resume" } else { "--session-id" };
         cmd.args([session_flag, &req.session_id]);
         if let Some(settings) = &self.settings {
             cmd.arg("--settings").arg(settings);
         }
         match req.authority {
-            Authority::Autonomous => cmd.arg("--dangerously-skip-permissions"),
-            Authority::Supervised => cmd.args(["--permission-mode", "default"]),
-        };
+            Authority::Autonomous => {
+                cmd.arg("--dangerously-skip-permissions");
+            }
+            Authority::Supervised if host_mode => {}
+            Authority::Supervised => {
+                cmd.args(["--permission-mode", "default"]);
+            }
+        }
         cmd.envs(req.env.iter().map(|(k, v)| (k.as_str(), v.as_str())));
-        // A closed stdin: the CLI otherwise waits 3 seconds for piped data. Its own process group, so that stopping
-        // it also stops the tools it started.
-        cmd.stdin(Stdio::null())
+        // A closed stdin: the CLI otherwise waits 3 seconds for piped data (the host protocol needs stdin open). Its
+        // own process group, so that stopping it also stops the tools it started.
+        cmd.stdin(if host_mode { Stdio::piped() } else { Stdio::null() })
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .process_group(0);
@@ -328,6 +580,14 @@ impl ClaudeCliRunner {
         };
         let pgid = child.id().map_or(0, |pid| pid as i32);
         let mut guard = TreeGuard((pgid > 0).then_some(pgid));
+        let mut host = match (&req.approvals, child.stdin.take()) {
+            (Some(hook), Some(stdin)) if host_mode => {
+                let host = HostSession::new(hook.clone(), req.session_id.clone(), spawn_stdin_writer(stdin));
+                host.send(user_line(&req.prompt));
+                Some(host)
+            }
+            _ => None,
+        };
 
         // Read stderr alongside stdout so a chatty CLI cannot fill the pipe and stall; keep its tail for errors.
         let stderr_tail = child.stderr.take().map(|err| {
@@ -351,10 +611,22 @@ impl ClaudeCliRunner {
                 line = next_line(&mut lines), if !eof => match line {
                     Ok(Some(line)) => {
                         last_alive = tokio::time::Instant::now();
+                        if let Some(host) = host.as_mut() {
+                            let value: serde_json::Value = serde_json::from_str(&line).unwrap_or_default();
+                            match value["type"].as_str() {
+                                Some("control_request") => {
+                                    host.on_control_request(&value).await;
+                                    continue;
+                                }
+                                // The turn is over: close stdin so the CLI exits, and deny anything still pending.
+                                Some("result") => host.close("the turn ended").await,
+                                _ => {}
+                            }
+                        }
                         for event in parse_line(&line) {
                             started |= event == RunEvent::Started;
                             if tx.send(event).await.is_err() {
-                                return Attempt::Gone; // the guard stops the process group
+                                return Attempt::Gone; // the guards stop the process group and deny the approvals
                             }
                         }
                     }
@@ -366,15 +638,24 @@ impl ClaudeCliRunner {
                     if cpu != last_cpu {
                         last_cpu = cpu;
                         last_alive = tokio::time::Instant::now();
+                    } else if host.as_ref().is_some_and(|h| h.anyone_deciding()) {
+                        // Silent because it is waiting for a person, not because it is stuck.
+                        last_alive = tokio::time::Instant::now();
                     } else if last_alive.elapsed() >= self.hung_after {
                         kill_tree(&mut child, pgid).await;
                         guard.disarm();
+                        if let Some(host) = host.as_mut() {
+                            host.close("Claude Code was stopped").await;
+                        }
                         return Attempt::Hung { started };
                     }
                 }
             }
         };
         guard.disarm();
+        if let Some(host) = host.as_mut() {
+            host.close("Claude Code ended before this was answered").await;
+        }
 
         match exit {
             Ok(status) if status.success() => {

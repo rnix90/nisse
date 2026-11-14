@@ -36,6 +36,7 @@ fn request(resume: bool) -> RunRequest {
         env: vec![],
         resume,
         authority: Authority::Autonomous,
+        approvals: None,
     }
 }
 

@@ -16,7 +16,7 @@ use uuid::Uuid;
 use zbus::{interface, object_server::SignalEmitter};
 
 use crate::approvals::{Approval, ApprovalQueue, ApprovalState, DecideError, NewApproval};
-use crate::runner::{AgentRunner, RunEvent, RunRequest};
+use crate::runner::{AgentRunner, ApprovalHook, RunEvent, RunRequest};
 use crate::state::SessionStore;
 
 /// What one session is doing right now (in memory only; only the started flag is persisted).
@@ -198,6 +198,12 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
         env: claude_env(config.main_backend()),
         resume: started,
         authority: config.authority,
+        // Supervised turns ask through the approvals queue; the local panel is the asker until pairing (N-221).
+        approvals: (config.authority == Authority::Supervised).then(|| ApprovalHook {
+            queue: Arc::clone(&core.approvals),
+            expiry_secs: config.approval_expiry_secs,
+            asked_by: "desktop".to_string(),
+        }),
     };
     let (tx, mut rx) = mpsc::channel(32);
     let runner = Arc::clone(&core.runner);

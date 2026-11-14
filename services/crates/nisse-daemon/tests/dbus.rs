@@ -189,6 +189,43 @@ struct AuthoritySpy {
     seen: Arc<Mutex<Vec<Authority>>>,
 }
 
+/// Records whether each request carried the approvals hook, and what it said about the asker and the expiry.
+struct HookSpy {
+    seen: Arc<Mutex<Vec<HookSeen>>>,
+}
+
+type HookSeen = Option<(String, u64)>;
+
+#[async_trait]
+impl AgentRunner for HookSpy {
+    async fn run(&self, req: RunRequest, tx: Sender<RunEvent>) {
+        let hook = req.approvals.as_ref().map(|h| (h.asked_by.clone(), h.expiry_secs));
+        self.seen.lock().unwrap().push(hook);
+        let _ = tx.send(RunEvent::Done).await;
+    }
+}
+
+#[tokio::test]
+async fn a_supervised_turn_carries_the_approvals_hook_and_an_autonomous_one_does_not() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let s = setup(
+        "hook-spy",
+        Arc::new(HookSpy {
+            seen: Arc::clone(&seen),
+        }),
+    )
+    .await;
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    send_and_wait(&s, &id, "autonomous by default").await;
+    fs::write(
+        &s.config,
+        "authority = \"supervised\"\napproval_expiry_secs = 300\nmain = \"max\"\n[[backends]]\nname = \"max\"\nkind = \"max\"\n",
+    )
+    .unwrap();
+    send_and_wait(&s, &id, "now supervised").await;
+    assert_eq!(*seen.lock().unwrap(), vec![None, Some(("desktop".to_string(), 300))]);
+}
+
 #[async_trait]
 impl AgentRunner for AuthoritySpy {
     async fn run(&self, req: RunRequest, tx: Sender<RunEvent>) {

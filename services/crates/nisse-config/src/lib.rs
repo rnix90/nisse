@@ -7,8 +7,9 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Deserializer};
 
-/// How much the AI may do without asking. Until the approvals queue exists, `Supervised` means the Claude CLI's
-/// default permission mode, which denies anything that would need a prompt in print mode.
+/// How much the AI may do without asking. `Supervised` sessions send each permission prompt of the Claude CLI to the
+/// approvals queue (the host protocol, N-222); without a queue they fall back to the CLI's default mode, which denies
+/// anything that would need a prompt in print mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Authority {
     #[default]
