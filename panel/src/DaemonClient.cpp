@@ -27,6 +27,7 @@ DaemonClient::DaemonClient(QObject *parent)
     bus.connect(kService, kPath, kInterface, QStringLiteral("MessageChunk"), this, SLOT(onChunk(QString, QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionDone"), this, SLOT(onDone(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionError"), this, SLOT(onFailed(QString, QString)));
+    bus.connect(kService, kPath, kInterface, QStringLiteral("SessionsChanged"), this, SLOT(onSessionsChanged()));
     bus.connect(kService, kPath, kInterface, QStringLiteral("ApprovalChanged"), this,
                 SLOT(onApprovalChanged(QString, QString)));
     refreshBackend();
@@ -64,6 +65,24 @@ void DaemonClient::cancel(const QString &session)
         }
         w->deleteLater();
     });
+}
+
+QStringList DaemonClient::sessions()
+{
+    QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("ListSessions"));
+    return reply.isValid() ? reply.value() : QStringList();
+}
+
+QString DaemonClient::renameSession(const QString &session, const QString &title)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("RenameSession"), session, title);
+    return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
+}
+
+QString DaemonClient::closeSession(const QString &session)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("CloseSession"), session);
+    return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
 QStringList DaemonClient::auditTail(int n)
@@ -152,6 +171,11 @@ void DaemonClient::enableNotifications(std::function<bool()> windowActive)
     m_notifier = std::make_unique<ApprovalNotifier>(ApprovalNotifier::Hooks{
         std::move(windowActive), [] { return Mic::inUseNow(); },
         [desktop](const QString &title, const QString &body) { desktop->show(title, body); }});
+}
+
+void DaemonClient::onSessionsChanged()
+{
+    emit sessionsChanged();
 }
 
 void DaemonClient::onApprovalChanged(const QString &id, const QString &state)

@@ -984,3 +984,152 @@ async fn request_approval_refuses_a_missing_device_and_bad_detail() {
     let unknown: zbus::Result<String> = s.proxy.call("WaitApproval", &("nope",)).await;
     assert!(unknown.is_err());
 }
+
+// ---- the session list over D-Bus (ledger N-206)
+
+async fn list_sessions(s: &Setup) -> Vec<serde_json::Value> {
+    let lines: Vec<String> = s.proxy.call("ListSessions", &()).await.unwrap();
+    parse_all(&lines)
+}
+
+#[tokio::test]
+async fn list_sessions_shows_each_session_in_creation_order_with_its_state() {
+    let s = setup("list-sessions", Arc::new(FakeRunner)).await;
+    assert!(list_sessions(&s).await.is_empty());
+    let mut ids = Vec::new();
+    for _ in 0..3 {
+        ids.push(s.proxy.call::<_, _, String>("NewSession", &()).await.unwrap());
+        tokio::time::sleep(Duration::from_millis(3)).await;
+    }
+    let list = list_sessions(&s).await;
+    let listed: Vec<&str> = list.iter().map(|v| v["id"].as_str().unwrap()).collect();
+    assert_eq!(listed, ids.iter().map(String::as_str).collect::<Vec<_>>());
+    for v in &list {
+        assert!(v["title"].is_null(), "no name yet: the panel shows the date and time");
+        assert!(
+            v["created_at"].as_i64().unwrap() > 1_700_000_000_000,
+            "milliseconds since 1970: {v}"
+        );
+        assert_eq!(v["running"], false);
+        assert_eq!(v["pending_approvals"], 0);
+    }
+}
+
+#[tokio::test]
+async fn a_session_with_a_turn_in_progress_is_listed_as_running() {
+    let runner = hanging();
+    let s = setup("list-running", Arc::clone(&runner) as Arc<dyn AgentRunner>).await;
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let _: () = s.proxy.call("SendMessage", &(id.as_str(), "work")).await.unwrap();
+    wait_until("the turn to start", || runner.started.load(Ordering::SeqCst)).await;
+    assert_eq!(list_sessions(&s).await[0]["running"], true);
+}
+
+#[tokio::test]
+async fn a_session_lists_how_many_approvals_are_waiting_on_it() {
+    let s = setup("list-pending", Arc::new(FakeRunner)).await;
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let mut new = ask("Bash");
+    new.session = Some(id.clone());
+    s.approvals.request(new, 900).await;
+    assert_eq!(list_sessions(&s).await[0]["pending_approvals"], 1);
+}
+
+#[tokio::test]
+async fn rename_session_changes_the_title_and_signals_every_client() {
+    let s = setup("rename", Arc::new(FakeRunner)).await;
+    let mut changed = s.proxy.receive_signal("SessionsChanged").await.unwrap();
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    next_signal(&mut changed).await; // the new session
+    let _: () = s.proxy.call("RenameSession", &(id.as_str(), "Taxes")).await.unwrap();
+    next_signal(&mut changed).await;
+    assert_eq!(list_sessions(&s).await[0]["title"], "Taxes");
+    let _: () = s.proxy.call("RenameSession", &(id.as_str(), "")).await.unwrap();
+    assert!(list_sessions(&s).await[0]["title"].is_null());
+}
+
+#[tokio::test]
+async fn renaming_or_closing_an_unknown_session_is_an_error() {
+    let s = setup("unknown-edit", Arc::new(FakeRunner)).await;
+    let renamed: Result<(), _> = s.proxy.call("RenameSession", &("nope", "x")).await;
+    assert!(renamed.is_err());
+    let closed: Result<(), _> = s.proxy.call("CloseSession", &("nope",)).await;
+    assert!(closed.is_err());
+}
+
+#[tokio::test]
+async fn close_session_removes_it_signals_and_the_id_is_unknown_afterwards() {
+    let s = setup("close", Arc::new(FakeRunner)).await;
+    let mut changed = s.proxy.receive_signal("SessionsChanged").await.unwrap();
+    let mut errors = s.proxy.receive_signal("SessionError").await.unwrap();
+    let keep: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let gone: String = s.proxy.call("NewSession", &()).await.unwrap();
+    next_signal(&mut changed).await;
+    next_signal(&mut changed).await;
+    let _: () = s.proxy.call("CloseSession", &(gone.as_str(),)).await.unwrap();
+    next_signal(&mut changed).await;
+    let list = list_sessions(&s).await;
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0]["id"], keep.as_str());
+
+    let _: () = s.proxy.call("SendMessage", &(gone.as_str(), "hello")).await.unwrap();
+    let (_, message): (String, String) = next_signal(&mut errors).await.body().deserialize().unwrap();
+    assert!(message.contains("unknown session"), "{message}");
+}
+
+#[tokio::test]
+async fn closing_a_running_session_stops_the_turn_with_one_done_and_denies_its_approvals() {
+    let runner = hanging();
+    let s = setup("close-running", Arc::clone(&runner) as Arc<dyn AgentRunner>).await;
+    let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+    let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+    let _: () = s.proxy.call("SendMessage", &(id.as_str(), "work")).await.unwrap();
+    wait_until("the turn to start", || runner.started.load(Ordering::SeqCst)).await;
+    let mut mine = ask("Bash");
+    mine.session = Some(id.clone());
+    let mine = s.approvals.request(mine, 900).await;
+    let mut other = ask("Bash");
+    other.session = Some("another-session".into());
+    let other = s.approvals.request(other, 900).await;
+
+    let _: () = s.proxy.call("CloseSession", &(id.as_str(),)).await.unwrap();
+    let done_id: String = next_signal(&mut done).await.body().deserialize().unwrap();
+    assert_eq!(done_id, id);
+    wait_until("the runner future to be dropped", || {
+        runner.dropped.load(Ordering::SeqCst)
+    })
+    .await;
+    assert!(
+        tokio::time::timeout(Duration::from_millis(400), done.next())
+            .await
+            .is_err(),
+        "a second SessionDone"
+    );
+
+    let mine = s.approvals.get(&mine.id).await.unwrap();
+    assert_eq!(format!("{:?}", mine.state), "Denied");
+    assert_eq!(mine.decided_by.as_deref(), Some("daemon"));
+    let other = s.approvals.get(&other.id).await.unwrap();
+    assert_eq!(
+        format!("{:?}", other.state),
+        "Pending",
+        "another session's approval is untouched"
+    );
+}
+
+#[tokio::test]
+async fn names_and_closed_sessions_survive_a_daemon_restart() {
+    let dir = scratch("sessions-restart");
+    let first = start(dir.clone(), Arc::new(FakeRunner), true).await;
+    let a: String = first.proxy.call("NewSession", &()).await.unwrap();
+    let b: String = first.proxy.call("NewSession", &()).await.unwrap();
+    let _: () = first.proxy.call("RenameSession", &(a.as_str(), "Taxes")).await.unwrap();
+    let _: () = first.proxy.call("CloseSession", &(b.as_str(),)).await.unwrap();
+    drop(first);
+
+    let second = start(dir, Arc::new(FakeRunner), true).await;
+    let list = list_sessions(&second).await;
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0]["id"], a.as_str());
+    assert_eq!(list[0]["title"], "Taxes");
+}

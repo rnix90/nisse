@@ -121,6 +121,29 @@ impl Daemon {
         }
     }
 
+    /// Stops the running turn of `session_id` and drops its queued messages. False (and nothing emitted) if the
+    /// session was not running; otherwise exactly one `SessionDone` goes out.
+    async fn stop_run(&self, session_id: &str, emitter: &SignalEmitter<'_>) -> bool {
+        let abort = {
+            let mut runs = self.core.runs.lock().await;
+            match runs.get_mut(session_id) {
+                Some(state) if state.running => {
+                    state.running = false;
+                    state.queue.clear();
+                    state.generation += 1;
+                    state.abort.take()
+                }
+                _ => None,
+            }
+        };
+        let Some(abort) = abort else {
+            return false;
+        };
+        abort.abort();
+        let _ = Self::session_done(emitter, session_id).await;
+        true
+    }
+
     /// Keep the session list in `path` so sessions survive a daemon restart. An unreadable file is set aside as
     /// `<path>.bad`, the daemon starts with no sessions, and a `state-warning` audit record says why.
     pub fn with_state_file(mut self, path: PathBuf) -> Daemon {
@@ -265,10 +288,86 @@ async fn drive(core: Core, emitter: SignalEmitter<'static>, session_id: String, 
 
 #[interface(name = "org.nisse.Daemon1")]
 impl Daemon {
-    async fn new_session(&self) -> String {
+    async fn new_session(&self, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) -> String {
         let id = Uuid::new_v4().to_string();
         self.core.remember(&id, false).await;
+        let _ = Self::sessions_changed(&emitter).await;
         id
+    }
+
+    /// The sessions, oldest first, one JSON object per string: `id`, `title` (null until renamed: clients show the
+    /// date and time), `created_at` (unix milliseconds), `started`, `running` (a turn is in progress) and
+    /// `pending_approvals` (how many are waiting on it).
+    async fn list_sessions(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        for info in self.core.sessions.list().await {
+            let running = self.core.runs.lock().await.get(&info.id).is_some_and(|r| r.running);
+            let pending = self.core.approvals.pending_count_for(&info.id).await;
+            out.push(
+                serde_json::json!({
+                    "id": info.id,
+                    "title": info.title,
+                    "created_at": info.created_ms,
+                    "started": info.started,
+                    "running": running,
+                    "pending_approvals": pending,
+                })
+                .to_string(),
+            );
+        }
+        out
+    }
+
+    /// Names a session; an empty name goes back to none. Every client is told through `SessionsChanged`.
+    async fn rename_session(
+        &self,
+        session_id: String,
+        title: String,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
+        match self.core.sessions.rename(&session_id, &title).await {
+            Ok(problem) => {
+                if let Some(problem) = problem {
+                    self.core
+                        .audit(None, "daemon", "state-warning", serde_json::json!({ "error": problem }));
+                }
+                let _ = Self::sessions_changed(&emitter).await;
+                Ok(())
+            }
+            Err(message) => Err(zbus::fdo::Error::Failed(message)),
+        }
+    }
+
+    /// Closes a session: stops its running turn (one `SessionDone`), drops its queued messages, denies the approvals
+    /// still waiting on it and forgets it. An error for an unknown session.
+    async fn close_session(
+        &self,
+        session_id: String,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<()> {
+        if self.core.sessions.get(&session_id).await.is_none() {
+            return Err(zbus::fdo::Error::Failed(format!("unknown session: {session_id}")));
+        }
+        self.stop_run(&session_id, &emitter).await;
+        self.core.runs.lock().await.remove(&session_id);
+        let denied = self
+            .core
+            .approvals
+            .deny_pending_for(&session_id, "daemon", "the session was closed")
+            .await;
+        let (_, problem) = self.core.sessions.remove(&session_id).await;
+        if let Some(problem) = problem {
+            self.core
+                .audit(None, "daemon", "state-warning", serde_json::json!({ "error": problem }));
+        }
+        self.core.audit(
+            Some(&session_id),
+            "user",
+            "session-closed",
+            serde_json::json!({ "approvals_denied": denied }),
+        );
+        let _ = Self::sessions_changed(&emitter).await;
+        Ok(())
     }
 
     async fn send_message(&self, session_id: String, text: String, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) {
@@ -305,25 +404,11 @@ impl Daemon {
     /// Stops the running turn of `session_id` and drops its queued messages. Returns false (and emits nothing) if
     /// the session was not running; otherwise emits exactly one SessionDone.
     async fn cancel(&self, session_id: String, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) -> bool {
-        let abort = {
-            let mut runs = self.core.runs.lock().await;
-            match runs.get_mut(&session_id) {
-                Some(state) if state.running => {
-                    state.running = false;
-                    state.queue.clear();
-                    state.generation += 1;
-                    state.abort.take()
-                }
-                _ => None,
-            }
-        };
-        let Some(abort) = abort else {
+        if !self.stop_run(&session_id, &emitter).await {
             return false;
-        };
-        abort.abort();
+        }
         self.core
             .audit(Some(&session_id), "user", "cancel", serde_json::json!({}));
-        let _ = Self::session_done(&emitter, &session_id).await;
         true
     }
 
@@ -460,6 +545,10 @@ impl Daemon {
             .map_err(approval_error)?;
         Ok(approval_json(&approval))
     }
+
+    /// The session list changed (made, renamed or closed): clients call `ListSessions` again.
+    #[zbus(signal)]
+    async fn sessions_changed(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
 
     #[zbus(signal)]
     async fn approval_changed(emitter: &SignalEmitter<'_>, id: &str, state: &str) -> zbus::Result<()>;

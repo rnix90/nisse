@@ -301,6 +301,40 @@ impl ApprovalQueue {
             .any(|a| a.state == ApprovalState::Pending && a.session.as_deref() == Some(session))
     }
 
+    /// How many approvals for `session` are waiting for an answer.
+    pub async fn pending_count_for(&self, session: &str) -> usize {
+        self.sweep().await;
+        self.inner
+            .lock()
+            .await
+            .items
+            .iter()
+            .filter(|a| a.state == ApprovalState::Pending && a.session.as_deref() == Some(session))
+            .count()
+    }
+
+    /// Denies every approval still waiting for `session` (it is going away), as `device`, so a late answer from a
+    /// person is refused. Returns how many were denied.
+    pub async fn deny_pending_for(&self, session: &str, device: &str, reason: &str) -> usize {
+        self.sweep().await;
+        let ids: Vec<String> = self
+            .inner
+            .lock()
+            .await
+            .items
+            .iter()
+            .filter(|a| a.state == ApprovalState::Pending && a.session.as_deref() == Some(session))
+            .map(|a| a.id.clone())
+            .collect();
+        let mut denied = 0;
+        for id in ids {
+            if self.decide(&id, false, device, reason).await.is_ok() {
+                denied += 1;
+            }
+        }
+        denied
+    }
+
     /// Expires every pending approval whose time has passed. Called by `get`, `list` and `decide`, and by the
     /// daemon's timer so expiry is announced when it happens.
     pub async fn sweep(&self) {

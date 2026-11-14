@@ -40,4 +40,7 @@ echo "$out" | grep -qx "reply: echo: ping" || { echo "FAIL: panel did not get th
 # N-205: a held call decided by the real panel client, with the desktop notice it sends.
 dbus-run-session -- bash tests/e2e/approvals_inner.sh "$daemon" "$panel" "$work"
 
+# N-206: three live sessions through the real daemon and the real panel client.
+dbus-run-session -- bash tests/e2e/sessions_inner.sh "$daemon" "$panel" "$work"
+
 echo "PASS: panel and daemon end to end"

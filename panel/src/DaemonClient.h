@@ -32,6 +32,11 @@ public:
     Q_INVOKABLE void send(const QString &session, const QString &text);
     // Stops the running turn of the session (the daemon answers with one done signal).
     Q_INVOKABLE void cancel(const QString &session);
+    // The daemon's sessions (N-206), oldest first, one JSON object per string. Empty if it cannot be reached.
+    Q_INVOKABLE QStringList sessions();
+    // Each returns an error text, or an empty string when the daemon accepted it.
+    Q_INVOKABLE QString renameSession(const QString &session, const QString &title);
+    Q_INVOKABLE QString closeSession(const QString &session);
     // The last n audit records, one JSON object per string.
     Q_INVOKABLE QStringList auditTail(int n);
     Q_INVOKABLE void refreshBackend();
@@ -56,6 +61,8 @@ signals:
     void backendLabelChanged();
     void authorityLabelChanged();
     void pendingCountChanged();
+    // A session was made, renamed or closed, by this panel or by any other client (the daemon's SessionsChanged).
+    void sessionsChanged();
     // An approval was requested or decided (the daemon's ApprovalChanged signal).
     void approvalChanged(const QString &id, const QString &state);
     // A desktop notice was clicked: show the approvals.
@@ -66,6 +73,7 @@ private slots:
     void onDone(const QString &session);
     void onFailed(const QString &session, const QString &message);
     void onApprovalChanged(const QString &id, const QString &state);
+    void onSessionsChanged();
 
 private:
     QDBusInterface m_iface;

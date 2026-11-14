@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-//! The daemon's session list, kept across restarts: which sessions exist and whether Claude Code has started them
-//! (a started session must be continued with `--resume`, an unstarted one with `--session-id`).
+//! The daemon's session list, kept across restarts: which sessions exist, when they were made, what the person called
+//! them, and whether Claude Code has started them (a started session must be continued with `--resume`, an unstarted
+//! one with `--session-id`).
 //!
-//! File format: `{"sessions": {"<id>": {"started": true}}}`, written atomically.
+//! File format: `{"sessions": {"<id>": {"started": true, "created_ms": 1700000000000, "title": "Taxes"}}}`, written
+//! atomically. `created_ms` and `title` are optional when reading (files from before N-206 have neither).
 
 use std::collections::HashMap;
 use std::io;
@@ -35,10 +37,38 @@ pub fn default_state_path() -> PathBuf {
     )
 }
 
-/// session id -> whether Claude Code has started it.
+/// What the daemon knows about one session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionInfo {
+    pub id: String,
+    /// Whether Claude Code has started it (later messages resume instead of starting).
+    pub started: bool,
+    /// Unix milliseconds. Tabs are ordered by this, and a session without a name is shown as this date and time.
+    pub created_ms: i64,
+    /// What the person called it; `None` until renamed.
+    pub title: Option<String>,
+}
+
+/// The longest session name kept, in characters.
+pub const TITLE_LIMIT: usize = 60;
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+struct Record {
+    started: bool,
+    created_ms: i64,
+    title: Option<String>,
+}
+
+/// session id -> what is known about it.
 pub struct SessionStore {
     path: Option<PathBuf>,
-    map: Mutex<HashMap<String, bool>>,
+    map: Mutex<HashMap<String, Record>>,
     /// A failed save has been reported and no save has succeeded since.
     save_failed: AtomicBool,
 }
@@ -84,16 +114,64 @@ impl SessionStore {
     }
 
     pub async fn get(&self, id: &str) -> Option<bool> {
-        self.map.lock().await.get(id).copied()
+        self.map.lock().await.get(id).map(|r| r.started)
     }
 
-    /// Records `id` and writes the file. A failed write only loses persistence, not the session; the first failure
-    /// after a success is returned so the caller can audit it.
+    /// Every session, oldest first.
+    pub async fn list(&self) -> Vec<SessionInfo> {
+        let map = self.map.lock().await;
+        let mut out: Vec<SessionInfo> = map
+            .iter()
+            .map(|(id, r)| SessionInfo {
+                id: id.clone(),
+                started: r.started,
+                created_ms: r.created_ms,
+                title: r.title.clone(),
+            })
+            .collect();
+        out.sort_by(|a, b| a.created_ms.cmp(&b.created_ms).then_with(|| a.id.cmp(&b.id)));
+        out
+    }
+
+    /// Records `id` and writes the file; a session already known keeps its creation time and name. A failed write
+    /// only loses persistence, not the session; the first failure after a success is returned so the caller can
+    /// audit it.
     pub async fn set(&self, id: &str, started: bool) -> Option<String> {
         let mut map = self.map.lock().await;
-        map.insert(id.to_string(), started);
+        map.entry(id.to_string())
+            .and_modify(|r| r.started = started)
+            .or_insert_with(|| Record {
+                started,
+                created_ms: now_ms(),
+                title: None,
+            });
+        self.persist(&map)
+    }
+
+    /// Names a session (trimmed, at most `TITLE_LIMIT` characters; an empty name goes back to none, so the date and
+    /// time show again). Err for an unknown session; Ok carries a save problem to audit, if any.
+    pub async fn rename(&self, id: &str, title: &str) -> Result<Option<String>, String> {
+        let mut map = self.map.lock().await;
+        let Some(record) = map.get_mut(id) else {
+            return Err(format!("unknown session: {id}"));
+        };
+        let clean: String = title.trim().chars().take(TITLE_LIMIT).collect();
+        record.title = Some(clean.trim_end().to_string()).filter(|t| !t.is_empty());
+        Ok(self.persist(&map))
+    }
+
+    /// Forgets a session. The bool says whether it existed; the string is a save problem to audit, if any.
+    pub async fn remove(&self, id: &str) -> (bool, Option<String>) {
+        let mut map = self.map.lock().await;
+        if map.remove(id).is_none() {
+            return (false, None);
+        }
+        (true, self.persist(&map))
+    }
+
+    fn persist(&self, map: &HashMap<String, Record>) -> Option<String> {
         let path = self.path.as_ref()?;
-        match save(path, &map) {
+        match save(path, map) {
             Ok(()) => {
                 self.save_failed.store(false, Ordering::SeqCst);
                 None
@@ -106,7 +184,7 @@ impl SessionStore {
     }
 }
 
-fn load(path: &Path) -> Result<HashMap<String, bool>, String> {
+fn load(path: &Path) -> Result<HashMap<String, Record>, String> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(HashMap::new()),
@@ -119,18 +197,32 @@ fn load(path: &Path) -> Result<HashMap<String, bool>, String> {
         let started = entry["started"]
             .as_bool()
             .ok_or_else(|| format!("session {id} has no boolean \"started\""))?;
-        map.insert(id.clone(), started);
+        let created_ms = entry["created_ms"].as_i64().unwrap_or_else(now_ms);
+        let title = entry["title"].as_str().map(String::from).filter(|t| !t.is_empty());
+        map.insert(
+            id.clone(),
+            Record {
+                started,
+                created_ms,
+                title,
+            },
+        );
     }
     Ok(map)
 }
 
-fn save(path: &Path, map: &HashMap<String, bool>) -> io::Result<()> {
+fn save(path: &Path, map: &HashMap<String, Record>) -> io::Result<()> {
     if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir)?;
     }
     let sessions: serde_json::Map<String, serde_json::Value> = map
         .iter()
-        .map(|(id, started)| (id.clone(), serde_json::json!({ "started": started })))
+        .map(|(id, r)| {
+            (
+                id.clone(),
+                serde_json::json!({ "started": r.started, "created_ms": r.created_ms, "title": r.title }),
+            )
+        })
         .collect();
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".tmp");

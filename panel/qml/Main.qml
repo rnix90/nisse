@@ -31,7 +31,7 @@ ApplicationWindow {
         anchors.fill: parent
         currentIndex: window.page
 
-        ChatView {
+        SessionTabs {
             client: daemon
         }
         ApprovalsView {

@@ -35,3 +35,18 @@ that keep a capture stream `running` while muted (they would count as in use).
   when there is one). If the panel was opened meanwhile, or the approval was decided, nothing is sent.
 - The notice goes out through `org.freedesktop.Notifications` (Plasma's notification service). The end-to-end test
   watches the bus for the `Notify` call; what Plasma then draws on screen is not checked until GATE 2.
+
+## Tabs (N-206)
+
+- The daemon owns the session list (`ListSessions`, `RenameSession`, `CloseSession`, signal `SessionsChanged`); the
+  panel never makes up an id, an order or a name, so a second client sees the same tabs. Order is creation order.
+- A tab with no name shows its creation date and time (for example "Nov 14, 14:32"); renaming (double-click) stores a
+  name in the daemon, and an empty name goes back to the date and time. Names are at most 60 characters.
+- Only the selected tab shows its transcript. A background tab shows its title and one status dot: red needs you (an
+  approval is waiting on that session), amber working, green finished while you were elsewhere. Its text is kept and
+  appears when the tab is selected.
+- Closing a tab stops its running turn (one done signal), drops its queued messages, denies the approvals still waiting
+  on it (decided by `daemon`, so a late answer is refused) and forgets the session.
+- After a panel restart the tabs come back from the daemon with their names, but earlier messages are not shown (the
+  tab says so). That needs the event replay of N-220.
+- The panel's `needsYouCount` (approvals waiting) and `unreadCount` are what the taskbar badges (N-207) will show.
