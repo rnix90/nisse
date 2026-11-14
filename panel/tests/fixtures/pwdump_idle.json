@@ -1,0 +1,91 @@
+[
+ {
+  "id": 29,
+  "info": {
+   "props": {
+    "clock.id": "monotonic",
+    "clock.name": "clock.system.monotonic",
+    "clock.quantum-limit": 8192,
+    "factory.id": 11,
+    "factory.name": "support.node.driver",
+    "node.driver": true,
+    "node.group": "pipewire.dummy",
+    "node.loop.name": "data-loop.0",
+    "node.name": "Dummy-Driver",
+    "node.sync-group": "sync.dummy",
+    "object.id": 29,
+    "object.serial": 29,
+    "priority.driver": 200000
+   },
+   "state": "suspended"
+  },
+  "type": "PipeWire:Interface:Node"
+ },
+ {
+  "id": 30,
+  "info": {
+   "props": {
+    "clock.id": "monotonic",
+    "clock.name": "clock.system.monotonic",
+    "clock.quantum-limit": 8192,
+    "factory.id": 11,
+    "factory.name": "support.node.driver",
+    "node.driver": true,
+    "node.freewheel": true,
+    "node.group": "pipewire.freewheel",
+    "node.loop.name": "data-loop.0",
+    "node.name": "Freewheel-Driver",
+    "node.sync-group": "sync.dummy",
+    "object.id": 30,
+    "object.serial": 30,
+    "priority.driver": 190000
+   },
+   "state": "suspended"
+  },
+  "type": "PipeWire:Interface:Node"
+ },
+ {
+  "id": 43,
+  "info": {
+   "props": {
+    "clock.quantum-limit": 8192,
+    "factory.id": 19,
+    "factory.name": "support.null-audio-sink",
+    "library.name": "audioconvert/libspa-audioconvert",
+    "media.class": "Audio/Source",
+    "node.description": "FakeMic",
+    "node.driver": true,
+    "node.loop.name": "data-loop.0",
+    "node.name": "fakemic",
+    "object.id": 43,
+    "object.linger": true,
+    "object.serial": 43,
+    "port.group": "stream.0"
+   },
+   "state": "suspended"
+  },
+  "type": "PipeWire:Interface:Node"
+ },
+ {
+  "id": 45,
+  "info": {
+   "props": {
+    "clock.quantum-limit": 8192,
+    "factory.id": 19,
+    "factory.name": "support.null-audio-sink",
+    "library.name": "audioconvert/libspa-audioconvert",
+    "media.class": "Audio/Sink",
+    "node.description": "FakeSpk",
+    "node.driver": true,
+    "node.loop.name": "data-loop.0",
+    "node.name": "fakespk",
+    "object.id": 45,
+    "object.linger": true,
+    "object.serial": 46,
+    "port.group": "stream.0"
+   },
+   "state": "suspended"
+  },
+  "type": "PipeWire:Interface:Node"
+ }
+]

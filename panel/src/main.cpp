@@ -3,6 +3,8 @@
 
 #include <QCoreApplication>
 #include <QGuiApplication>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QTextStream>
@@ -40,11 +42,49 @@ static int selfTest(int argc, char *argv[])
     return app.exec();
 }
 
+// Headless check for the approvals view's client side: with desktop notices on (panel in the background), approve the
+// first approval that is pending now or arrives, then exit. Used by tests/e2e/panel_daemon.sh.
+static int selfTestApprovals(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QTextStream out(stdout);
+    DaemonClient client;
+    client.enableNotifications([] { return false; });
+    bool decided = false;
+    auto act = [&] {
+        if (decided)
+            return;
+        const QStringList pending = client.approvals(QStringLiteral("pending"));
+        if (pending.isEmpty())
+            return;
+        decided = true;
+        const QString id = QJsonDocument::fromJson(pending.first().toUtf8()).object().value(QStringLiteral("id")).toString();
+        const QString error = client.approve(id);
+        out << "approved: " << id << Qt::endl;
+        out << "error: " << error << Qt::endl;
+        // Give the desktop notice, sent on the same event loop, time to leave before exiting.
+        QTimer::singleShot(700, &app, [&app, error] { app.exit(error.isEmpty() ? 0 : 1); });
+    };
+    QObject::connect(&client, &DaemonClient::approvalChanged, &app, [&](const QString &, const QString &state) {
+        if (state == QLatin1String("pending"))
+            act();
+    });
+    QTimer::singleShot(15000, &app, [&] {
+        out << "error: timed out" << Qt::endl;
+        app.exit(2);
+    });
+    out << "listening" << Qt::endl;
+    QTimer::singleShot(0, &app, act);
+    return app.exec();
+}
+
 int main(int argc, char *argv[])
 {
     for (int i = 1; i < argc; ++i) {
         if (QByteArray(argv[i]) == "--self-test")
             return selfTest(argc, argv);
+        if (QByteArray(argv[i]) == "--self-test-approvals")
+            return selfTestApprovals(argc, argv);
     }
 
     QGuiApplication app(argc, argv);
@@ -52,6 +92,7 @@ int main(int argc, char *argv[])
     app.setDesktopFileName(QStringLiteral("nisse-panel"));
 
     DaemonClient client;
+    client.enableNotifications([] { return QGuiApplication::applicationState() == Qt::ApplicationActive; });
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("daemon"), &client);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },

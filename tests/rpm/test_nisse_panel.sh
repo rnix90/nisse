@@ -22,6 +22,8 @@ printf '%s\n' "$files" | grep -q 'tst_chat' && fail "the test executable must no
 member usr/share/applications/nisse-panel.desktop | grep -qx 'Icon=distributor-logo-nisse' || fail "desktop file must use the nisse icon"
 rpm -qp --requires "$rpmf" | grep -q '^nisse-daemon' || fail "RPM must require nisse-daemon"
 rpm -qp --requires "$rpmf" | grep -q 'qt6-qtdeclarative' || fail "RPM must require qt6-qtdeclarative (QML runtime)"
+# N-205: the microphone check runs pw-dump, so the package must pull it in.
+rpm -qp --requires "$rpmf" | grep -qx 'pipewire-utils' || fail "RPM must require pipewire-utils (the notice is held back while a microphone is in use)"
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpmf")" = "GPL-2.0-or-later" ] || fail "License must be GPL-2.0-or-later"
 
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp" "$root_dir"' EXIT

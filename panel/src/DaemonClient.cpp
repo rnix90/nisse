@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "DaemonClient.h"
 
+#include "ApprovalNotifier.h"
+#include "DesktopNotify.h"
+#include "MicWatcher.h"
+
 #include <QDBusConnection>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QDBusReply>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QUrl>
 
 namespace {
@@ -21,8 +27,13 @@ DaemonClient::DaemonClient(QObject *parent)
     bus.connect(kService, kPath, kInterface, QStringLiteral("MessageChunk"), this, SLOT(onChunk(QString, QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionDone"), this, SLOT(onDone(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionError"), this, SLOT(onFailed(QString, QString)));
+    bus.connect(kService, kPath, kInterface, QStringLiteral("ApprovalChanged"), this,
+                SLOT(onApprovalChanged(QString, QString)));
     refreshBackend();
+    updatePendingCount();
 }
+
+DaemonClient::~DaemonClient() = default;
 
 QString DaemonClient::newSession()
 {
@@ -104,4 +115,60 @@ void DaemonClient::onDone(const QString &session)
 void DaemonClient::onFailed(const QString &session, const QString &message)
 {
     emit failed(session, message);
+}
+
+QStringList DaemonClient::approvals(const QString &state)
+{
+    QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("ListApprovals"), state);
+    return reply.isValid() ? reply.value() : QStringList();
+}
+
+QString DaemonClient::approve(const QString &id)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("Approve"), id, QStringLiteral("desktop"));
+    return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
+}
+
+QString DaemonClient::deny(const QString &id, const QString &reason)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("Deny"), id, QStringLiteral("desktop"), reason);
+    return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
+}
+
+void DaemonClient::updatePendingCount()
+{
+    const int count = approvals(QStringLiteral("pending")).size();
+    if (count != m_pendingCount) {
+        m_pendingCount = count;
+        emit pendingCountChanged();
+    }
+}
+
+void DaemonClient::enableNotifications(std::function<bool()> windowActive)
+{
+    m_desktop = std::make_unique<DesktopNotify>();
+    connect(m_desktop.get(), &DesktopNotify::activated, this, &DaemonClient::showApprovalsRequested);
+    DesktopNotify *desktop = m_desktop.get();
+    m_notifier = std::make_unique<ApprovalNotifier>(ApprovalNotifier::Hooks{
+        std::move(windowActive), [] { return Mic::inUseNow(); },
+        [desktop](const QString &title, const QString &body) { desktop->show(title, body); }});
+}
+
+void DaemonClient::onApprovalChanged(const QString &id, const QString &state)
+{
+    updatePendingCount();
+    if (m_notifier) {
+        if (state == QLatin1String("pending")) {
+            for (const QString &line : approvals(QStringLiteral("pending"))) {
+                const QJsonObject a = QJsonDocument::fromJson(line.toUtf8()).object();
+                if (a.value(QStringLiteral("id")).toString() == id) {
+                    m_notifier->pending(id, a.value(QStringLiteral("summary")).toString());
+                    break;
+                }
+            }
+        } else {
+            m_notifier->resolved(id);
+        }
+    }
+    emit approvalChanged(id, state);
 }

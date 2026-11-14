@@ -10,7 +10,18 @@ ApplicationWindow {
     visible: true
     title: "nisse"
 
-    property bool showAudit: false
+    // 0 chat, 1 approvals, 2 audit log
+    property int page: 0
+
+    Connections {
+        target: daemon
+        function onShowApprovalsRequested() {
+            window.page = 1
+            window.show()
+            window.raise()
+            window.requestActivate()
+        }
+    }
 
     header: StatusBar {
         client: daemon
@@ -18,9 +29,12 @@ ApplicationWindow {
 
     StackLayout {
         anchors.fill: parent
-        currentIndex: window.showAudit ? 1 : 0
+        currentIndex: window.page
 
         ChatView {
+            client: daemon
+        }
+        ApprovalsView {
             client: daemon
         }
         AuditView {
@@ -32,8 +46,22 @@ ApplicationWindow {
         RowLayout {
             anchors.fill: parent
             Button {
-                text: window.showAudit ? "Chat" : "Audit log"
-                onClicked: window.showAudit = !window.showAudit
+                objectName: "chatTab"
+                text: "Chat"
+                checked: window.page === 0
+                onClicked: window.page = 0
+            }
+            Button {
+                objectName: "approvalsTab"
+                text: daemon.pendingCount > 0 ? "Approvals (" + daemon.pendingCount + ")" : "Approvals"
+                checked: window.page === 1
+                onClicked: window.page = 1
+            }
+            Button {
+                objectName: "auditTab"
+                text: "Audit log"
+                checked: window.page === 2
+                onClicked: window.page = 2
             }
         }
     }

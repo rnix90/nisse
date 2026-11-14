@@ -37,4 +37,7 @@ echo "$out" | grep -qx "backend: max" || { echo "FAIL: panel did not report the 
 echo "$out" | grep -qx "reply: echo: ping" || { echo "FAIL: panel did not get the fake agent reply" >&2; exit 1; }
 ' "$daemon" "$panel"
 
+# N-205: a held call decided by the real panel client, with the desktop notice it sends.
+dbus-run-session -- bash tests/e2e/approvals_inner.sh "$daemon" "$panel" "$work"
+
 echo "PASS: panel and daemon end to end"

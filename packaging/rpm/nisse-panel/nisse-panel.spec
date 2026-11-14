@@ -5,7 +5,7 @@
 
 Name:           nisse-panel
 Version:        0.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        nisse panel: chat with the AI that looks after this computer
 License:        GPL-2.0-or-later
 BuildRequires:  cmake
@@ -16,12 +16,16 @@ BuildRequires:  qt6-qtdeclarative-devel
 Requires:       nisse-daemon
 Requires:       qt6-qtdeclarative
 Requires:       nisse-branding
+# The desktop notice for a waiting approval is held back while a microphone is in use; that is read with pw-dump.
+Requires:       pipewire-utils
 
 Source1:        nisse-panel.desktop
 
 %description
-A Qt 6 / QML window with a chat, an audit log view and the active backend.
-It talks to nisse-daemon over D-Bus.
+A Qt 6 / QML window with a chat, an approvals view, an audit log view and the
+active backend. It talks to nisse-daemon over D-Bus and sends a desktop notice
+when an approval is waiting and the window is in the background, except while a
+microphone is in use.
 
 %prep
 
@@ -45,5 +49,8 @@ install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/kglobalaccel/nisse-panel.de
 %{_datadir}/kglobalaccel/nisse-panel.desktop
 
 %changelog
+* Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
+- Approvals view, desktop notice for a waiting approval (not while a microphone is in use)
+
 * Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1
 - Initial package
