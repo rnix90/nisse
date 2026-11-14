@@ -15,6 +15,7 @@ use tokio::task::AbortHandle;
 use uuid::Uuid;
 use zbus::{interface, object_server::SignalEmitter};
 
+use crate::approvals::{Approval, ApprovalQueue, ApprovalState, DecideError, NewApproval};
 use crate::runner::{AgentRunner, RunEvent, RunRequest};
 use crate::state::SessionStore;
 
@@ -38,6 +39,8 @@ struct Core {
     audit_path: PathBuf,
     /// session id -> whether Claude Code has started it (later messages resume instead of starting)
     sessions: Arc<SessionStore>,
+    /// Things the AI wants to do that need a person's yes (N-203).
+    approvals: Arc<ApprovalQueue>,
     runs: Arc<Mutex<HashMap<String, RunState>>>,
     /// The config error already audited, so a file that stays broken is reported once, not on every call.
     config_error: Arc<std::sync::Mutex<Option<String>>>,
@@ -108,8 +111,9 @@ impl Daemon {
             core: Core {
                 runner,
                 config_path,
-                audit_path,
+                audit_path: audit_path.clone(),
                 sessions: Arc::new(SessionStore::in_memory()),
+                approvals: Arc::new(ApprovalQueue::in_memory().with_audit(audit_path)),
                 runs: Arc::new(Mutex::new(HashMap::new())),
                 config_error: Arc::new(std::sync::Mutex::new(None)),
             },
@@ -127,6 +131,61 @@ impl Daemon {
         }
         self
     }
+
+    /// Keep the approvals queue in `path`. Anything still pending in the file expires (the process that was waiting
+    /// died with the old daemon); an unreadable file is set aside as `<path>.bad` and a `state-warning` says why.
+    pub fn with_approvals_file(mut self, path: PathBuf) -> Daemon {
+        let (queue, warning) = ApprovalQueue::open(path, Some(self.core.audit_path.clone()));
+        self.core.approvals = Arc::new(queue);
+        if let Some(warning) = warning {
+            self.core
+                .audit(None, "daemon", "state-warning", serde_json::json!({ "error": warning }));
+        }
+        self
+    }
+
+    /// The queue, for code inside the daemon that asks for approvals (the hook, the runner).
+    pub fn approvals(&self) -> Arc<ApprovalQueue> {
+        Arc::clone(&self.core.approvals)
+    }
+}
+
+fn approval_json(approval: &Approval) -> String {
+    serde_json::to_string(approval).unwrap_or_default()
+}
+
+fn approval_error(e: DecideError) -> zbus::fdo::Error {
+    zbus::fdo::Error::Failed(e.to_string())
+}
+
+/// Emits `ApprovalChanged` for every change to the queue and expires approvals on time. Call once after the
+/// daemon is served on `connection`.
+pub async fn forward_approval_signals(connection: &zbus::Connection, queue: Arc<ApprovalQueue>) -> zbus::Result<()> {
+    let iface = connection
+        .object_server()
+        .interface::<_, Daemon>("/org/nisse/Daemon1")
+        .await?;
+    let emitter = iface.signal_emitter().to_owned();
+    let mut changes = queue.subscribe();
+    let sweeper = Arc::clone(&queue);
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            sweeper.sweep().await;
+        }
+    });
+    tokio::spawn(async move {
+        loop {
+            match changes.recv().await {
+                Ok(change) => {
+                    let _ = Daemon::approval_changed(&emitter, &change.id, change.state.as_str()).await;
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+            }
+        }
+    });
+    Ok(())
 }
 
 /// One turn: run the agent for `text` and turn its events into D-Bus signals. `drive` sends the `SessionDone`.
@@ -288,6 +347,98 @@ impl Daemon {
             .filter_map(|record| serde_json::to_string(record).ok())
             .collect()
     }
+
+    /// Asks for an approval and returns its id. `detail_json` is whatever the decider needs to see (a JSON object, or
+    /// empty). It expires after the configured `approval_expiry_secs`.
+    async fn request_approval(
+        &self,
+        session_id: String,
+        asked_by: String,
+        tool: String,
+        summary: String,
+        detail_json: String,
+    ) -> zbus::fdo::Result<String> {
+        if asked_by.is_empty() {
+            return Err(zbus::fdo::Error::InvalidArgs(
+                "asked_by must name the asking device".into(),
+            ));
+        }
+        let detail = if detail_json.trim().is_empty() {
+            serde_json::json!({})
+        } else {
+            serde_json::from_str(&detail_json)
+                .map_err(|e| zbus::fdo::Error::InvalidArgs(format!("detail is not JSON: {e}")))?
+        };
+        let approval = self
+            .core
+            .approvals
+            .request(
+                NewApproval {
+                    session: Some(session_id).filter(|s| !s.is_empty()),
+                    asked_by,
+                    tool,
+                    summary,
+                    detail,
+                },
+                self.core.config().approval_expiry_secs,
+            )
+            .await;
+        Ok(approval.id)
+    }
+
+    /// Blocks until the approval is decided or expires, then returns it as JSON.
+    async fn wait_approval(&self, id: String) -> zbus::fdo::Result<String> {
+        match self.core.approvals.wait(&id).await {
+            Some(approval) => Ok(approval_json(&approval)),
+            None => Err(approval_error(DecideError::NotFound)),
+        }
+    }
+
+    /// The approvals, oldest first, one JSON object per string. `state` is "pending", "approved", "denied" or
+    /// "expired"; empty means all.
+    async fn list_approvals(&self, state: String) -> zbus::fdo::Result<Vec<String>> {
+        let filter = if state.is_empty() {
+            None
+        } else {
+            Some(
+                ApprovalState::parse(&state)
+                    .ok_or_else(|| zbus::fdo::Error::InvalidArgs(format!("unknown approval state: {state}")))?,
+            )
+        };
+        Ok(self
+            .core
+            .approvals
+            .list(filter)
+            .await
+            .iter()
+            .map(approval_json)
+            .collect())
+    }
+
+    /// Approves `id` as `device`; returns the approval as JSON. An error if it was already decided or expired.
+    async fn approve(&self, id: String, device: String) -> zbus::fdo::Result<String> {
+        let approval = self
+            .core
+            .approvals
+            .decide(&id, true, &device, "")
+            .await
+            .map_err(approval_error)?;
+        Ok(approval_json(&approval))
+    }
+
+    /// Denies `id` as `device` with an optional reason; returns the approval as JSON.
+    async fn deny(&self, id: String, device: String, reason: String) -> zbus::fdo::Result<String> {
+        let approval = self
+            .core
+            .approvals
+            .decide(&id, false, &device, &reason)
+            .await
+            .map_err(approval_error)?;
+        Ok(approval_json(&approval))
+    }
+
+    #[zbus(signal)]
+    async fn approval_changed(emitter: &SignalEmitter<'_>, id: &str, state: &str) -> zbus::Result<()>;
 
     #[zbus(signal)]
     async fn message_chunk(emitter: &SignalEmitter<'_>, session_id: &str, text: &str) -> zbus::Result<()>;

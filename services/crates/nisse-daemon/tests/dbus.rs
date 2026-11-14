@@ -7,7 +7,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use nisse_config::Authority;
-use nisse_daemon::dbus::Daemon;
+use nisse_daemon::approvals::{ApprovalQueue, NewApproval};
+use nisse_daemon::dbus::{forward_approval_signals, Daemon};
 use nisse_daemon::runner::{AgentRunner, FakeRunner, RunEvent, RunRequest};
 use tokio::sync::mpsc::Sender;
 use zbus::{Connection, Proxy};
@@ -19,6 +20,7 @@ struct Setup {
     _server: Connection,
     proxy: Proxy<'static>,
     config: PathBuf,
+    approvals: Arc<ApprovalQueue>,
 }
 
 fn scratch(name: &str) -> PathBuf {
@@ -43,7 +45,9 @@ async fn start(dir: PathBuf, runner: Arc<dyn AgentRunner>, with_state: bool) -> 
 /// `start` with the state file at an explicit path (for tests that make its directory unwritable).
 async fn start_with_state(dir: PathBuf, runner: Arc<dyn AgentRunner>, state: Option<PathBuf>) -> Setup {
     let config = dir.join("backends.toml");
-    let mut daemon = Daemon::new(runner, config.clone(), dir.join("audit.jsonl"));
+    let mut daemon =
+        Daemon::new(runner, config.clone(), dir.join("audit.jsonl")).with_approvals_file(dir.join("approvals.json"));
+    let approvals = daemon.approvals();
     if let Some(state) = state {
         daemon = daemon.with_state_file(state);
     }
@@ -57,11 +61,13 @@ async fn start_with_state(dir: PathBuf, runner: Arc<dyn AgentRunner>, state: Opt
         .build();
     let client = zbus::connection::Builder::unix_stream(c).p2p().build();
     let (server, client) = tokio::try_join!(server, client).unwrap();
+    forward_approval_signals(&server, Arc::clone(&approvals)).await.unwrap();
     let proxy = Proxy::new(&client, NAME, PATH, NAME).await.unwrap();
     Setup {
         _server: server,
         proxy,
         config,
+        approvals,
     }
 }
 
@@ -684,4 +690,210 @@ async fn a_cancel_racing_the_end_of_a_turn_never_makes_a_second_done() {
         rounds,
         "each send must produce exactly one SessionDone"
     );
+}
+
+// ---- the approvals queue over D-Bus (ledger N-203)
+
+fn ask(tool: &str) -> NewApproval {
+    NewApproval {
+        session: Some("s1".into()),
+        asked_by: "desktop".into(),
+        tool: tool.into(),
+        summary: format!("run {tool}"),
+        detail: serde_json::json!({ "command": "git push" }),
+    }
+}
+
+fn parse_all(lines: &[String]) -> Vec<serde_json::Value> {
+    lines.iter().map(|l| serde_json::from_str(l).unwrap()).collect()
+}
+
+#[tokio::test]
+async fn list_approvals_shows_who_asked_and_who_decided() {
+    let s = setup("approvals-list", Arc::new(FakeRunner)).await;
+    let a = s.approvals.request(ask("Bash"), 900).await;
+    let b = s.approvals.request(ask("Edit"), 900).await;
+    s.approvals.decide(&b.id, true, "phone", "").await.unwrap();
+
+    let all = parse_all(
+        &s.proxy
+            .call::<_, _, Vec<String>>("ListApprovals", &("",))
+            .await
+            .unwrap(),
+    );
+    assert_eq!(all.len(), 2);
+    assert_eq!(
+        (all[0]["id"].as_str(), all[0]["state"].as_str()),
+        (Some(a.id.as_str()), Some("pending"))
+    );
+    assert_eq!(all[0]["asked_by"], "desktop");
+    assert!(all[0]["decided_by"].is_null());
+    assert_eq!(
+        (all[1]["state"].as_str(), all[1]["decided_by"].as_str()),
+        (Some("approved"), Some("phone"))
+    );
+
+    let pending = parse_all(
+        &s.proxy
+            .call::<_, _, Vec<String>>("ListApprovals", &("pending",))
+            .await
+            .unwrap(),
+    );
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0]["id"], a.id);
+}
+
+#[tokio::test]
+async fn list_approvals_refuses_an_unknown_state_name() {
+    let s = setup("approvals-badfilter", Arc::new(FakeRunner)).await;
+    let r: zbus::Result<Vec<String>> = s.proxy.call("ListApprovals", &("maybe",)).await;
+    assert!(r.is_err());
+}
+
+#[tokio::test]
+async fn approve_over_dbus_decides_audits_and_signals() {
+    let s = setup("approvals-approve", Arc::new(FakeRunner)).await;
+    let mut changes = s.proxy.receive_signal("ApprovalChanged").await.unwrap();
+    let a = s.approvals.request(ask("Bash"), 900).await;
+    let first = next_signal(&mut changes).await;
+    let (id, state): (String, String) = first.body().deserialize().unwrap();
+    assert_eq!((id.as_str(), state.as_str()), (a.id.as_str(), "pending"));
+
+    let json: String = s.proxy.call("Approve", &(a.id.as_str(), "phone")).await.unwrap();
+    let decided: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        (decided["state"].as_str(), decided["decided_by"].as_str()),
+        (Some("approved"), Some("phone"))
+    );
+    let second = next_signal(&mut changes).await;
+    let (id, state): (String, String) = second.body().deserialize().unwrap();
+    assert_eq!((id.as_str(), state.as_str()), (a.id.as_str(), "approved"));
+
+    let lines: Vec<String> = s.proxy.call("AuditTail", &(10u32,)).await.unwrap();
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.contains("approval-approved") && l.contains("phone")),
+        "{lines:?}"
+    );
+}
+
+#[tokio::test]
+async fn deny_over_dbus_records_the_reason() {
+    let s = setup("approvals-deny", Arc::new(FakeRunner)).await;
+    let a = s.approvals.request(ask("Bash"), 900).await;
+    let json: String = s
+        .proxy
+        .call("Deny", &(a.id.as_str(), "desktop", "not now"))
+        .await
+        .unwrap();
+    let decided: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        (decided["state"].as_str(), decided["reason"].as_str()),
+        (Some("denied"), Some("not now"))
+    );
+}
+
+#[tokio::test]
+async fn a_second_decision_over_dbus_is_an_error_and_changes_nothing() {
+    let s = setup("approvals-twice", Arc::new(FakeRunner)).await;
+    let a = s.approvals.request(ask("Bash"), 900).await;
+    let _: String = s.proxy.call("Approve", &(a.id.as_str(), "phone")).await.unwrap();
+    let again: zbus::Result<String> = s.proxy.call("Deny", &(a.id.as_str(), "desktop", "late")).await;
+    assert!(again.is_err(), "the first decision wins");
+    let unknown: zbus::Result<String> = s.proxy.call("Approve", &("nope", "phone")).await;
+    assert!(unknown.is_err());
+    let kept = s.approvals.get(&a.id).await.unwrap();
+    assert_eq!(kept.decided_by.as_deref(), Some("phone"));
+}
+
+#[tokio::test]
+async fn an_unanswered_approval_expires_and_the_signal_says_so() {
+    let s = setup("approvals-expire", Arc::new(FakeRunner)).await;
+    let mut changes = s.proxy.receive_signal("ApprovalChanged").await.unwrap();
+    let a = s.approvals.request(ask("Bash"), 1).await;
+    let _pending = next_signal(&mut changes).await;
+    let expired = next_signal(&mut changes).await; // the daemon's own timer, nobody called anything
+    let (id, state): (String, String) = expired.body().deserialize().unwrap();
+    assert_eq!((id.as_str(), state.as_str()), (a.id.as_str(), "expired"));
+}
+
+#[tokio::test]
+async fn approvals_survive_a_daemon_restart() {
+    let dir = scratch("approvals-restart");
+    let first = start(dir.clone(), Arc::new(FakeRunner), false).await;
+    let done = first.approvals.request(ask("Bash"), 900).await;
+    first.approvals.decide(&done.id, true, "phone", "").await.unwrap();
+    let waiting = first.approvals.request(ask("Edit"), 900).await;
+    drop(first);
+
+    let second = start(dir, Arc::new(FakeRunner), false).await;
+    let all = parse_all(
+        &second
+            .proxy
+            .call::<_, _, Vec<String>>("ListApprovals", &("",))
+            .await
+            .unwrap(),
+    );
+    let by_id = |id: &str| all.iter().find(|a| a["id"] == id).unwrap().clone();
+    assert_eq!(by_id(&done.id)["state"], "approved");
+    assert_eq!(by_id(&waiting.id)["state"], "expired");
+    assert_eq!(by_id(&waiting.id)["decided_by"], "daemon");
+}
+
+#[tokio::test]
+async fn request_approval_over_dbus_uses_the_configured_expiry_and_wait_returns_the_decision() {
+    let s = setup("approvals-request", Arc::new(FakeRunner)).await;
+    fs::write(
+        &s.config,
+        "approval_expiry_secs = 120\nmain = \"max\"\n[[backends]]\nname = \"max\"\nkind = \"max\"\n",
+    )
+    .unwrap();
+    let id: String = s
+        .proxy
+        .call(
+            "RequestApproval",
+            &("s1", "hook", "Bash", "git push", r#"{"command":"git push"}"#),
+        )
+        .await
+        .unwrap();
+    let pending = s.approvals.get(&id).await.unwrap();
+    assert_eq!(pending.asked_by, "hook");
+    assert_eq!(pending.detail["command"], "git push");
+    assert_eq!(
+        pending.expires_at - pending.asked_at,
+        120,
+        "the config's expiry applies"
+    );
+
+    let proxy = s.proxy.clone();
+    let waiter = tokio::spawn({
+        let id = id.clone();
+        async move { proxy.call::<_, _, String>("WaitApproval", &(id.as_str(),)).await }
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(!waiter.is_finished(), "WaitApproval blocks while pending");
+    let _: String = s.proxy.call("Approve", &(id.as_str(), "phone")).await.unwrap();
+    let json = tokio::time::timeout(Duration::from_secs(5), waiter)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    let decided: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(decided["state"], "approved");
+}
+
+#[tokio::test]
+async fn request_approval_refuses_a_missing_device_and_bad_detail() {
+    let s = setup("approvals-request-bad", Arc::new(FakeRunner)).await;
+    let no_device: zbus::Result<String> = s.proxy.call("RequestApproval", &("s1", "", "Bash", "x", "{}")).await;
+    assert!(no_device.is_err());
+    let bad: zbus::Result<String> = s
+        .proxy
+        .call("RequestApproval", &("s1", "hook", "Bash", "x", "{nope"))
+        .await;
+    assert!(bad.is_err());
+    assert!(s.approvals.list(None).await.is_empty());
+    let unknown: zbus::Result<String> = s.proxy.call("WaitApproval", &("nope",)).await;
+    assert!(unknown.is_err());
 }

@@ -23,17 +23,21 @@ async fn main() -> zbus::Result<()> {
         }
         Arc::new(runner)
     };
+    let sessions_file = nisse_daemon::state::default_state_path();
     let daemon = Daemon::new(
         runner,
         nisse_config::default_config_path(),
         nisse_audit::default_log_path(),
     )
-    .with_state_file(nisse_daemon::state::default_state_path());
-    let _connection = zbus::connection::Builder::session()?
+    .with_state_file(sessions_file.clone())
+    .with_approvals_file(nisse_daemon::approvals::approvals_path_beside(&sessions_file));
+    let approvals = daemon.approvals();
+    let connection = zbus::connection::Builder::session()?
         .name("org.nisse.Daemon1")?
         .serve_at("/org/nisse/Daemon1", daemon)?
         .build()
         .await?;
+    nisse_daemon::dbus::forward_approval_signals(&connection, approvals).await?;
     std::future::pending::<()>().await;
     Ok(())
 }

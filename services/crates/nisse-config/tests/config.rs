@@ -150,3 +150,28 @@ fn authority_has_stable_names() {
     assert_eq!(Authority::Autonomous.as_str(), "autonomous");
     assert_eq!(Authority::Supervised.as_str(), "supervised");
 }
+
+#[test]
+fn the_approval_expiry_defaults_to_fifteen_minutes() {
+    assert_eq!(
+        load(&write("expiry-default", MAX_ONLY)).unwrap().approval_expiry_secs,
+        900
+    );
+    assert_eq!(Config::default_max().approval_expiry_secs, 900);
+}
+
+#[test]
+fn the_approval_expiry_is_read_from_the_file() {
+    let text = format!("approval_expiry_secs = 120\n{MAX_ONLY}");
+    assert_eq!(load(&write("expiry-set", &text)).unwrap().approval_expiry_secs, 120);
+}
+
+#[test]
+fn a_zero_approval_expiry_is_refused() {
+    // Zero would expire every approval the moment it is asked.
+    let text = format!("approval_expiry_secs = 0\n{MAX_ONLY}");
+    assert!(matches!(
+        load(&write("expiry-zero", &text)),
+        Err(ConfigError::BadApprovalExpiry)
+    ));
+}

@@ -60,6 +60,14 @@ pub struct Config {
     /// `authority = "autonomous" | "supervised"` at the top of the file; autonomous when absent.
     #[serde(default, deserialize_with = "lenient_authority")]
     pub authority: Authority,
+    /// `approval_expiry_secs = 900` at the top of the file: how long an approval waits for an answer before it
+    /// expires (and counts as denied). Fifteen minutes when absent; zero is refused.
+    #[serde(default = "default_approval_expiry_secs")]
+    pub approval_expiry_secs: u64,
+}
+
+fn default_approval_expiry_secs() -> u64 {
+    900
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -70,6 +78,8 @@ pub enum ConfigError {
     Io(io::Error),
     #[error("invalid config: {0}")]
     Parse(toml::de::Error),
+    #[error("approval_expiry_secs must be at least 1")]
+    BadApprovalExpiry,
     #[error("main backend {0:?} is not defined")]
     UnknownMain(String),
     #[error("route {category:?} points at undefined backend {backend:?}")]
@@ -89,6 +99,7 @@ impl Config {
             }],
             routes: BTreeMap::new(),
             authority: Authority::Autonomous,
+            approval_expiry_secs: default_approval_expiry_secs(),
         }
     }
 
@@ -100,6 +111,9 @@ impl Config {
     }
 
     fn validate(self) -> Result<Config, ConfigError> {
+        if self.approval_expiry_secs == 0 {
+            return Err(ConfigError::BadApprovalExpiry);
+        }
         if !self.backends.iter().any(|b| b.name == self.main) {
             return Err(ConfigError::UnknownMain(self.main));
         }
