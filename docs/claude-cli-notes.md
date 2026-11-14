@@ -137,6 +137,15 @@ its stdin; `claude auth status` then shows `loggedIn: true`).
 - Commands used: `claude remote-control --name nisse-probe --debug-file F` with `echo y` piped in, run for 25 seconds
   under `timeout`; the registered environment is left to expire on the account side.
 
+## The denial line in host mode (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-225)
+
+The real CLI sends no `permission_denied` event when the host answers deny (N-224), so the runner writes the chat line
+itself: `[<tool> was not allowed]`, once per approval that was denied or expired, from the task that waits for the
+answer. A `permission_denied` event that a CLI might still send in host mode is ignored there (no doubled line); the
+one-shot path (autonomous, or supervised without the approvals queue) keeps showing the CLI's own event. Live run
+(`tools/claude-probe/live_host.sh`): the deny case and the expiry case each showed exactly one `[Bash was not allowed]`
+chunk, the approve case none.
+
 ## The daemon starts and stops `claude remote-control` (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-209)
 
 `tools/claude-probe/live_remote.sh`: the real `nisse-daemon` (no fake runner) in a private session bus, signed in to the

@@ -468,3 +468,93 @@ fn a_permission_denied_event_is_shown_as_a_line_of_text() {
         other => panic!("expected text, got {other:?}"),
     }
 }
+
+// ---- the denial line in host mode (ledger N-225): the real CLI sends no permission_denied event when the host denies,
+// so the runner writes the line itself, once per denied or expired approval
+
+fn not_allowed_lines(events: &[RunEvent]) -> Vec<String> {
+    events
+        .iter()
+        .filter_map(|e| match e {
+            RunEvent::Text(t) if t.contains("not allowed") => Some(t.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn a_denied_approval_leaves_one_not_allowed_line_in_the_chat() {
+    let (bin, _dir) = asks_once("line-deny");
+    let queue = Arc::new(ApprovalQueue::in_memory());
+    let events = start(runner(bin), supervised(Some(hook(&queue, 900))));
+    let a = pending(&queue, 1).await.remove(0);
+    queue.decide(&a.id, false, "phone", "not on main").await.unwrap();
+    let events = finish(events).await;
+    let lines = not_allowed_lines(&events);
+    assert_eq!(lines.len(), 1, "{events:?}");
+    assert!(lines[0].contains("Bash"), "{lines:?}");
+}
+
+#[tokio::test]
+async fn an_expired_approval_leaves_one_not_allowed_line() {
+    let (bin, _dir) = asks_once("line-expire");
+    let queue = Arc::new(ApprovalQueue::in_memory());
+    let events = finish(start(runner(bin), supervised(Some(hook(&queue, 1))))).await;
+    assert_eq!(not_allowed_lines(&events).len(), 1, "{events:?}");
+}
+
+#[tokio::test]
+async fn an_approved_call_leaves_no_denial_line() {
+    let (bin, _dir) = asks_once("line-allow");
+    let queue = Arc::new(ApprovalQueue::in_memory());
+    let events = start(runner(bin), supervised(Some(hook(&queue, 900))));
+    let a = pending(&queue, 1).await.remove(0);
+    queue.decide(&a.id, true, "phone", "").await.unwrap();
+    let events = finish(events).await;
+    assert!(not_allowed_lines(&events).is_empty(), "{events:?}");
+}
+
+#[tokio::test]
+async fn two_denied_approvals_leave_two_lines_one_each() {
+    let (bin, _dir) = fake_claude(
+        "line-two",
+        &format!(
+            "d=\"$(dirname \"$0\")\"\nread -r first\n{INIT}\n{ASK_BASH}\n{ASK_EDIT}\nread -r a1\nread -r a2\n{REPLY}\n{RESULT}\ncat > /dev/null"
+        ),
+    );
+    let queue = Arc::new(ApprovalQueue::in_memory());
+    let events = start(runner(bin), supervised(Some(hook(&queue, 900))));
+    for a in pending(&queue, 2).await {
+        queue.decide(&a.id, false, "phone", "no").await.unwrap();
+    }
+    let events = finish(events).await;
+    let lines = not_allowed_lines(&events);
+    assert_eq!(lines.len(), 2, "{events:?}");
+    assert!(
+        lines.iter().any(|l| l.contains("Bash")) && lines.iter().any(|l| l.contains("Edit")),
+        "{lines:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_cli_that_also_sends_permission_denied_in_host_mode_does_not_double_the_line() {
+    let denied = r#"printf '%s\n' '{"type":"system","subtype":"permission_denied","tool_name":"Bash","tool_use_id":"t1","message":"x"}'"#;
+    let (bin, _dir) = fake_claude(
+        "line-double",
+        &format!("read -r first\n{INIT}\n{ASK_BASH}\nread -r answer\n{denied}\n{REPLY}\n{RESULT}\ncat > /dev/null"),
+    );
+    let queue = Arc::new(ApprovalQueue::in_memory());
+    let events = start(runner(bin), supervised(Some(hook(&queue, 900))));
+    let a = pending(&queue, 1).await.remove(0);
+    queue.decide(&a.id, false, "phone", "no").await.unwrap();
+    let events = finish(events).await;
+    assert_eq!(not_allowed_lines(&events).len(), 1, "{events:?}");
+}
+
+#[tokio::test]
+async fn the_one_shot_path_still_shows_the_cli_own_permission_denied_event() {
+    let denied = r#"printf '%s\n' '{"type":"system","subtype":"permission_denied","tool_name":"Bash","tool_use_id":"t1","message":"x"}'"#;
+    let (bin, _dir) = fake_claude("line-oneshot", &format!("{INIT}\n{denied}\n{REPLY}\n{RESULT}"));
+    let events = finish(start(runner(bin), supervised(None))).await;
+    assert_eq!(not_allowed_lines(&events).len(), 1, "{events:?}");
+}

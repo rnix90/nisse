@@ -429,6 +429,8 @@ struct HostSession {
     session: String,
     /// Lines for the CLI's stdin; `None` once the turn is over, which closes stdin.
     out: Option<UnboundedSender<String>>,
+    /// Where the turn's events go: a denied or expired approval leaves a "was not allowed" line here (N-225).
+    events: Sender<RunEvent>,
     waiters: JoinSet<()>,
     /// Approvals asked and not yet answered to the CLI; counts as a sign of life while above zero.
     waiting: Arc<AtomicUsize>,
@@ -437,7 +439,7 @@ struct HostSession {
 }
 
 impl HostSession {
-    fn new(hook: ApprovalHook, session: String, out: UnboundedSender<String>) -> HostSession {
+    fn new(hook: ApprovalHook, session: String, out: UnboundedSender<String>, events: Sender<RunEvent>) -> HostSession {
         let open = Arc::new(std::sync::Mutex::new(Vec::new()));
         HostSession {
             _guard: PendingGuard {
@@ -447,6 +449,7 @@ impl HostSession {
             hook,
             session,
             out: Some(out),
+            events,
             waiters: JoinSet::new(),
             waiting: Arc::new(AtomicUsize::new(0)),
             open,
@@ -498,12 +501,21 @@ impl HostSession {
         self.waiting.fetch_add(1, Ordering::SeqCst);
         let queue = Arc::clone(&self.hook.queue);
         let out = self.out.clone();
+        let events = self.events.clone();
         let waiting = Arc::clone(&self.waiting);
         let input = request["input"].clone();
+        let tool_name = approval.tool.clone();
         self.waiters.spawn(async move {
             if let Some(done) = queue.wait(&approval.id).await {
                 if let Some(out) = out {
                     let _ = out.send(control_response(&request_id, answer_for(&done, input)));
+                }
+                // The real CLI sends no permission_denied event when the host answers deny (docs/claude-cli-notes.md,
+                // N-224), so the line for the chat comes from here: once per denied or expired approval.
+                if done.state != ApprovalState::Approved {
+                    let _ = events
+                        .send(RunEvent::Text(format!("[{tool_name} was not allowed]")))
+                        .await;
                 }
             }
             waiting.fetch_sub(1, Ordering::SeqCst);
@@ -600,7 +612,12 @@ impl ClaudeCliRunner {
         let mut guard = TreeGuard((pgid > 0).then_some(pgid));
         let mut host = match (&req.approvals, child.stdin.take()) {
             (Some(hook), Some(stdin)) if host_mode => {
-                let host = HostSession::new(hook.clone(), req.session_id.clone(), spawn_stdin_writer(stdin));
+                let host = HostSession::new(
+                    hook.clone(),
+                    req.session_id.clone(),
+                    spawn_stdin_writer(stdin),
+                    tx.clone(),
+                );
                 host.send(user_line(&req.prompt));
                 Some(host)
             }
@@ -636,6 +653,9 @@ impl ClaudeCliRunner {
                                     host.on_control_request(&value).await;
                                     continue;
                                 }
+                                // The line for a denial is written by the waiter (N-225); a CLI that also sends the event
+                                // must not double it.
+                                Some("system") if value["subtype"] == "permission_denied" => continue,
                                 // The turn is over: close stdin so the CLI exits, and deny anything still pending.
                                 Some("result") => host.close("the turn ended").await,
                                 _ => {}
