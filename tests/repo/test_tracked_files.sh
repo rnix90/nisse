@@ -11,7 +11,9 @@ for f in build/FEDORA_RELEASE build/build-iso.sh build/build-all.sh build/render
          tools/logo/build_system.py tests/rpm/placeholder-paths.txt assets/logo/system/usr/share/pixmaps/fedora-logo.png \
          tests/e2e/check_start_button.py tests/e2e/fixtures/start-button-placeholder.png \
          packaging/rpm/nisse-theme/nisse-theme.spec tests/rpm/test_theme.sh packaging/rpm/nisse-lookandfeel/nisse-lookandfeel.spec packaging/rpm/nisse-defaults/nisse-defaults.spec tests/rpm/test_defaults.sh assets/defaults/xdg/kwinrc assets/defaults/xdg/konsolerc assets/theme/konsole/NisseEmber.colorscheme assets/theme/konsole/Nisse.profile tools/palette/build_konsole.py tests/rpm/test_lookandfeel.sh assets/theme/xdg/kdeglobals assets/theme/lookandfeel/start-here-icon.js assets/theme/lookandfeel/layout.js assets/theme/lookandfeel/org.nisse.desktop/metadata.json assets/theme/lookandfeel/org.nisse.desktop/contents/defaults assets/theme/lookandfeel/org.nisse.desktop.light/metadata.json assets/theme/lookandfeel/org.nisse.desktop.light/contents/defaults assets/palette/ember.json tools/palette/build_scheme.py \
-         assets/theme/color-schemes/NisseEmber.colors assets/theme/color-schemes/NisseEmberLight.colors; do
+         assets/theme/color-schemes/NisseEmber.colors assets/theme/color-schemes/NisseEmberLight.colors \
+         tools/vm/livevm.py tools/vm/imgdiff.py tools/vm/regress.py tools/vm/tests/test_imgdiff.py tools/vm/tests/test_regress.py \
+         tests/golden/desktop.png tests/golden/panel.png tests/golden/launcher.png tests/golden/settings.png tests/golden/terminal.png; do
     if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
         echo "ok   tracked: $f"
     else

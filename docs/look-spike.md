@@ -17,7 +17,7 @@ window decorations need their own theme, and what does each way cost? Three cand
 ## Method
 
 Real renders, not mockups. The 2026-11-05 ISO (Plasma 6.6.4, KWin 6.6.4, Qt 6.10.2) was booted under QEMU. A small
-driver (`tools/vm/prototype_live_driver.py`) logged in over the serial console, applied each variant to the live Plasma
+driver (`tools/vm/livevm.py`) logged in over the serial console, applied each variant to the live Plasma
 Wayland session and screenshotted the same three apps each time: Dolphin (a Qt widgets app), System Settings (a
 Kirigami app) and the Nisse panel app (our own QML app). Variants:
 

@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-# PROTOTYPE from the N-105 look spike (2026-11-12). Boots the Nisse ISO under QEMU on the Windows host with the serial
-# console on a TCP port, logs in as liveuser (empty password), runs shell commands in the guest and takes screenshots
-# through the QEMU monitor. N-113 (screenshot regression harness) turns this into a proper tool; until then it is
-# a prototype and has no tests. Gotchas found with it: the live session locks itself after about 5 minutes idle (turn
-# off Autolock in kscreenlockerrc first), loginctl unlock-sessions asks polkit and swallows the next typed characters,
-# and sudo needs a password in the live session (extract RPMs into the home folder instead).
-"""Live-session driver prototype: boot the Nisse ISO, log in over serial, run commands, take screenshots."""
+# Live-session driver (from the N-105 look spike, made a tool by N-113). Boots the Nisse ISO under QEMU on the Windows
+# host with the serial console on a TCP port, logs in as liveuser (empty password), runs shell commands in the guest and
+# takes screenshots through the QEMU monitor. The screenshot regression harness (regress.py) is built on it.
+# Gotchas found with it: the live session locks itself after about 5 minutes idle (prepare_session turns Autolock off),
+# loginctl unlock-sessions asks polkit and swallows the next typed characters, and sudo needs a password in the live
+# session (extract RPMs into the home folder instead).
+"""Live-session driver: boot the Nisse ISO, log in over serial, run commands, take screenshots."""
 import base64
 import random
 import re
@@ -14,6 +14,24 @@ import subprocess
 import threading
 import time
 from pathlib import Path
+
+# What a graphical command needs when it is started from the serial console instead of from the Plasma session.
+SESSION_ENV = """
+export XDG_RUNTIME_DIR=/run/user/1000
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+export WAYLAND_DISPLAY=wayland-0
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=KDE
+export KDE_FULL_SESSION=true
+export XDG_DATA_DIRS=$HOME/.local/share:/usr/local/share:/usr/share
+"""
+# No lock screen, no dimming, no screen off while the harness takes its time.
+QUIET_SESSION = (
+    "kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false; "
+    "kwriteconfig6 --file kscreenlockerrc --group Daemon --key LockOnResume false; "
+    "kwriteconfig6 --file powerdevilrc --group AC --group Display --key DimDisplayWhenIdle false; "
+    "kwriteconfig6 --file powerdevilrc --group AC --group Display --key TurnOffDisplayWhenIdle false; true"
+)
 
 QEMU_DIR = Path("C:/Program Files/qemu")
 ESC = chr(27)
@@ -131,6 +149,36 @@ class Vm:
         self.monitor(f"screendump {path.as_posix()} -f png")
         time.sleep(2)
         return path
+
+    def sh(self, cmd, timeout=90):
+        """Run a command with the Plasma session environment (see SESSION_ENV); needs prepare_session first."""
+        return self.run(". /tmp/env.sh; " + cmd, timeout)
+
+    def bg(self, cmd):
+        """Start a graphical program detached, with the session environment."""
+        self.run(f". /tmp/env.sh; nohup {cmd} >/dev/null 2>&1 &", 20)
+
+    def login(self, boot_timeout=420):
+        """Pick the live entry in GRUB, wait for the serial login prompt, log in as liveuser."""
+        self.keys_to_grub()
+        self.expect("login:", boot_timeout)
+        self.send("liveuser\n")
+        time.sleep(4)
+        self.run("export HOME=/home/liveuser; unset XDG_CONFIG_DIRS; cd ~", 30)
+
+    def prepare_session(self, desktop_timeout=240):
+        """Wait for the Plasma desktop, then write the environment file and switch off lock, dim and screen off."""
+        self.put("/tmp/env.sh", SESSION_ENV.encode())
+        end = time.time() + desktop_timeout
+        while time.time() < end:
+            _, code = self.run("pgrep -x plasmashell >/dev/null", 20)
+            if code == 0:
+                break
+            time.sleep(3)
+        else:
+            raise TimeoutError("plasmashell did not start")
+        time.sleep(15)  # the panel and the wallpaper finish loading after the shell process exists
+        self.sh(QUIET_SESSION, 30)
 
     def close(self):
         try:
