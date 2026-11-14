@@ -138,11 +138,14 @@ impl SessionStore {
     /// audit it.
     pub async fn set(&self, id: &str, started: bool) -> Option<String> {
         let mut map = self.map.lock().await;
+        // Creation order is the tab order, so it must never tie: a session made in the same millisecond as the last one
+        // is dated one millisecond later.
+        let next = map.values().map(|r| r.created_ms).max().map_or(0, |last| last + 1);
         map.entry(id.to_string())
             .and_modify(|r| r.started = started)
             .or_insert_with(|| Record {
                 started,
-                created_ms: now_ms(),
+                created_ms: now_ms().max(next),
                 title: None,
             });
         self.persist(&map)

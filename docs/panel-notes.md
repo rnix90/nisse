@@ -50,3 +50,25 @@ that keep a capture stream `running` while muted (they would count as in use).
 - After a panel restart the tabs come back from the daemon with their names, but earlier messages are not shown (the
   tab says so). That needs the event replay of N-220.
 - The panel's `needsYouCount` (approvals waiting) and `unreadCount` are what the taskbar badges (N-207) will show.
+
+## Taskbar badge (N-207, verified 2026-11-14 in a live Plasma 6.6.4 session from the gate-1 image)
+
+Decision (Bert): native badge only.
+
+- Plasma's task manager listens for the Unity launcher-entry update (`com.canonical.Unity.LauncherEntry`, signal
+  `Update(s app_uri, a{sv} props)`, properties `count`, `count-visible`, `urgent`) and draws a count badge on the matching
+  pinned or running launcher. Seen with Konsole and with the panel launcher (`docs/look-spike/n207-native-badge.jpg`,
+  `docs/look-spike/n207-real-badge.jpg`). The badge is a small dark circle with an Ember ring and the number at the icon's
+  top-right; with `urgent` the whole task button takes an amber highlight. One style only: Plasma does not let an app pick a
+  red or a green badge.
+- Tried and rejected: painting the count into the window icon. For an app that matches a pinned launcher the task
+  button keeps the launcher's icon and ignores the window icon; only an unpinned app shows it
+  (`docs/look-spike/n207-painted-icon.jpg`).
+- So the badge shows the number of approvals waiting (`DaemonClient::pendingCount`), urgent while any wait, and goes away at
+  zero or when the panel exits (`panel/src/LauncherBadge.cpp`). Unread completions are shown only inside the panel's tabs
+  (green dot, `SessionTabs.qml`).
+- Checked: the message is built as above (`tst_badge`); only changes are sent; the end-to-end test watches the bus for the
+  badge going 1 then 0 while an approval is requested and decided; a live Plasma showed the real `LauncherBadge` code's
+  "3" on the pinned panel launcher and the badge gone after the app exited (`tools/vm/badge_spike.py --real`,
+  `tools/vm/badge_probe.cpp`). Not verified: the font of the digit (it is the system font, which the nisse look sets to
+  Nunito); a badge from the full panel app in a session with the daemon (GATE 2).

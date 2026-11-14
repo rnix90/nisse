@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "DaemonClient.h"
+#include "LauncherBadge.h"
 
 #include <QCoreApplication>
 #include <QGuiApplication>
@@ -51,6 +52,8 @@ static int selfTestApprovals(int argc, char *argv[])
     QTextStream out(stdout);
     DaemonClient client;
     client.enableNotifications([] { return false; });
+    LauncherBadge badge;
+    QObject::connect(&client, &DaemonClient::pendingCountChanged, &app, [&] { badge.update(client.pendingCount()); });
     bool decided = false;
     auto act = [&] {
         if (decided)
@@ -152,6 +155,15 @@ int main(int argc, char *argv[])
 
     DaemonClient client;
     client.enableNotifications([] { return QGuiApplication::applicationState() == Qt::ApplicationActive; });
+    // The taskbar badge follows the number of approvals waiting. --demo-badge N shows N without a daemon, for the
+    // screenshot in the live image (N-207).
+    LauncherBadge badge;
+    QObject::connect(&client, &DaemonClient::pendingCountChanged, &app, [&] { badge.update(client.pendingCount()); });
+    badge.update(client.pendingCount());
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (QByteArray(argv[i]) == "--demo-badge")
+            badge.update(QByteArray(argv[i + 1]).toInt());
+    }
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("daemon"), &client);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },

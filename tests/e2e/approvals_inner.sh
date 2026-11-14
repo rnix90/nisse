@@ -9,7 +9,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 "$daemon" &
 daemon_pid=$!
-trap 'kill $daemon_pid ${mon_pid:-} ${panel_pid:-} 2>/dev/null || true' EXIT
+trap 'kill $daemon_pid ${mon_pid:-} ${badge_mon_pid:-} ${panel_pid:-} 2>/dev/null || true' EXIT
 for _ in $(seq 1 50); do
     busctl --user introspect org.nisse.Daemon1 /org/nisse/Daemon1 >/dev/null 2>&1 && break
     sleep 0.2
@@ -19,6 +19,9 @@ call() { busctl --user --json=short call org.nisse.Daemon1 /org/nisse/Daemon1 or
 # No notification service runs here; the monitor still sees the call the panel makes to it.
 dbus-monitor --session "type='method_call',interface='org.freedesktop.Notifications',member='Notify'" >"$work/notify.log" 2>&1 &
 mon_pid=$!
+# N-207: the taskbar badge is a signal on the session bus (Plasma listens for it).
+dbus-monitor --session "type='signal',interface='com.canonical.Unity.LauncherEntry'" >"$work/badge.log" 2>&1 &
+badge_mon_pid=$!
 sleep 1
 
 "$panel" --self-test-approvals >"$work/panel-approvals.out" 2>&1 &
@@ -44,4 +47,11 @@ grep -q '"actor":"desktop"' "$NISSE_AUDIT_LOG" || fail "the audit record does no
 sleep 0.5
 grep -q 'nisse needs you' "$work/notify.log" || fail "no desktop notice was sent: $(cat "$work/notify.log")"
 grep -q 'git push origin main' "$work/notify.log" || fail "the desktop notice does not name the call"
+python3 - "$work/badge.log" <<'PY' || fail "the taskbar badge did not go 1 then 0: $(cat "$work/badge.log")"
+import re, sys
+text = open(sys.argv[1]).read()
+assert "application://nisse-panel.desktop" in text, "not addressed to the panel launcher"
+counts = [int(n) for n in re.findall(r'string "count"\s+variant\s+int64 (\d+)', text)]
+assert counts == [1, 0], counts
+PY
 echo "approvals e2e ok"

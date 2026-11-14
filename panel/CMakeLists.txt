@@ -13,7 +13,7 @@ qt_add_qml_module(nisse-panel
     VERSION 1.0
     QML_FILES qml/Main.qml qml/ChatView.qml qml/AuditView.qml qml/StatusBar.qml qml/ApprovalsView.qml qml/SessionTabs.qml
     SOURCES src/DaemonClient.h src/DaemonClient.cpp src/ApprovalNotifier.h src/ApprovalNotifier.cpp
-            src/MicWatcher.h src/MicWatcher.cpp src/DesktopNotify.h src/DesktopNotify.cpp
+            src/MicWatcher.h src/MicWatcher.cpp src/DesktopNotify.h src/DesktopNotify.cpp src/LauncherBadge.h src/LauncherBadge.cpp
 )
 target_link_libraries(nisse-panel PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::DBus)
 install(TARGETS nisse-panel RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -32,3 +32,10 @@ target_include_directories(tst_notifier PRIVATE src)
 target_link_libraries(tst_notifier PRIVATE Qt6::Test Qt6::Core)
 add_test(NAME tst_notifier COMMAND tst_notifier)
 set_tests_properties(tst_notifier PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# The taskbar badge message and its change-only sending (no bus needed).
+add_executable(tst_badge tests/tst_badge.cpp src/LauncherBadge.cpp)
+target_include_directories(tst_badge PRIVATE src)
+target_link_libraries(tst_badge PRIVATE Qt6::Test Qt6::Core Qt6::DBus)
+add_test(NAME tst_badge COMMAND tst_badge)
+set_tests_properties(tst_badge PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

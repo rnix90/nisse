@@ -127,3 +127,14 @@ async fn a_sessions_file_from_before_names_existed_still_loads() {
         "an old entry is dated from when it was first read"
     );
 }
+
+#[tokio::test]
+async fn sessions_made_in_the_same_instant_still_keep_their_creation_order() {
+    let store = SessionStore::in_memory();
+    let ids: Vec<String> = (0..50).map(|i| format!("{:02}-{}", 49 - i, i)).collect(); // ids sort the other way round
+    for id in &ids {
+        store.set(id, false).await;
+    }
+    let listed: Vec<String> = store.list().await.into_iter().map(|s| s.id).collect();
+    assert_eq!(listed, ids);
+}
