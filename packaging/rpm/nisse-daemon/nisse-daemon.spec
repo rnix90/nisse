@@ -5,7 +5,7 @@
 
 Name:           nisse-daemon
 Version:        0.1
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        nisse daemon: AI sessions for the nisse panel
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
@@ -22,7 +22,9 @@ Source4:        managed-settings.json
 %description
 A user service on the session bus (org.nisse.Daemon1) that runs Claude Code
 sessions for the nisse panel, routes them to the configured backend and keeps
-an audit log. Includes the hook that records Claude Code's tool use.
+an audit log. Includes the hook that records Claude Code's tool use and the
+guardrail hook that holds deleting, overwriting and outbound actions of the
+sessions it starts until a person approves them.
 
 The package also installs a Claude Code managed settings file under /etc.
 It makes every Claude Code run on this computer, including ones started from
@@ -42,6 +44,7 @@ mkdir -p licenses
 install -pm 0644 %{nisse_root}/LICENSE licenses/LICENSE
 install -Dpm 0755 %{nisse_root}/services/target/release/nisse-daemon %{buildroot}%{_bindir}/nisse-daemon
 install -Dpm 0755 %{nisse_root}/services/target/release/nisse-audit-hook %{buildroot}%{_bindir}/nisse-audit-hook
+install -Dpm 0755 %{nisse_root}/services/target/release/nisse-guard-hook %{buildroot}%{_bindir}/nisse-guard-hook
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_userunitdir}/nisse-daemon.service
 install -Dpm 0644 %{SOURCE2} %{buildroot}%{_datadir}/dbus-1/services/org.nisse.Daemon1.service
 install -Dpm 0644 %{SOURCE3} %{buildroot}%{_datadir}/nisse/claude-settings.json
@@ -51,6 +54,7 @@ install -Dpm 0644 %{SOURCE4} %{buildroot}%{_sysconfdir}/claude-code/managed-sett
 %license licenses/LICENSE
 %{_bindir}/nisse-daemon
 %{_bindir}/nisse-audit-hook
+%{_bindir}/nisse-guard-hook
 %{_userunitdir}/nisse-daemon.service
 %{_datadir}/dbus-1/services/org.nisse.Daemon1.service
 %{_datadir}/nisse/claude-settings.json
@@ -58,6 +62,9 @@ install -Dpm 0644 %{SOURCE4} %{buildroot}%{_sysconfdir}/claude-code/managed-sett
 %config(noreplace) %{_sysconfdir}/claude-code/managed-settings.json
 
 %changelog
+* Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-4
+- Guardrail hook for daemon sessions (classifier plus approval hold); the watchdog does not count a held call as hung
+
 * Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-3
 - Audit hook for terminal sessions: managed settings (audit only, never blocks), source field, NISSE_SESSION so daemon sessions are recorded once
 

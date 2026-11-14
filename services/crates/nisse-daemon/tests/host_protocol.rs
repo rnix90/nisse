@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use nisse_config::Authority;
-use nisse_daemon::approvals::{Approval, ApprovalQueue, ApprovalState};
+use nisse_daemon::approvals::{Approval, ApprovalQueue, ApprovalState, NewApproval};
 use nisse_daemon::runner::{parse_line, AgentRunner, ApprovalHook, ClaudeCliRunner, RunEvent, RunRequest};
 use tokio::sync::mpsc;
 
@@ -252,6 +252,72 @@ async fn a_pending_approval_does_not_trip_the_hung_watchdog() {
         "a CLI waiting for a person is not hung: {events:?}"
     );
     assert_eq!(events.last(), Some(&RunEvent::Done));
+}
+
+/// A CLI that is silent for 1.5 seconds in the middle of a turn, like one whose tool call is held by the guardrail hook.
+fn silent_for_a_while(name: &str) -> PathBuf {
+    let (bin, _dir) = fake_claude(
+        name,
+        &format!(
+            "{INIT}
+sleep 1.5
+{REPLY}
+{RESULT}"
+        ),
+    );
+    bin
+}
+
+fn autonomous(hook: Option<ApprovalHook>) -> RunRequest {
+    RunRequest {
+        authority: Authority::Autonomous,
+        ..supervised(hook)
+    }
+}
+
+fn guardrail_approval(session: &str) -> NewApproval {
+    NewApproval {
+        session: Some(session.into()),
+        asked_by: "guardrail".into(),
+        tool: "Bash".into(),
+        summary: "Bash: git push".into(),
+        detail: serde_json::json!({}),
+    }
+}
+
+#[tokio::test]
+async fn a_guardrail_approval_pending_for_the_session_keeps_the_hung_watchdog_off_even_when_autonomous() {
+    // The guardrail hook (N-204) holds a tool call inside the CLI, so the CLI is silent while a person decides. The
+    // daemon sees that only through the queue, and an autonomous session has no host protocol to tell it.
+    let queue = Arc::new(ApprovalQueue::in_memory());
+    queue.request(guardrail_approval("sess-1"), 900).await;
+    let quick = ClaudeCliRunner::new()
+        .with_binary(silent_for_a_while("guardrail-wait"))
+        .with_hung_after(Duration::from_millis(400))
+        .with_check_in(Duration::from_millis(50));
+    let events = finish(start(quick, autonomous(Some(hook(&queue, 900))))).await;
+    assert!(
+        !events.iter().any(|e| matches!(e, RunEvent::Error(_))),
+        "a CLI held by a guardrail approval is not hung: {events:?}"
+    );
+    assert_eq!(events.last(), Some(&RunEvent::Done));
+}
+
+#[tokio::test]
+async fn an_approval_pending_for_another_session_does_not_keep_the_watchdog_off() {
+    let queue = Arc::new(ApprovalQueue::in_memory());
+    queue.request(guardrail_approval("some-other-session"), 900).await;
+    let quick = ClaudeCliRunner::new()
+        .with_binary(silent_for_a_while("other-session"))
+        .with_hung_after(Duration::from_millis(400))
+        .with_check_in(Duration::from_millis(50));
+    let events = finish(start(quick, autonomous(Some(hook(&queue, 900))))).await;
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, RunEvent::Error(m) if m.contains("did not respond"))),
+        "{events:?}"
+    );
 }
 
 #[tokio::test]

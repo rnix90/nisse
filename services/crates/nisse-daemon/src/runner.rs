@@ -55,8 +55,10 @@ pub struct RunRequest {
     /// False for the first message of a session (`--session-id`), true for later ones (`--resume`).
     pub resume: bool,
     pub authority: Authority,
-    /// Supervised runs with a hook use the CLI's host protocol: each permission prompt becomes an approval. Without
-    /// one, supervised falls back to the CLI's default mode, which denies whatever needs a prompt.
+    /// The approvals queue. Supervised runs with it use the CLI's host protocol: each permission prompt becomes an
+    /// approval (without it, supervised falls back to the CLI's default mode, which denies whatever needs a prompt).
+    /// Every run uses it to see approvals the guardrail hook holds inside the CLI (N-204), so the hung watchdog does
+    /// not kill a CLI that waits for a person.
     pub approvals: Option<ApprovalHook>,
 }
 
@@ -385,6 +387,14 @@ async fn deny_open(queue: &ApprovalQueue, ids: &std::sync::Mutex<Vec<String>>, r
     }
 }
 
+/// Whether an approval filed for this session (by the guardrail hook inside the CLI, N-204) is waiting for an answer.
+async fn guardrail_pending(req: &RunRequest) -> bool {
+    match &req.approvals {
+        Some(hook) => hook.queue.has_pending_for(&req.session_id).await,
+        None => false,
+    }
+}
+
 /// If the run future is dropped (Cancel) while approvals are pending, denies them: nobody is waiting for the answer.
 struct PendingGuard {
     queue: Arc<ApprovalQueue>,
@@ -641,7 +651,9 @@ impl ClaudeCliRunner {
                     if cpu != last_cpu {
                         last_cpu = cpu;
                         last_alive = tokio::time::Instant::now();
-                    } else if host.as_ref().is_some_and(|h| h.anyone_deciding()) {
+                    } else if host.as_ref().is_some_and(|h| h.anyone_deciding())
+                        || guardrail_pending(req).await
+                    {
                         // Silent because it is waiting for a person, not because it is stuck.
                         last_alive = tokio::time::Instant::now();
                     } else if last_alive.elapsed() >= self.hung_after {

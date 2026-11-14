@@ -206,7 +206,9 @@ impl AgentRunner for HookSpy {
 }
 
 #[tokio::test]
-async fn a_supervised_turn_carries_the_approvals_hook_and_an_autonomous_one_does_not() {
+async fn every_turn_carries_the_approvals_queue_whatever_the_authority() {
+    // The queue is also how the runner sees a guardrail approval held inside the CLI (N-204); only supervised turns use
+    // it for the CLI's own permission prompts (the authority decides that, see host_protocol.rs).
     let seen = Arc::new(Mutex::new(Vec::new()));
     let s = setup(
         "hook-spy",
@@ -223,7 +225,10 @@ async fn a_supervised_turn_carries_the_approvals_hook_and_an_autonomous_one_does
     )
     .unwrap();
     send_and_wait(&s, &id, "now supervised").await;
-    assert_eq!(*seen.lock().unwrap(), vec![None, Some(("desktop".to_string(), 300))]);
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec![Some(("desktop".to_string(), 900)), Some(("desktop".to_string(), 300))]
+    );
 }
 
 #[async_trait]
@@ -918,6 +923,51 @@ async fn request_approval_over_dbus_uses_the_configured_expiry_and_wait_returns_
         .unwrap();
     let decided: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(decided["state"], "approved");
+}
+
+#[tokio::test]
+async fn wait_approval_for_gives_up_after_its_time_and_says_still_pending() {
+    // A call that blocks for the whole approval time can be cut off by the bus (its reply timeout), so a client that
+    // waits a long time asks again and again with this bounded wait (the guardrail hook, N-204).
+    let s = setup("approvals-wait-for", Arc::new(FakeRunner)).await;
+    let id: String = s
+        .proxy
+        .call("RequestApproval", &("s1", "guardrail", "Bash", "git push", "{}"))
+        .await
+        .unwrap();
+
+    let started = std::time::Instant::now();
+    let json: String = s.proxy.call("WaitApprovalFor", &(id.as_str(), 1u32)).await.unwrap();
+    assert!(started.elapsed() >= Duration::from_millis(900), "it waited its time");
+    assert!(started.elapsed() < Duration::from_secs(5));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&json).unwrap()["state"],
+        "pending"
+    );
+
+    let proxy = s.proxy.clone();
+    let waiter = tokio::spawn({
+        let id = id.clone();
+        async move {
+            proxy
+                .call::<_, _, String>("WaitApprovalFor", &(id.as_str(), 30u32))
+                .await
+        }
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let _: String = s.proxy.call("Deny", &(id.as_str(), "phone", "no")).await.unwrap();
+    let json = tokio::time::timeout(Duration::from_secs(5), waiter)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&json).unwrap()["state"],
+        "denied"
+    );
+
+    let unknown: zbus::Result<String> = s.proxy.call("WaitApprovalFor", &("nope", 1u32)).await;
+    assert!(unknown.is_err());
 }
 
 #[tokio::test]

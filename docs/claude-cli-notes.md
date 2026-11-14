@@ -176,6 +176,46 @@ with `busctl` (SendMessage, ListApprovals, Approve, Deny):
 - The audit log holds tool inputs, which can contain secrets; it stays on the machine, and the RPM description says
   terminal sessions are recorded and how to stop it (remove the managed file).
 
+## How long a PreToolUse hook may hold a call (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-204)
+
+Each case: the hook sleeps, then prints a deny; the call is `echo ran > marker`; `--dangerously-skip-permissions`.
+
+| Hook wait | Hook `timeout` setting | Result |
+|---|---|---|
+| 75 s | none | the deny was honored (call blocked) |
+| 200 s | 1200 | the deny was honored |
+| 930 s (longer than the 900 s default approval expiry) | 1200 | the deny was honored, the turn took 934 s |
+| 20 s | 5 | the hook was killed at 5 s and **the call ran** |
+| 620 s | none | the hook was killed at 600 s and **the call ran** |
+
+- The default hook timeout is 600 seconds, and a hook that times out does not block: the call runs. So the guardrail hook
+  must always set `timeout` explicitly and must stop waiting before it (it prints deny itself).
+- The settings file ships `"timeout": 1200`, the longest wait checked here; the hook caps its own wait at 1100 s
+  (`NISSE_GUARD_MAX_WAIT_SECS` overrides) and, on giving up, denies the approval in the queue so a late answer is refused.
+  An `approval_expiry_secs` above 1100 is therefore cut at 1100 s for guardrail holds. Longer holds and larger timeouts
+  are untested.
+- Messages on the session bus can be cut off by the bus after its reply timeout, so the hook asks the daemon in slices:
+  `WaitApprovalFor(id, seconds)` (at most 60; the hook uses 30) returns the approval as it is, still `pending` if nobody
+  has answered, and the hook asks again.
+
+## Guardrail hook against the real CLI (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-204)
+
+The real `nisse-daemon` and the real `nisse-guard-hook` (in the daemon's `--settings`), `NISSE_CLI_HUNG_SECS=20`, driven
+with `busctl`; the guarded call was `echo X > file; curl -s -m 2 -d x http://127.0.0.1:9/ ; true` (an outbound upload
+that cannot reach anything):
+
+| Case | Result |
+|---|---|
+| autonomous, held 60 s (three times the hung limit), then approved | one pending approval (asked_by `guardrail`, category `outbound`); still pending after 60 s with no error and no restart; after approval the file was written and the reply was `done` |
+| autonomous, denied with a reason | file not written, reply `blocked`, reason stored |
+| autonomous, a free call (`echo ... > file`) | no approval filed, file written |
+| supervised, guarded call | exactly one approval (the guardrail's); after approving it the CLI did not ask again (the hook's allow replaced the CLI's own prompt); file written |
+
+Repeat with `tools/claude-probe/live_guard.sh`.
+
+- A hook `allow` therefore also answers the CLI's own permission prompt for that call. Not checked: whether it can
+  override a deny rule in the user's own settings.
+
 ## Not yet verified
 
 - An interactive terminal `claude` session recorded as `terminal` (GATE 2 image check); a message from claude.ai or the phone into a `claude remote-control` session; the guardrail hook on such sessions (N-209).

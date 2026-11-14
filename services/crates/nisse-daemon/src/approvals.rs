@@ -289,6 +289,18 @@ impl ApprovalQueue {
             .collect()
     }
 
+    /// Whether any approval for `session` is waiting for an answer. A session whose tool call is held by the
+    /// guardrail hook is silent for as long as that takes, so the runner must not call it hung (N-204).
+    pub async fn has_pending_for(&self, session: &str) -> bool {
+        self.sweep().await;
+        self.inner
+            .lock()
+            .await
+            .items
+            .iter()
+            .any(|a| a.state == ApprovalState::Pending && a.session.as_deref() == Some(session))
+    }
+
     /// Expires every pending approval whose time has passed. Called by `get`, `list` and `decide`, and by the
     /// daemon's timer so expiry is announced when it happens.
     pub async fn sweep(&self) {

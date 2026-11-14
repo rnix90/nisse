@@ -319,6 +319,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nisse-guard"
+version = "0.1.0"
+dependencies = [
+ "nisse-daemon",
+ "serde_json",
+ "tokio",
+ "zbus",
+]
+
+[[package]]
 name = "num-conv"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -3,7 +3,10 @@
     "PreToolUse": [
       {
         "matcher": "*",
-        "hooks": [{ "type": "command", "command": "/usr/bin/nisse-audit-hook" }]
+        "hooks": [
+          { "type": "command", "command": "/usr/bin/nisse-audit-hook" },
+          { "type": "command", "command": "/usr/bin/nisse-guard-hook", "timeout": 1200 }
+        ]
       }
     ],
     "PostToolUse": [

@@ -199,8 +199,10 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
         env: claude_env(config.main_backend()),
         resume: started,
         authority: config.authority,
-        // Supervised turns ask through the approvals queue; the local panel is the asker until pairing (N-221).
-        approvals: (config.authority == Authority::Supervised).then(|| ApprovalHook {
+        // Every turn carries the queue: supervised turns ask through it for the CLI's own permission prompts, and the
+        // runner reads it for approvals the guardrail hook holds inside the CLI (N-204). The local panel is the asker
+        // until pairing (N-221).
+        approvals: Some(ApprovalHook {
             queue: Arc::clone(&core.approvals),
             expiry_secs: config.approval_expiry_secs,
             asked_by: "desktop".to_string(),
@@ -398,6 +400,21 @@ impl Daemon {
         match self.core.approvals.wait(&id).await {
             Some(approval) => Ok(approval_json(&approval)),
             None => Err(approval_error(DecideError::NotFound)),
+        }
+    }
+
+    /// Like `WaitApproval`, but gives up after `seconds` (at most 60) and returns the approval as it is then, still
+    /// pending if nobody has answered. For clients that wait a long time: one call that blocks for the whole approval
+    /// time can be cut off by the bus, so they ask again and again.
+    async fn wait_approval_for(&self, id: String, seconds: u32) -> zbus::fdo::Result<String> {
+        let limit = std::time::Duration::from_secs(u64::from(seconds.clamp(1, 60)));
+        match tokio::time::timeout(limit, self.core.approvals.wait(&id)).await {
+            Ok(Some(approval)) => Ok(approval_json(&approval)),
+            Ok(None) => Err(approval_error(DecideError::NotFound)),
+            Err(_) => match self.core.approvals.get(&id).await {
+                Some(approval) => Ok(approval_json(&approval)),
+                None => Err(approval_error(DecideError::NotFound)),
+            },
         }
     }
 
