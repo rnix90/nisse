@@ -22,7 +22,7 @@ Task 2: complete (commits 7608a85..5260a1a, tests: bash tools/build/vm.sh ssh 'c
 Task 3: Ruling: vendored the f43 flattened KDE live kickstart, not f44/main - fedora-kickstarts is RETIRED upstream (no f44 branch; main is a README; Fedora images now use kiwi, descriptions in pagure.io/fedora-kiwi-descriptions) - spec says kickstart so f43 is used against F44 repos - cost if wrong: every Fedora release needs hand-porting of this ks; kiwi is the maintained alternative (flag to Bert).
 Task 3: Ruling: build-iso.sh generates out/nisse-live.ks by deleting fedora-release-kde, @kde-spin-initial-setup (group gone in F44) and rewriting rootpw to "rootpw --lock" (F44 anaconda rejects the upstream locked hash), then appending nisse-live.ks - needed for the build to pass - cost if wrong: more sed fixes per Fedora release.
 Task 3: Ruling: validation uses ksflatten, not ksvalidator - ksvalidator exits 1 on upstream's harmless duplicate "part /" warning - cost if wrong: weaker validation.
-Task 3: Ruling: smoke-boot waits for "login:" on the serial console instead of "Graphical Interface" (systemd stops printing status once plasmalogin takes the console) and gained --screenshot; the stock-ISO harness check was skipped (stock ISO has no serial console) and proven on our own ISO with a screenshot showing Plasma and "Welcome to Nisse!" - cost if wrong: login: proves boot, not GUI; the screenshot is manual evidence.
+Task 3: Ruling: smoke-boot waits for "login:" on the serial console instead of "Graphical Interface" (systemd stops printing status once plasmalogin takes the console) and gained --screenshot; the stock-ISO harness check was skipped (stock ISO has no serial console) and proven on our own ISO with a screenshot showing Plasma and "Welcome to nisse!" - cost if wrong: login: proves boot, not GUI; the screenshot is manual evidence.
 Task 3: Ruling: added 80-nisse-desktop.preset (enable plasmalogin.service) to nisse-release-common, with a test - removing fedora-release-kde dropped the KDE display manager preset, ISO booted to a text login - cost if wrong: none.
 Task 3: Ruling: ISO is kept on D:\nisse-build-vm\out (local) for boot tests, never on the T: share - SMB is slow and has truncated big files before - cost if wrong: none.
 Task 3: complete (commits 5260a1a..c621f9b, tests: bash -c 'bash tools/build/vm.sh ssh "cd ~/nisse && bash tests/iso/test_iso_contents.sh out/nisse-live.iso" && bash tools/vm/smoke-boot.sh /d/nisse-build-vm/out/nisse-live.iso --out /d/nisse-build-vm/out/vm --timeout 420' -> PASS: saw 'login:' after 172 s (/d/nisse-build-vm/out/vm/serial.log))
@@ -64,7 +64,7 @@ Task 10: Ruling: nisse-hw also ships nisse-hwroute-report.service (live sessions
 Task 10: Ruling: real bug found by the boot log: StartLimitIntervalSec=0 was in [Service] (systemd ignores it) in nisse-hwroute.service and nisse-fetch-claude.service; moved to [Unit]; tests are now section-aware (RED seen first), systemd-analyze verify clean on all 4 units - cost if wrong: none.
 Task 10: Ruling: the ISO build uses only Fedora's release repo (the old ISO shipped Qt 6.10.2 and Plasma 6.6.4 while `updates` has Qt 6.11.2 and Plasma 6.7.5); the VM's Qt is pinned back to 6.10 with `dnf --repo=fedora distro-sync 'qt6-*'` so nisse-panel installs into the ISO - documented in docs/build-host.md. Root cause (why the installer ignores updates) NOT investigated - cost if wrong: the ISO ships older Plasma/Qt than `latest stable`; a follow-up should make the ISO use updates.
 Task 10: Ruling: QEMU smbios values escape commas as ,, (MacBookPro15,2 broke the option); tests use here-strings instead of printf|grep -q (pipefail + SIGPIPE gave 141 on long listings/logs - seen twice) - cost if wrong: none.
-Task 10: Evidence: final ISO nisse-live.iso (3,237,236,736 bytes, 2026-10-29 03:40): test_iso_contents PASS; test_hw_in_vm PASS (surface, apple-t2, apple-pre-t2, generic); earlier ISO of the same package set booted to Plasma with "Welcome to Nisse!" (screenshot).
+Task 10: Evidence: final ISO nisse-live.iso (3,237,236,736 bytes, 2026-10-29 03:40): test_iso_contents PASS; test_hw_in_vm PASS (surface, apple-t2, apple-pre-t2, generic); earlier ISO of the same package set booted to Plasma with "Welcome to nisse!" (screenshot).
 Task 10: complete (commits b7d788c..575da03, tests: bash -c 'cd hw && python -m pytest -q && cd .. && bash tools/build/vm.sh ssh "cd ~/nisse && bash tests/iso/test_iso_contents.sh out/nisse-live.iso </dev/null"' -> PASS: ISO contents (out/nisse-live.iso))
 Final: review by a fresh reviewer (fable, whole branch 6722d13..575da03): verdict "With fixes"; 3 Critical, 3 Important, 6 Minor, plus recommendations. I verified the serious claims myself before acting.
 Final: fixed Critical 1 build/ was git-ignored (0 files tracked, ISO unbuildable from a clone) - tests/repo/test_tracked_files.sh RED(6 failures)->GREEN, removed /build/ from .gitignore and tracked 5 files.
@@ -80,7 +80,7 @@ Final: minor (deferred): nisse-fetch-claude.service has no ConditionKernelComman
 Final: minor (deferred): route.py has no exception path (missing dnf or bad TOML tracebacks and the unit retries every 5 min with the same traceback).
 Final: minor (deferred): os-release lacks HOME_URL/BUG_REPORT_URL/SUPPORT_URL/DEFAULT_HOSTNAME; /usr/share/nisse is owned only by nisse-hw.
 Final: minor (deferred): no per-session in-flight guard in the daemon (two SendMessage calls on one session start two CLIs).
-Final: Ruling: reviewer recommendations not acted on - gpgcheck=1 for the Nisse repos (do it when the repos have a host), a "reboot to use the new kernel" notice, a VM test that really executes the T2 route, and a reverse-reading tail() - cost if wrong: none now; all belong to later plans.
+Final: Ruling: reviewer recommendations not acted on - gpgcheck=1 for the nisse repos (do it when the repos have a host), a "reboot to use the new kernel" notice, a VM test that really executes the T2 route, and a reverse-reading tail() - cost if wrong: none now; all belong to later plans.
 ```
 
 ## Addendum 2026-10-29: the build moved from kickstart to kiwi
@@ -89,11 +89,11 @@ Rulings and evidence for this change are in `docs/superpowers/specs/2026-10-29-k
 `docs/superpowers/plans/2026-10-29-kiwi-build.md`; `docs/kiwi-spike.md` has the spike results.
 
 - The ISO is built with kiwi-ng from Fedora's vendored live-image description (`build/kiwi/fedora/`, pinned commit in
-  `VENDORED.md`) plus a Nisse overlay. The kickstart, `build/kickstart/` and the `lorax`/`livemedia-creator` tooling are gone.
+  `VENDORED.md`) plus a nisse overlay. The kickstart, `build/kickstart/` and the `lorax`/`livemedia-creator` tooling are gone.
 - The ISO uses Fedora's release repository only (frozen snapshot: Plasma 6.6, Qt 6.10). The VM's Qt pin stays so
   that the panel is built against the same Qt.
 - Found while testing the kiwi image: the live session needs `livesys.service` and `livesys-late.service` enabled, which
   `nisse-release` had to add to its own preset (the old kickstart enabled them by hand); Fedora's GRUB menu defaults to
   the slow media check, which the boot tests now skip.
-- Open: whether Nisse should adopt Fedora's fuller preset (tuned, thermald, systemd-oomd, flatpak-add-fedora-repos).
+- Open: whether nisse should adopt Fedora's fuller preset (tuned, thermald, systemd-oomd, flatpak-add-fedora-repos).
   RESOLVED 2026-11-02: adopted (roadmap 0.3, Phase 0); only plasma-setup and sshd are disabled.

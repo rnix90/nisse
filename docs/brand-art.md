@@ -1,6 +1,6 @@
 # Brand art review page
 
-A local page that shows every graphic Nisse inherits from Fedora and KDE (505 items in 12 groups), with a verdict,
+A local page that shows every graphic nisse inherits from Fedora and KDE (505 items in 12 groups), with a verdict,
 priority and comment per item, and exports one brief of what to draw.
 
 ## Run it

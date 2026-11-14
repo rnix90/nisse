@@ -1,6 +1,6 @@
 # Claude Code CLI notes (checked 2026-10-29, Claude Code 2.1.312)
 
-What the Nisse daemon relies on. Re-check these when the CLI version changes.
+What the nisse daemon relies on. Re-check these when the CLI version changes.
 
 ## Flags in use
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Fetch Claude Code from Anthropic's own installer at first login. Claude Code is proprietary and is never
-# shipped inside the Nisse image.
+# shipped inside the nisse image.
 #
 # Exit 0: installed. Exit 75 (EX_TEMPFAIL): no network yet, try again later. Exit 1: the installer failed.
 # The state is also written to $XDG_STATE_HOME/nisse/claude-fetch.status for the panel to show.

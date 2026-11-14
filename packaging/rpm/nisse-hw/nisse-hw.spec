@@ -4,7 +4,7 @@
 Name:           nisse-hw
 Version:        0.1
 Release:        3%{?dist}
-Summary:        Nisse hardware detection and kernel routing
+Summary:        nisse hardware detection and kernel routing
 License:        GPL-2.0-or-later
 BuildArch:      noarch
 BuildRequires:  python3-devel

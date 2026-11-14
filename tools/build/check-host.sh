@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Check that this machine can build Nisse images (kiwi-ng, see docs/build-host.md).
+# Check that this machine can build nisse images (kiwi-ng, see docs/build-host.md).
 # Exit 0: ready. Exit 1: not Fedora. Exit 2: tools missing. Exit 3: SELinux is enforcing (kiwi bootstrap fails).
 set -u
 
 if ! grep -qx 'ID=fedora' /etc/os-release 2>/dev/null; then
-    echo "not Fedora: build Nisse images inside the Fedora build VM (see docs/build-host.md)"
+    echo "not Fedora: build nisse images inside the Fedora build VM (see docs/build-host.md)"
     exit 1
 fi
 

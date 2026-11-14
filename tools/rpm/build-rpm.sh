@@ -3,7 +3,7 @@
 # Build packaging/rpm/NAME/NAME.spec into out/rpmbuild/RPMS. Run in the Fedora build VM.
 #   tools/rpm/build-rpm.sh NAME
 # Specs get these defines: nisse_root (repo root), fedora_release (build/FEDORA_RELEASE: the Fedora base, which dnf's
-# releasever and the %fedora macro need) and nisse_product (build/PRODUCT_VERSION: Nisse's own, user-visible version).
+# releasever and the %fedora macro need) and nisse_product (build/PRODUCT_VERSION: nisse's own, user-visible version).
 set -euo pipefail
 name="${1:?usage: build-rpm.sh NAME}"
 root="$(cd "$(dirname "$0")/../.." && pwd)"

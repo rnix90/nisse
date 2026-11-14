@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-//! Which AI backend Nisse talks to: the Max account or an Ollama endpoint (local or on the network).
+//! Which AI backend nisse talks to: the Max account or an Ollama endpoint (local or on the network).
 
 use std::collections::BTreeMap;
 use std::io;

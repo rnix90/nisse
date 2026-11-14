@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Proves tests/e2e/check_start_button.py can tell the Fedora hot dog, an empty panel and the Nisse mark apart, using the
-# real hot dog crop in tests/e2e/fixtures and a synthetic Nisse tile. Needs Pillow; runs on the host.
+# Proves tests/e2e/check_start_button.py can tell the Fedora hot dog, an empty panel and the nisse mark apart, using the
+# real hot dog crop in tests/e2e/fixtures and a synthetic nisse tile. Needs Pillow; runs on the host.
 set -u
 cd "$(dirname "$0")/../.."
 py="$(command -v python3 || command -v python)"
@@ -42,9 +42,9 @@ PYEOF
 "$py" tests/e2e/check_start_button.py "$tmp/hotdog.png" >"$tmp/o1" 2>&1; rc=$?
 [ "$rc" -eq 1 ] && grep -q "hot dog" "$tmp/o1" && ok "the Fedora hot dog is rejected" || bad "the hot dog was not rejected (exit $rc): $(cat "$tmp/o1")"
 "$py" tests/e2e/check_start_button.py "$tmp/empty.png" >"$tmp/o2" 2>&1; rc=$?
-[ "$rc" -eq 1 ] && grep -q "no Nisse mark" "$tmp/o2" && ok "an empty start button is rejected" || bad "an empty start button was not rejected (exit $rc): $(cat "$tmp/o2")"
+[ "$rc" -eq 1 ] && grep -q "no nisse mark" "$tmp/o2" && ok "an empty start button is rejected" || bad "an empty start button was not rejected (exit $rc): $(cat "$tmp/o2")"
 "$py" tests/e2e/check_start_button.py "$tmp/nisse.png" >"$tmp/o3" 2>&1; rc=$?
-[ "$rc" -eq 0 ] && ok "the Nisse mark passes" || bad "the Nisse mark was rejected (exit $rc): $(cat "$tmp/o3")"
+[ "$rc" -eq 0 ] && ok "the nisse mark passes" || bad "the nisse mark was rejected (exit $rc): $(cat "$tmp/o3")"
 echo "hot dog: $(head -1 "$tmp/o1"); nisse: $(head -1 "$tmp/o3")"
 
 if [ "$fail" -eq 0 ]; then echo "PASS: start button check"; else echo "$fail failure(s)"; exit 1; fi

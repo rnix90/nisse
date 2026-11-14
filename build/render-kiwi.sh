@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Assemble the kiwi description directory out/kiwi-description/ from the vendored Fedora copy and the Nisse overlay,
+# Assemble the kiwi description directory out/kiwi-description/ from the vendored Fedora copy and the nisse overlay,
 # filling in the placeholders:
 #   @RELEASE@       build/FEDORA_RELEASE (the Fedora base: repo releasever)
-#   @PRODUCT@       build/PRODUCT_VERSION (Nisse's own version: volume id, image version)
+#   @PRODUCT@       build/PRODUCT_VERSION (nisse's own version: volume id, image version)
 #   @NISSE_REPO@    dir:// URL of out/repo (override with NISSE_REPO_URL)
 #   @KERNELCMDLINE@ kernel command line of the ISO (override with NISSE_KERNELCMDLINE); the default keeps a serial
 #                   console on so tools/vm/smoke-boot.sh can follow the boot

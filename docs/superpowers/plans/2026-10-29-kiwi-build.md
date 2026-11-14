@@ -25,7 +25,7 @@
 - The kiwi-built image must still carry the Anaconda post-script that runs hardware routing at install time (`/usr/share/anaconda/post-scripts/90-nisse-hwroute.ks`). Owner: Task 3.
 - `updates` must not leak in: no `updates` repository in the rendered description, and the image's Qt must be the release version (6.10). Owner: Tasks 2 and 3.
 - A failed or interrupted kiwi build must not leave an old `out/nisse-live.iso` that looks like a fresh success. Owner: Task 3.
-- Nothing of Fedora's identity may remain in the image (`fedora-release-kde` absent, `ID=nisse`, volume id `Nisse-44`). Owner: Tasks 2 and 3.
+- Nothing of Fedora's identity may remain in the image (`fedora-release-kde` absent, `ID=nisse`, volume id `nisse-44`). Owner: Tasks 2 and 3.
 - The vendored description must be reproducible: re-running the refresh script at the pinned commit must give a tree identical to the committed one. Owner: Task 1.
 
 ## File Structure
@@ -68,7 +68,7 @@
 - [ ] **Step 4:** Run the test. Expected: PASS.
 - [ ] **Step 5:** Commit `build: vendor Fedora f44 kiwi description`.
 
-### Task 2: The Nisse overlay and renderer
+### Task 2: The nisse overlay and renderer
 
 **Files:**
 - Create: `build/kiwi/Nisse.kiwi`, `build/kiwi/nisse/components/nisse-live.xml`, `build/kiwi/nisse/repositories/nisse.xml`, `build/render-kiwi.sh`
@@ -76,13 +76,13 @@
 
 **Interfaces:**
 - Consumes: Task 1's vendored files.
-- Produces: `build/render-kiwi.sh` writes `out/kiwi-description/` (a full description directory) replacing `@NISSE_REPO@` (the `dir://` URL of `out/repo`), `@RELEASE@` (from `build/FEDORA_RELEASE`) and `@KERNELCMDLINE@` (default `quiet rhgb console=ttyS0 systemd.log_target=console`, overridable with `NISSE_KERNELCMDLINE`). Profile name: `Nisse-Live`. ISO volume id: `Nisse-44`.
+- Produces: `build/render-kiwi.sh` writes `out/kiwi-description/` (a full description directory) replacing `@NISSE_REPO@` (the `dir://` URL of `out/repo`), `@RELEASE@` (from `build/FEDORA_RELEASE`) and `@KERNELCMDLINE@` (default `quiet rhgb console=ttyS0 systemd.log_target=console`, overridable with `NISSE_KERNELCMDLINE`). Profile name: `Nisse-Live`. ISO volume id: `nisse-44`.
 
-- [ ] **Step 1:** Extend the test (part 2, run in the VM after rendering): `kiwi-ng image info --description out/kiwi-description --list-profiles` lists `Nisse-Live`; the description's package list for that profile contains `nisse-release nisse-release-common nisse-branding nisse-fonts-nunito nisse-hw nisse-firstboot nisse-daemon nisse-panel` and `anaconda-live`; it does not contain `fedora-release-kde` or `fedora-release`; the rendered repositories contain an alias `fedora` and an alias `nisse` and no alias `updates`; the rendered `volid` is `Nisse-44`; no `@...@` placeholder is left.
+- [ ] **Step 1:** Extend the test (part 2, run in the VM after rendering): `kiwi-ng image info --description out/kiwi-description --list-profiles` lists `Nisse-Live`; the description's package list for that profile contains `nisse-release nisse-release-common nisse-branding nisse-fonts-nunito nisse-hw nisse-firstboot nisse-daemon nisse-panel` and `anaconda-live`; it does not contain `fedora-release-kde` or `fedora-release`; the rendered repositories contain an alias `fedora` and an alias `nisse` and no alias `updates`; the rendered `volid` is `nisse-44`; no `@...@` placeholder is left.
 - [ ] **Step 2:** Run it. Expected: FAIL (no description yet).
-- [ ] **Step 3:** Write the overlay: `Nisse.kiwi` (name Nisse, version and release-version from the placeholder, dnf5, includes the vendored components and ours); `nisse-live.xml` (profile `Nisse-Live` requiring `BaseCommon`, `BootCoreLive`, `KDE-Desktop`; the iso type block adapted from `liveinstall.xml` with our volid, publisher and kernel command line; the live-install package set from Fedora's `liveinstall.xml`; bootstrap package `nisse-release`; our packages; `<ignore>` entries for Fedora's release and logo packages); `nisse.xml` (Fedora release repo from Fedora's metalink, signed with the Fedora key, plus the local repo with package signature checks off). Write `render-kiwi.sh` with `sed`.
+- [ ] **Step 3:** Write the overlay: `Nisse.kiwi` (name nisse, version and release-version from the placeholder, dnf5, includes the vendored components and ours); `nisse-live.xml` (profile `Nisse-Live` requiring `BaseCommon`, `BootCoreLive`, `KDE-Desktop`; the iso type block adapted from `liveinstall.xml` with our volid, publisher and kernel command line; the live-install package set from Fedora's `liveinstall.xml`; bootstrap package `nisse-release`; our packages; `<ignore>` entries for Fedora's release and logo packages); `nisse.xml` (Fedora release repo from Fedora's metalink, signed with the Fedora key, plus the local repo with package signature checks off). Write `render-kiwi.sh` with `sed`.
 - [ ] **Step 4:** Run the test. Expected: PASS. Resolve any profile-wiring errors `kiwi-ng` reports.
-- [ ] **Step 5:** Commit `build: Nisse kiwi overlay and renderer`.
+- [ ] **Step 5:** Commit `build: nisse kiwi overlay and renderer`.
 
 ### Task 3: Build the ISO with kiwi
 
@@ -108,7 +108,7 @@
 **Interfaces:**
 - Consumes: `out/nisse-live.iso`.
 
-- [ ] **Step 1:** Pull the ISO to `D:\nisse-build-vm\out\nisse-live.iso` and run `tools/vm/smoke-boot.sh` with `--screenshot`. Expected: `login:` reached and the screenshot shows Plasma with "Welcome to Nisse!".
+- [ ] **Step 1:** Pull the ISO to `D:\nisse-build-vm\out\nisse-live.iso` and run `tools/vm/smoke-boot.sh` with `--screenshot`. Expected: `login:` reached and the screenshot shows Plasma with "Welcome to nisse!".
 - [ ] **Step 2:** Run `tests/e2e/test_hw_in_vm.sh` on it. Expected: `PASS: hardware routing in VMs` (surface, apple-t2, apple-pre-t2, generic). If a marker differs on the kiwi image, fix the marker in the script and say why in the commit.
 - [ ] **Step 3:** Commit any script change `tests: boot checks on the kiwi ISO`; if nothing changed, no commit.
 

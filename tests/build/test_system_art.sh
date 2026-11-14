@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# The Nisse replacements for Fedora's placeholder art (assets/logo/system) must be exactly what tools/logo/build_system.py
+# The nisse replacements for Fedora's placeholder art (assets/logo/system) must be exactly what tools/logo/build_system.py
 # produces, and they must cover every "R" line of tests/rpm/placeholder-paths.txt. Needs Pillow; runs on the host.
 set -u
 cd "$(dirname "$0")/../.."

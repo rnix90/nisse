@@ -4,7 +4,7 @@
 
 **Status:** PLAN ONLY. Bert (2026-11-02): "let's just plan for now, we'll implement later." Do not execute until he says so.
 
-**Goal:** A locally hosted page that shows every graphic of a built Nisse image that belongs to its identity or desktop theme, each with a comment box, so Bert can assemble one large "what to draw" submission for Nisse's own artwork.
+**Goal:** A locally hosted page that shows every graphic of a built nisse image that belongs to its identity or desktop theme, each with a comment box, so Bert can assemble one large "what to draw" submission for nisse's own artwork.
 
 **Architecture:** A host-side Python tool extracts the brand-bearing graphics from a built ISO (read in the build VM, where the EROFS image mounts) according to a curated surface list, writes an `inventory.json` and preview images into the git-ignored `out/brandart/`, and a small standard-library web server shows them on `127.0.0.1` and stores Bert's comments in a JSON file on disk. An export button writes a Markdown brief (plus copies of the originals marked for redraw) that can be handed to an artist or fed back to Claude.
 
@@ -42,9 +42,9 @@ Defined in `tools/brandart/surfaces.toml` (Task 1). Each group has a title, a on
 4. **Wallpapers:** every wallpaper in the image (light and dark variants, with sizes), plus the default-wallpaper request.
 5. **Plasma look and feel:** the look-and-feel package previews and splash screens, the Plasma theme SVG sheets (panel, widgets, dialogs, tooltips, tray) rendered per sheet with their element ids listed, the window decoration (code-drawn: listed as a text-only request), the cursor theme (each cursor, rendered frames), the color schemes (rendered swatches with the key color roles).
 6. **Core icons:** a curated list of about 150 icon names that make up the daily experience (folders and files, system settings categories, network, audio, battery, notifications, window controls, the default apps) rendered from the Breeze theme at 48 and 128 px, with symbolic variants.
-7. **Default application icons:** the launcher icons of the apps Nisse ships by default (Dolphin, Konsole, Kate, Discover, System Settings, Firefox, the Nisse panel and any others in the image's default favorites).
+7. **Default application icons:** the launcher icons of the apps nisse ships by default (Dolphin, Konsole, Kate, Discover, System Settings, Firefox, the nisse panel and any others in the image's default favorites).
 8. **Sounds:** login, logout, notification and error sounds, listed as audio items with a play button (not graphics, but part of the identity and cheap to review).
-9. **Requests for new art:** surfaces with no graphic today (for example a Nisse login avatar, an empty-state illustration for the panel, a lock screen scene) plus anything Bert adds on the page.
+9. **Requests for new art:** surfaces with no graphic today (for example a nisse login avatar, an empty-state illustration for the panel, a lock screen scene) plus anything Bert adds on the page.
 
 ---
 

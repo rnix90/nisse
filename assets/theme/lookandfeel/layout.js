@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The Nisse default panel (ledger N-109), shipped as contents/layouts/org.kde.plasma.desktop-layout.js in both Nisse
+// The nisse default panel (ledger N-109), shipped as contents/layouts/org.kde.plasma.desktop-layout.js in both nisse
 // looks. Based on Plasma's stock default panel (KDE, GPL-2.0-or-later): a bottom panel, the start button, pinned
 // launchers, the task list, a separator, the tray, the clock and the show-desktop button. Differences from stock: the
-// Nisse AI panel app is pinned first, the virtual desktop pager and Discover are not shown, and the terminal is pinned.
+// nisse AI panel app is pinned first, the virtual desktop pager and Discover are not shown, and the terminal is pinned.
 // The file manager and the browser are pinned as preferred:// entries so the default apps chosen in N-507 flow through.
 var panel = new Panel
 var panelScreen = panel.screen

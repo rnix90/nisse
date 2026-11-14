@@ -1,6 +1,6 @@
-# Nisse - project rules
+# nisse - project rules
 
-Nisse is a custom Fedora 44 based, AI-native KDE Plasma distro that Bert (Robert Nix) builds with Claude. Branches:
+nisse is a custom Fedora 44 based, AI-native KDE Plasma distro that Bert (Robert Nix) builds with Claude. Branches:
 `main` (stable) and `daily` (integration; work here). Public mirror: github.com/rnix90/nisse.
 
 ## Working protocol - READ THIS FIRST
@@ -27,9 +27,14 @@ and shape; the ledger is the queue. Check the ledger structure with `python tool
 7. **Fix minor review findings too**, unless Bert's decision is needed.
 8. **ASCII only** in everything authored (code, docs, commit messages, SVGs, notifications). No codepoint above 127.
 9. **Public repo**: no credentials, no network addresses, nothing personal or homelab-specific in the repo or image.
-10. **Customizations ship as RPMs** in the Nisse repo, never as hand edits to the image. Every ISO claim is checked by
+10. **Customizations ship as RPMs** in the nisse repo, never as hand edits to the image. Every ISO claim is checked by
     a test. TDD: a failing test first.
 11. License: GPL-2.0-or-later with an SPDX header on original files. The bundled Nunito font is SIL OFL 1.1.
+12. **The name is lowercase: "nisse"**, everywhere it is printed, including at the start of a sentence (Bert,
+    2026-11-13). Only what a system fixes stays capitalised (file and QML names such as `Nisse.kiwi`, `Nisse.Panel`,
+    `Nisse.profile`, the kiwi profile `Nisse-Live`, ids such as `NisseEmber`); `tools/repo/lowercase_name.py` lists them
+    and `tests/repo/test_lowercase_name.sh` enforces the rule. The ISO volume label is lowercase too (the launcher shows
+    it). "Ember", the palette, keeps its capital.
 
 ## Tooling notes
 

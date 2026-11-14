@@ -64,7 +64,7 @@ def test_the_scheme_defines_every_section_konsole_reads():
         assert sec in s, sec
     for i in range(8):
         assert f"Color{i}" in s and f"Color{i}Intense" in s, i
-    assert s["General"]["Description"] == "Nisse Ember"
+    assert s["General"]["Description"] == "nisse Ember"
     assert s["General"]["Opacity"] == "1"
 
 
@@ -90,7 +90,7 @@ def test_the_profile_uses_the_scheme_fira_code_and_the_ember_cursor():
     lines = text.splitlines()
     assert "ColorScheme=NisseEmber" in lines
     assert any(l.startswith("Font=Fira Code,10,") for l in lines)
-    assert "Name=Nisse" in lines
+    assert "Name=nisse" in lines
     assert "UseCustomCursorColor=true" in lines
     assert "CustomCursorColor=" + ",".join(str(c) for c in contrast.rgb(DARK["accent"])) in lines
 

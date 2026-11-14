@@ -1,4 +1,4 @@
-# Nisse roadmap
+# nisse roadmap
 
 Status: draft, 2026-11-02. Written from the approved design (`docs/superpowers/specs/2026-10-28-nisse-os-design.md`), the
 kiwi amendment, the review decisions recorded in memory, and Bert's answers of 2026-11-02. Items marked (guess) are my
@@ -11,21 +11,21 @@ below without checking the ledger.
 ## Where we are
 
 Milestone 1 (thin slice) and the kiwi build switch are done and on `daily`: a branded ISO built with kiwi boots to
-Plasma ("Welcome to Nisse!"), hardware routing works for Surface, T2, pre-T2 and generic machines in spoofed VMs, and a
+Plasma ("Welcome to nisse!"), hardware routing works for Surface, T2, pre-T2 and generic machines in spoofed VMs, and a
 Rust daemon plus QML panel talk to the Claude CLI with an audit log. Everything is tested in VMs; nothing has run on real
 hardware.
 
 ## Milestone 2 target (Bert, 2026-11-02)
 
-A **complete AI layer** and the **full Nisse look and feel**, both proven in a VM. Real-hardware installs come after.
-Design direction: a distinct Nisse identity, not stock KDE. Palette (decided 2026-11-02): **Ember**, a dark Ink desktop
+A **complete AI layer** and the **full nisse look and feel**, both proven in a VM. Real-hardware installs come after.
+Design direction: a distinct nisse identity, not stock KDE. Palette (decided 2026-11-02): **Ember**, a dark Ink desktop
 with Paper text and a warm red-orange accent (the nisse's red cap; exact hex to be tuned for contrast). Dark shell, but
 document-like apps (email, word processing, PDF, web pages) keep a light background; see 1.14.
 
 ## Ground rules for every item
 
 - One plan per workstream, written before code; TDD; every ISO claim is checked by a test (contents, boot, screenshot).
-- Customizations ship as RPMs in the Nisse repo, never as hand-edits to the image, so an installed system gets them too.
+- Customizations ship as RPMs in the nisse repo, never as hand-edits to the image, so an installed system gets them too.
 - ASCII only in everything authored. No credentials or personal data in the repo or image.
 - Questions to Bert are asked one at a time.
 
@@ -46,27 +46,27 @@ flags the CLI as hung, stops it and everything it started, restarts the turn onc
 mode and its behaviour in `-p` mode is not yet verified against the real CLI (see `docs/claude-cli-notes.md`); the Fedora
 preset set is adopted except `plasma-setup.service`; Flatpak remotes are Fedora's plus Flathub.
 
-## Phase 1: the Nisse look and feel (all packaged; tested by VM screenshots)
+## Phase 1: the nisse look and feel (all packaged; tested by VM screenshots)
 
 | Id | Item | Notes |
 |---|---|---|
 | 1.1 | Palette and style direction | Decided: Ember (dark Ink base, Paper text, red-orange accent). Light variant for the whole desktop is optional and later |
 | 1.2 | Plasma color scheme, theme, window decorations | Based on the chosen palette; light and dark variants if wanted |
-| 1.3 | Icon theme, cursor theme | (guess) start from a base set and override the Nisse icons; custom cursor only if it adds value |
-| 1.4 | Wallpapers and lock/login backgrounds | Nisse artwork from the logo assets; at least one wallpaper per variant |
+| 1.3 | Icon theme, cursor theme | (guess) start from a base set and override the nisse icons; custom cursor only if it adds value |
+| 1.4 | Wallpapers and lock/login backgrounds | nisse artwork from the logo assets; at least one wallpaper per variant |
 | 1.5 | Fonts | Decided 2026-11-12 (Bert, from rendered sheets): Nunito = UI (already shipped), Fira Code = monospace (terminal, code editor), Literata = default document font. All OFL-1.1 and packaged in Fedora 44 (`fira-code-fonts` 6.2, `typetogether-literata-fonts` 2.200) |
-| 1.6 | Panel, launcher and default layout | (guess) one panel layout shipped via the Plasma look-and-feel package and `/etc/skel`; Nisse panel entry pinned |
+| 1.6 | Panel, launcher and default layout | (guess) one panel layout shipped via the Plasma look-and-feel package and `/etc/skel`; nisse panel entry pinned |
 | 1.7 | Shortcuts and window behaviour | Defaults for shortcuts, animations, night light, window rules |
 | 1.8 | Login screen (Plasma Login Manager) | Branded theme and logo |
 | 1.9 | Boot experience | Plymouth splash and GRUB theme with the nisse mark |
-| 1.10 | Terminal and editor defaults | Konsole profile in the Nisse palette; the terminal-under-cap logo is reserved for a terminal app (later) |
+| 1.10 | Terminal and editor defaults | Konsole profile in the nisse palette; the terminal-under-cap logo is reserved for a terminal app (later) |
 | 1.11 | Default apps and de-bloat | Decide what ships and what does not (decision) |
 | 1.12 | First-boot welcome and installer branding | Replace plasma-welcome-fedora content; Anaconda branding; sound and notification theme (guess) |
 | 1.14 | Light surfaces for document apps | Decided: dark shell, light document apps, set per app (not a light-content-everywhere scheme). Cover the mail client, word processor, PDF viewer and browser; check each with a screenshot of a real document; terminals and code editors stay dark |
 | 1.13 | Look-and-feel regression test | Screenshot checks of the live desktop, login, splash and panel in the VM |
 | 1.15 | SSH as an install-time option | Decided (Bert, 2026-11-02): sshd is an OPTION AT INSTALL, off by default until then. Anaconda has no checkbox for it, so it needs our own installer step or the first-boot welcome flow (1.12); the image ships `disable sshd.service` today |
-| 1.0 | Branding foundations (DONE 2026-11-05) | Replace Fedora's placeholder art (generic-logos, the hot dog on the start button, About page and installer) with Nisse's; Nisse's own product version starting at 0.2, no alpha label, no tracking of Fedora's number (VERSION_ID stays the Fedora base). Plan `docs/superpowers/plans/2026-11-02-branding-foundations.md` |
-| 1.16 | Own artwork for KDE and Fedora surfaces, with a local review page | Decided (Bert, 2026-11-02): create Nisse's own graphics for the identity and the desktop theme (scope: identity + theme layer, about 150-400 items). First a locally hosted review page showing every graphic with a comment box, exporting one big submission brief of what to draw. DONE 2026-11-05: review page built (`docs/brand-art.md`), first submission received (`docs/brand-art-submission-2026-11-05.md`); drawing the art is Phase 1. |
+| 1.0 | Branding foundations (DONE 2026-11-05) | Replace Fedora's placeholder art (generic-logos, the hot dog on the start button, About page and installer) with nisse's; nisse's own product version starting at 0.2, no alpha label, no tracking of Fedora's number (VERSION_ID stays the Fedora base). Plan `docs/superpowers/plans/2026-11-02-branding-foundations.md` |
+| 1.16 | Own artwork for KDE and Fedora surfaces, with a local review page | Decided (Bert, 2026-11-02): create nisse's own graphics for the identity and the desktop theme (scope: identity + theme layer, about 150-400 items). First a locally hosted review page showing every graphic with a comment box, exporting one big submission brief of what to draw. DONE 2026-11-05: review page built (`docs/brand-art.md`), first submission received (`docs/brand-art-submission-2026-11-05.md`); drawing the art is Phase 1. |
 
 ## Phase 2: the AI layer, core
 
@@ -101,7 +101,7 @@ preset set is adopted except `plasma-setup.service`; Flatpak remotes are Fedora'
 
 - Real-hardware installs: Surface Go first (Secure Boot off for now), then MacBooks (T2 and pre-T2).
 - facetimehd RPM for pre-T2 MacBooks (low priority, no testing).
-- Signing, MOK enrollment, and the GitHub update channels (main stable, daily daily) with gpgcheck on the Nisse repos.
+- Signing, MOK enrollment, and the GitHub update channels (main stable, daily daily) with gpgcheck on the nisse repos.
 - RPMs built in a mock against the ISO's Qt (removes the VM Qt pin); move the ISO to the updates repository.
 - A terminal app using the terminal-under-cap logo; further hardware profiles.
 - First public ISO (no "alpha" label, per the 2026-11-02 naming decision).

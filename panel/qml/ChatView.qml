@@ -35,7 +35,7 @@ Item {
             session = client.newSession()
             if (session === "") {
                 model.append({ role: "user", text: text })
-                model.append({ role: "error", text: "The Nisse daemon is not reachable. Try again in a moment." })
+                model.append({ role: "error", text: "The nisse daemon is not reachable. Try again in a moment." })
                 return
             }
         }
@@ -132,7 +132,7 @@ Item {
                 objectName: "input"
                 Layout.fillWidth: true
                 enabled: !root.busy
-                placeholderText: "Ask Nisse..."
+                placeholderText: "Ask nisse..."
                 onAccepted: {
                     root.submit(text)
                     text = ""

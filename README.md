@@ -1,6 +1,6 @@
-<p align="center"><img src="assets/logo/svg/nisse-lockup-horizontal.svg" alt="Nisse" width="420"></p>
+<p align="center"><img src="assets/logo/svg/nisse-lockup-horizontal.svg" alt="nisse" width="420"></p>
 
-# Nisse
+# nisse
 
 A custom Linux distribution, assembled step by step.
 

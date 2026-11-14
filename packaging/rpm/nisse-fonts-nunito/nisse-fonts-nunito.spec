@@ -4,7 +4,7 @@
 Name:           nisse-fonts-nunito
 Version:        0.1
 Release:        1%{?dist}
-Summary:        Nunito, the Nisse brand typeface
+Summary:        Nunito, the nisse brand typeface
 License:        OFL-1.1
 BuildArch:      noarch
 Requires:       fontconfig
@@ -12,7 +12,7 @@ Provides:       font(nunito)
 
 %description
 Nunito (roman and italic variable fonts, weight 200 to 1000) by The Nunito
-Project Authors, unmodified, bundled for Nisse's UI and branding.
+Project Authors, unmodified, bundled for nisse's UI and branding.
 
 %prep
 

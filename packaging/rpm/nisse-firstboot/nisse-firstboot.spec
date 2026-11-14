@@ -22,7 +22,7 @@ Source5:        82-nisse-flatpak.preset
 %description
 A user service that downloads Claude Code with Anthropic's own installer the
 first time a user logs in, and keeps trying until the network is up. Claude
-Code is proprietary and is never part of the Nisse image. A system service adds
+Code is proprietary and is never part of the nisse image. A system service adds
 the Flathub Flatpak remote once the network is up. Neither runs on live media.
 
 %prep

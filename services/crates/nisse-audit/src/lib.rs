@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-//! Append-only JSON-lines audit log shared by the Nisse daemon and the Claude Code hook.
+//! Append-only JSON-lines audit log shared by the nisse daemon and the Claude Code hook.
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};

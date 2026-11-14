@@ -19,12 +19,12 @@ Exported: 2026-11-05
 
 ## Logos and marks
 
-Where you see it: Start button, About this System, installer, dialogs, the Nisse panel
+Where you see it: Start button, About this System, installer, dialogs, the nisse panel
 
 ### start-here
 
 - Id: logos/start-here
-- Where it is seen: Start button, About this System, installer, dialogs, the Nisse panel
+- Where it is seen: Start button, About this System, installer, dialogs, the nisse panel
 - Source: /usr/share/icons/hicolor/scalable/apps/start-here.svg
 - Owner: generic-logos-18.0.0-27.fc44 (GPL-2.0-only AND LicenseRef-Callaway-LGPLv2+)
 - Size: 220x254, kind: svg
@@ -34,7 +34,7 @@ Where you see it: Start button, About this System, installer, dialogs, the Nisse
 ### distributor-logo-nisse (apps)
 
 - Id: logos/distributor-logo-nisse-apps
-- Where it is seen: Start button, About this System, installer, dialogs, the Nisse panel
+- Where it is seen: Start button, About this System, installer, dialogs, the nisse panel
 - Source: /usr/share/icons/hicolor/scalable/apps/distributor-logo-nisse.svg
 - Owner: nisse-branding-0.1-1.fc44 (GPL-2.0-or-later)
 - Size: 512x512, kind: svg
@@ -44,7 +44,7 @@ Where you see it: Start button, About this System, installer, dialogs, the Nisse
 ### distributor-logo-nisse-symbolic
 
 - Id: logos/distributor-logo-nisse-symbolic
-- Where it is seen: Start button, About this System, installer, dialogs, the Nisse panel
+- Where it is seen: Start button, About this System, installer, dialogs, the nisse panel
 - Source: /usr/share/icons/hicolor/symbolic/apps/distributor-logo-nisse-symbolic.svg
 - Owner: nisse-branding-0.1-1.fc44 (GPL-2.0-or-later)
 - Size: 512x512, kind: svg
@@ -54,7 +54,7 @@ Where you see it: Start button, About this System, installer, dialogs, the Nisse
 ### distributor-logo-nisse (apps)
 
 - Id: logos/distributor-logo-nisse-apps-2
-- Where it is seen: Start button, About this System, installer, dialogs, the Nisse panel
+- Where it is seen: Start button, About this System, installer, dialogs, the nisse panel
 - Source: /usr/share/icons/hicolor/256x256/apps/distributor-logo-nisse.png
 - Owner: nisse-branding-0.1-1.fc44 (GPL-2.0-or-later)
 - Size: 256x256, kind: png
@@ -64,7 +64,7 @@ Where you see it: Start button, About this System, installer, dialogs, the Nisse
 ### distributor-logo-nisse (apps)
 
 - Id: logos/distributor-logo-nisse-apps-3
-- Where it is seen: Start button, About this System, installer, dialogs, the Nisse panel
+- Where it is seen: Start button, About this System, installer, dialogs, the nisse panel
 - Source: /usr/share/icons/hicolor/48x48/apps/distributor-logo-nisse.png
 - Owner: nisse-branding-0.1-1.fc44 (GPL-2.0-or-later)
 - Size: 48x48, kind: png
@@ -74,7 +74,7 @@ Where you see it: Start button, About this System, installer, dialogs, the Nisse
 ### distributor-logo-nisse (apps)
 
 - Id: logos/distributor-logo-nisse-apps-4
-- Where it is seen: Start button, About this System, installer, dialogs, the Nisse panel
+- Where it is seen: Start button, About this System, installer, dialogs, the nisse panel
 - Source: /usr/share/icons/hicolor/16x16/apps/distributor-logo-nisse.png
 - Owner: nisse-branding-0.1-1.fc44 (GPL-2.0-or-later)
 - Size: 16x16, kind: png
@@ -84,7 +84,7 @@ Where you see it: Start button, About this System, installer, dialogs, the Nisse
 ### fedora-logo
 
 - Id: logos/fedora-logo
-- Where it is seen: Start button, About this System, installer, dialogs, the Nisse panel
+- Where it is seen: Start button, About this System, installer, dialogs, the nisse panel
 - Source: /usr/share/pixmaps/fedora-logo.png
 - Owner: generic-logos-18.0.0-27.fc44 (GPL-2.0-only AND LicenseRef-Callaway-LGPLv2+)
 - Size: 240x310, kind: png
@@ -94,7 +94,7 @@ Where you see it: Start button, About this System, installer, dialogs, the Nisse
 ### fedora-logo-small
 
 - Id: logos/fedora-logo-small
-- Where it is seen: Start button, About this System, installer, dialogs, the Nisse panel
+- Where it is seen: Start button, About this System, installer, dialogs, the nisse panel
 - Source: /usr/share/pixmaps/fedora-logo-small.png
 - Owner: generic-logos-18.0.0-27.fc44 (GPL-2.0-only AND LicenseRef-Callaway-LGPLv2+)
 - Size: 128x128, kind: png
@@ -104,7 +104,7 @@ Where you see it: Start button, About this System, installer, dialogs, the Nisse
 ### system-logo-white
 
 - Id: logos/system-logo-white
-- Where it is seen: Start button, About this System, installer, dialogs, the Nisse panel
+- Where it is seen: Start button, About this System, installer, dialogs, the nisse panel
 - Source: /usr/share/pixmaps/system-logo-white.png
 - Owner: generic-logos-18.0.0-27.fc44 (GPL-2.0-only AND LicenseRef-Callaway-LGPLv2+)
 - Size: 240x310, kind: png
@@ -114,7 +114,7 @@ Where you see it: Start button, About this System, installer, dialogs, the Nisse
 ### fedora-logo-sprite
 
 - Id: logos/fedora-logo-sprite
-- Where it is seen: Start button, About this System, installer, dialogs, the Nisse panel
+- Where it is seen: Start button, About this System, installer, dialogs, the nisse panel
 - Source: /usr/share/pixmaps/fedora-logo-sprite.svg
 - Owner: generic-logos-18.0.0-27.fc44 (GPL-2.0-only AND LicenseRef-Callaway-LGPLv2+)
 - Size: 220x254, kind: svg
@@ -131,7 +131,7 @@ Where you see it: Start button, About this System, installer, dialogs, the Nisse
 - Verdict: variant, priority: (none)
 - Comment: (none)
 
-### Nisse panel tray icon (monochrome, all states)
+### nisse panel tray icon (monochrome, all states)
 
 - Id: logos/request-nisse-panel-tray-icon-monochrome-all-states
 - Where it is seen: System tray: idle, busy, needs-you, error
@@ -157,7 +157,7 @@ Group note: all the dragon images should have the same activity theme as now but
 - Verdict: redraw, priority: (none)
 - Comment: replace just the left side of this so fedora becomes nisse
 
-### A Nisse default user avatar set
+### A nisse default user avatar set
 
 - Id: avatars/request-a-nisse-default-user-avatar-set
 - Where it is seen: Login screen and first-run user setup
@@ -558,7 +558,7 @@ Where you see it: Install to Hard Drive (Anaconda), the Welcome Center and the l
 ### Welcome Center slides (the pages of the first-run tour)
 
 - Id: installer/request-welcome-center-slides-the-pages-of-the-first-run-tour
-- Where it is seen: Welcome to Nisse! window on first boot
+- Where it is seen: Welcome to nisse! window on first boot
 - Source: no file today (a request for new art)
 - Owner: unknown owner (unknown license)
 - Size: n/a, kind: missing
@@ -579,7 +579,7 @@ Where you see it: Install to Hard Drive (Anaconda), the Welcome Center and the l
 
 Where you see it: Desktop background (light and dark variants)
 
-### Nisse default wallpaper (light, dark and a time-of-day pair)
+### nisse default wallpaper (light, dark and a time-of-day pair)
 
 - Id: wallpapers/request-nisse-default-wallpaper-light-dark-and-a-time-of-day-pair
 - Where it is seen: First thing on the desktop
@@ -695,7 +695,7 @@ Where you see it: Launcher, taskbar and menus
 
 Where you see it: Login, logout, notifications, errors and volume feedback (audio, not graphics)
 
-### Nisse login sound
+### nisse login sound
 
 - Id: sounds/request-nisse-login-sound
 - Where it is seen: After login

@@ -21,7 +21,7 @@ for f in /usr/share/icons/hicolor/48x48/apps/distributor-logo-nisse.png \
     printf '%s\n' "$bl" | grep -qxF "$f" || fail "branding RPM lacks $f"
 done
 
-# ---- Fedora's placeholder art (generic-logos, the hot dog) is replaced by Nisse's, not shipped alongside it.
+# ---- Fedora's placeholder art (generic-logos, the hot dog) is replaced by nisse's, not shipped alongside it.
 rpm -qp --provides "$brand" | grep -qE '^system-logos = ' || fail "nisse-branding must provide system-logos (anaconda, plymouth, breeze and kde-settings require it)"
 for pkg in generic-logos fedora-logos; do
     rpm -qp --conflicts "$brand" | grep -qx "$pkg" || fail "nisse-branding must conflict with $pkg"
@@ -55,7 +55,7 @@ while read -r kind path sha spec; do
     replaced=$((replaced + 1))
 done < <(grep '^R ' "$manifest")
 [ "$replaced" -ge 21 ] || fail "only $replaced replacements checked, expected 21 or more"
-echo "ok   $replaced placeholder paths replaced by Nisse art"
+echo "ok   $replaced placeholder paths replaced by nisse art"
 
 fl="$(rpm -qlp "$fonts")"
 printf '%s\n' "$fl" | grep -qF '/usr/share/fonts/nunito/Nunito[wght].ttf' || fail "fonts RPM lacks the roman TTF"

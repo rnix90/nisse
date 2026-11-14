@@ -35,7 +35,7 @@ void DaemonClient::send(const QString &session, const QString &text)
     auto *watcher = new QDBusPendingCallWatcher(m_iface.asyncCall(QStringLiteral("SendMessage"), session, text), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, session](QDBusPendingCallWatcher *w) {
         if (w->isError()) {
-            emit failed(session, tr("Could not reach the Nisse daemon: %1").arg(w->error().message()));
+            emit failed(session, tr("Could not reach the nisse daemon: %1").arg(w->error().message()));
             emit done(session);
         }
         w->deleteLater();

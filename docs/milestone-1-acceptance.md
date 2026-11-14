@@ -24,8 +24,8 @@ kernel selection. Most of it is checked by scripts. A few things need a person, 
 | Services | `cd services && cargo test --workspace` | audit log, config, runner and D-Bus API |
 | Panel | `ctest --test-dir panel/build`, `tests/e2e/panel_daemon.sh` | chat behaviour, and panel plus daemon on a real bus |
 | First-boot fetch | `tests/shell/test_fetch_claude.sh` | Claude Code is fetched, never bundled, and retried offline |
-| ISO contents | `tests/iso/test_iso_contents.sh out/nisse-live.iso` | os-release says Nisse, Nunito is there, our programs and the Anaconda post-script are in, the live-session units are enabled, Qt is 6.10, no `claude` file |
-| Boot | `tools/vm/smoke-boot.sh ISO --screenshot ...` | the ISO boots to Plasma with "Welcome to Nisse!" |
+| ISO contents | `tests/iso/test_iso_contents.sh out/nisse-live.iso` | os-release says nisse, Nunito is there, our programs and the Anaconda post-script are in, the live-session units are enabled, Qt is 6.10, no `claude` file |
+| Boot | `tools/vm/smoke-boot.sh ISO --screenshot ...` | the ISO boots to Plasma with "Welcome to nisse!" |
 | Hardware in VMs | `tests/e2e/test_hw_in_vm.sh ISO` | spoofed Surface, T2, pre-T2 and plain QEMU print the expected profile and commands |
 
 ## Checklist for Bert (about 30 minutes, needs internet)
@@ -52,28 +52,28 @@ kernel selection. Most of it is checked by scripts. A few things need a person, 
    - [ ] `cat ~/.local/state/nisse/claude-fetch.status` goes from `waiting-for-network` (if offline) to `installed`.
    - [ ] `claude --version` works. Run `claude` once to sign in to the Max account.
 3. **Panel.**
-   - [ ] Open "Nisse" from the application menu. The status bar says `Backend: max`.
+   - [ ] Open "nisse" from the application menu. The status bar says `Backend: max`.
    - [ ] Send "hello". A reply appears and the input unlocks again.
    - [ ] Open the audit log view. It lists your message, and tool use if the agent ran any tool.
          (This is the first real test of the audit hook in `/usr/share/nisse/claude-settings.json`.)
    - [ ] With no network, send a message: the panel shows an error, not a hang.
 4. **Look and feel.**
    - [ ] `fc-match Nunito` names the Nunito font.
-   - [ ] `cat /etc/os-release` shows `NAME="Nisse"`, `ID=nisse`, `LOGO=distributor-logo-nisse`, `VERSION="0.2"` and
-         `PRETTY_NAME="Nisse 0.2"` (`VERSION_ID` is 44 on purpose: it is the Fedora base that dnf needs).
-   - [ ] The start button (bottom left) is the Nisse tile, not Fedora's hot dog (the boot test checks this by script).
-   - [ ] System Settings, About this System shows the Nisse card (the lockup on an Ink card, from
-         `/usr/share/pixmaps/system-logo-white.png`), the name "Nisse 0.2" and the repository link. This one is checked
+   - [ ] `cat /etc/os-release` shows `NAME="nisse"`, `ID=nisse`, `LOGO=distributor-logo-nisse`, `VERSION="0.2"` and
+         `PRETTY_NAME="nisse 0.2"` (`VERSION_ID` is 44 on purpose: it is the Fedora base that dnf needs).
+   - [ ] The start button (bottom left) is the nisse tile, not Fedora's hot dog (the boot test checks this by script).
+   - [ ] System Settings, About this System shows the nisse card (the lockup on an Ink card, from
+         `/usr/share/pixmaps/system-logo-white.png`), the name "nisse 0.2" and the repository link. This one is checked
          by eye: the page cannot be driven by script.
-   - [ ] The installer ("Install to Hard Drive") shows Nisse art in its sidebar and header, no hot dog anywhere.
+   - [ ] The installer ("Install to Hard Drive") shows nisse art in its sidebar and header, no hot dog anywhere.
 
 ## Known gaps (planned for later plans)
 
 - Secure Boot signing and MOK enrollment for the Surface kernel. Until then Secure Boot must be off on a Surface
   (nisse-hwroute waits for that), and T2 MacBooks need it off anyway.
 - The FaceTime HD camera driver on pre-T2 MacBooks (no verified package source yet).
-- The Nisse repositories are placeholders (disabled) until the GitHub-hosted channels exist.
+- The nisse repositories are placeholders (disabled) until the GitHub-hosted channels exist.
 - Rollback and safe update (snapper), approvals queue, multiple tabs, Plasma widget, mediated root tools.
 - The ISO is built with kiwi from Fedora's vendored live-image description (`build/kiwi/fedora/`, pinned commit in
-  `VENDORED.md`) plus the Nisse overlay; see `docs/build-host.md`. It uses Fedora's release repository only, so it is
+  `VENDORED.md`) plus the nisse overlay; see `docs/build-host.md`. It uses Fedora's release repository only, so it is
   a frozen snapshot (Plasma 6.6, Qt 6.10) until the updates repository is added.

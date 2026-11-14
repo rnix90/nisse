@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Live-session driver (from the N-105 look spike, made a tool by N-113). Boots the Nisse ISO under QEMU on the Windows
+# Live-session driver (from the N-105 look spike, made a tool by N-113). Boots the nisse ISO under QEMU on the Windows
 # host with the serial console on a TCP port, logs in as liveuser (empty password), runs shell commands in the guest and
 # takes screenshots through the QEMU monitor. The screenshot regression harness (regress.py) is built on it.
 # Gotchas found with it: the live session locks itself after about 5 minutes idle (prepare_session turns Autolock off),
 # loginctl unlock-sessions asks polkit and swallows the next typed characters, and sudo needs a password in the live
 # session (extract RPMs into the home folder instead).
-"""Live-session driver: boot the Nisse ISO, log in over serial, run commands, take screenshots."""
+"""Live-session driver: boot the nisse ISO, log in over serial, run commands, take screenshots."""
 import base64
 import random
 import re
@@ -95,7 +95,7 @@ class Vm:
         s.close()
 
     def keys_to_grub(self):
-        """Fedora's menu defaults to the slow media check: press Up until Start Nisse, then Enter."""
+        """Fedora's menu defaults to the slow media check: press Up until Start nisse, then Enter."""
         self.expect("BdsDxe: starting", 90)
         s = self._connect(self.mon_port)
         for _ in range(15):

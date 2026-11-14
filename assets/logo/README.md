@@ -1,4 +1,4 @@
-# Nisse logo package
+# nisse logo package
 
 The mark is the nisse's cap peeking over a hill, inside a disc. The wordmark is set in
 Nunito ExtraBold (SIL OFL 1.1, see `../fonts/Nunito/`), converted to outlines, so no file

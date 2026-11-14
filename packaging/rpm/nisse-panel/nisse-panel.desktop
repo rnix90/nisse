@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Nisse
+Name=nisse
 GenericName=AI assistant
 Comment=Talk to the AI that looks after this computer
 Exec=nisse-panel

@@ -1,20 +1,20 @@
 <image>
   <!-- SPDX-License-Identifier: GPL-3.0-only -->
-  <!-- The Nisse live/install ISO. GPL-3.0-only because the iso type block and package set are copied from Fedora's
+  <!-- The nisse live/install ISO. GPL-3.0-only because the iso type block and package set are copied from Fedora's
        GPL-3.0 liveinstall.xml (build/kiwi/fedora/COPYING). Fedora's KDE-Desktop-Live profile is not used because it pulls in
        fedora-release-kde and Fedora's volume id and publisher. This profile asks for the same building blocks
        (KDE-Desktop and BootCoreLive) and carries the live-install package set and ISO settings itself.
        Fedora's config.sh decides on the live KDE session by looking for "Live" and "KDE" in the selected
        profile names; KDE-Desktop supplies "KDE" and this profile's own name supplies "Live". -->
   <profiles>
-    <profile name="Nisse-Live" description="Nisse KDE Plasma live and install ISO">
+    <profile name="Nisse-Live" description="nisse KDE Plasma live and install ISO">
       <requires profile="KDE-Desktop"/>
       <requires profile="BootCoreLive"/>
     </profile>
   </profiles>
   <preferences profiles="Nisse-Live" arch="x86_64">
     <type image="iso"
-      publisher="Nisse" volid="Nisse-@PRODUCT@" application_id="Nisse-@PRODUCT@"
+      publisher="nisse" volid="nisse-@PRODUCT@" application_id="nisse-@PRODUCT@"
       primary="true" flags="dmsquash" filesystem="erofs" erofscompression="lzma,level=6" mediacheck="true"
       firmware="uefi" efiparttable="gpt" efifatimagesize="30" kernelcmdline="@KERNELCMDLINE@"
       fscreateoptions="-Efragments -C 1048576"
@@ -22,7 +22,7 @@
       <bootloader name="grub2" grub_template="grub-x86.cfg.iso-template" console="console" timeout="10"/>
     </type>
   </preferences>
-  <!-- The release package that provides system-release and the Nisse identity. -->
+  <!-- The release package that provides system-release and the nisse identity. -->
   <packages type="bootstrap" patternType="plusRecommended" profiles="Nisse-Live">
     <package name="nisse-release"/>
   </packages>

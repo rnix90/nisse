@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Check the start button in a screenshot of the live desktop (1280x800, panel at the bottom, start button first at the left).
 
-Exit 0 when the start button region shows Nisse's mark and none of the Fedora placeholder (the hot dog: saturated
+Exit 0 when the start button region shows nisse's mark and none of the Fedora placeholder (the hot dog: saturated
 orange/brown/yellow); exit 1 otherwise, saying why.
 
     check_start_button.py SCREENSHOT.png [--region X,Y,W,H]
@@ -18,7 +18,7 @@ from PIL import Image
 
 PAPER = (0xF6, 0xF2, 0xE9)
 HOTDOG_MAX = 0.03  # fraction of the region that may be hot dog coloured
-PAPER_MIN = 0.05   # fraction of the region that must be Paper (the disc of the Nisse mark)
+PAPER_MIN = 0.05   # fraction of the region that must be Paper (the disc of the nisse mark)
 
 
 def analyse(img):
@@ -50,9 +50,9 @@ def main(argv=None):
         print("FAIL: the start button still shows the Fedora placeholder (hot dog)")
         return 1
     if paper < PAPER_MIN:
-        print("FAIL: no Nisse mark found in the start button region (is the icon missing?)")
+        print("FAIL: no nisse mark found in the start button region (is the icon missing?)")
         return 1
-    print("PASS: the start button shows the Nisse mark")
+    print("PASS: the start button shows the nisse mark")
     return 0
 
 

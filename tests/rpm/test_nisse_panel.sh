@@ -19,7 +19,7 @@ for f in /usr/bin/nisse-panel /usr/share/applications/nisse-panel.desktop; do
 done
 printf '%s\n' "$files" | grep -q 'tst_chat' && fail "the test executable must not be installed"
 
-member usr/share/applications/nisse-panel.desktop | grep -qx 'Icon=distributor-logo-nisse' || fail "desktop file must use the Nisse icon"
+member usr/share/applications/nisse-panel.desktop | grep -qx 'Icon=distributor-logo-nisse' || fail "desktop file must use the nisse icon"
 rpm -qp --requires "$rpmf" | grep -q '^nisse-daemon' || fail "RPM must require nisse-daemon"
 rpm -qp --requires "$rpmf" | grep -q 'qt6-qtdeclarative' || fail "RPM must require qt6-qtdeclarative (QML runtime)"
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpmf")" = "GPL-2.0-or-later" ] || fail "License must be GPL-2.0-or-later"

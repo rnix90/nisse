@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Build Nisse's replacements for the Fedora placeholder art (the generic-logos "hot dog") into assets/logo/system/.
+"""Build nisse's replacements for the Fedora placeholder art (the generic-logos "hot dog") into assets/logo/system/.
 
 The tree under assets/logo/system mirrors the file system (usr/share/...), so nisse-branding installs it with one copy.
 Every path and size comes from tests/rpm/placeholder-paths.txt: a replacement has the same size as the file it replaces.

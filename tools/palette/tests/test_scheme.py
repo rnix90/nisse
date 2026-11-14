@@ -110,8 +110,8 @@ def test_window_manager_colors_follow_the_tokens():
 
 
 def test_names_and_identity():
-    assert DARK["General"]["ColorScheme"] == "NisseEmber" and DARK["General"]["Name"] == "Nisse Ember"
-    assert LIGHT["General"]["ColorScheme"] == "NisseEmberLight" and LIGHT["General"]["Name"] == "Nisse Ember Light"
+    assert DARK["General"]["ColorScheme"] == "NisseEmber" and DARK["General"]["Name"] == "nisse Ember"
+    assert LIGHT["General"]["ColorScheme"] == "NisseEmberLight" and LIGHT["General"]["Name"] == "nisse Ember Light"
 
 
 def test_rendering_is_deterministic_and_plain_ascii_with_an_spdx_header():

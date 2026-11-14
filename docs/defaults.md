@@ -1,4 +1,4 @@
-# Nisse desktop defaults (approved 2026-11-13, ledger N-110)
+# nisse desktop defaults (approved 2026-11-13, ledger N-110)
 
 Bert approved this list as proposed. N-111 ships it as system config (and skel only if a setting cannot be set
 system-wide); each key is checked against the installed Plasma 6.6 when N-111 is built, and any line whose key cannot be
@@ -13,7 +13,7 @@ was not re-checked here.
 | 2 | Animations | Plasma's stock speed and effects; nothing added | Stock |
 | 3 | Night Light | On, following Plasma's own automatic day-night schedule, 4500 K at night. Changed at N-111 (see below). | Off (stock) |
 | 4 | Window rules | None shipped | None |
-| 5 | Shortcuts | Plasma's stock set plus one: Meta+N opens or focuses the Nisse panel app | Stock |
+| 5 | Shortcuts | Plasma's stock set plus one: Meta+N opens or focuses the nisse panel app | Stock |
 | 6 | Screen lock | Stock: locks after idle and on resume | Stock |
 | 7 | Session restore | New logins start empty; AI sessions return through the daemon (ledger N-208), not KDE session restore | Same (verified: `loginMode=default`) |
 | 8 | File indexing | Fedora's setting kept: the home folder is not indexed, so there is no background indexing load | Same (verified: baloo excludes the home folder) |

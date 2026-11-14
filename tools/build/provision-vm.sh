@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Install everything the Nisse build needs into a fresh Fedora build VM. Run inside the VM:
+# Install everything the nisse build needs into a fresh Fedora build VM. Run inside the VM:
 #   bash ~/nisse/tools/build/provision-vm.sh
 # Safe to run again. See docs/build-host.md.
 set -euo pipefail

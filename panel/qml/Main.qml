@@ -8,7 +8,7 @@ ApplicationWindow {
     width: 480
     height: 720
     visible: true
-    title: "Nisse"
+    title: "nisse"
 
     property bool showAudit: false
 

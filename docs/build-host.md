@@ -1,6 +1,6 @@
 # Build host
 
-Nisse images are built in a Fedora VM running under QEMU on RN-DESKTOP. WSL2 is not installed
+nisse images are built in a Fedora VM running under QEMU on RN-DESKTOP. WSL2 is not installed
 on that machine and installing it needs admin rights and a reboot, so the VM was chosen
 (decision by Bert, 2026-10-28, Task 0 of the Milestone 1 plan).
 
@@ -48,8 +48,8 @@ image it builds. Details: `docs/kiwi-spike.md`.
 
 ## Two version numbers
 
-- `build/PRODUCT_VERSION` is Nisse's own version (0.2 now). It is what the system calls itself: os-release `VERSION`,
-  `PRETTY_NAME` and `BUILD_ID`, the CPE name, `/usr/lib/fedora-release` and the ISO volume id (`Nisse-0.2`, which the boot
+- `build/PRODUCT_VERSION` is nisse's own version (0.2 now). It is what the system calls itself: os-release `VERSION`,
+  `PRETTY_NAME` and `BUILD_ID`, the CPE name, `/usr/lib/fedora-release` and the ISO volume id (`nisse-0.2`, which the boot
   menu's `root=live:CDLABEL=` must match). Bump it by hand when a milestone ships; there is no "alpha" label.
 - `build/FEDORA_RELEASE` is the Fedora base (44). It stays in os-release `VERSION_ID` and as the `nisse-release` RPM
   `Version`, because dnf's `$releasever`, the COPR plugin and the `%fedora` macro are derived from them. Change it only
@@ -57,7 +57,7 @@ image it builds. Details: `docs/kiwi-spike.md`.
 
 ## Building and boot-testing the ISO
 
-The ISO is built with kiwi-ng from the Fedora kiwi description vendored in `build/kiwi/fedora/` plus the Nisse overlay
+The ISO is built with kiwi-ng from the Fedora kiwi description vendored in `build/kiwi/fedora/` plus the nisse overlay
 (`build/kiwi/Nisse.kiwi`, `build/kiwi/nisse/`). `build/render-kiwi.sh` assembles `out/kiwi-description/`.
 
     bash tools/build/vm.sh sync
@@ -84,7 +84,7 @@ Lessons from the kiwi migration (details in `docs/kiwi-spike.md`):
   with `xorriso -osirrox on -indev ISO -extract /LiveOS/squashfs.img OUT` and `mount -t erofs -o loop,ro`.
 - Fedora's GRUB menu defaults to "Test this media & start" (a checksum of the whole ISO). `smoke-boot.sh` presses
   Up+Enter to start the live system instead; pass `--mediacheck` to keep the default.
-- `nisse-release` replaced Fedora's `90-default.preset`, so anything Fedora enables there that Nisse needs must be in
+- `nisse-release` replaced Fedora's `90-default.preset`, so anything Fedora enables there that nisse needs must be in
   `packaging/rpm/nisse-release/80-nisse-desktop.preset` (the live session needs `livesys` and `livesys-late`).
 - The vendored files must have Unix line endings. `vendor-kiwi.sh` clones with `core.autocrlf=false`; the Windows
   default converts them and breaks `config.sh` inside the VM.

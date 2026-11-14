@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""WCAG 2.x contrast helpers for the Nisse palette tokens."""
+"""WCAG 2.x contrast helpers for the nisse palette tokens."""
 import json
 import re
 from pathlib import Path

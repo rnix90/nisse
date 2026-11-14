@@ -1,6 +1,6 @@
 # Nunito
 
-The Nisse brand typeface. Rounded sans-serif, close to the drawn wordmark we picked.
+The nisse brand typeface. Rounded sans-serif, close to the drawn wordmark we picked.
 
 - Files: `Nunito[wght].ttf` and `Nunito-Italic[wght].ttf`, variable fonts, weight 200-1000.
   Both are unmodified copies from the upstream Google Fonts repository

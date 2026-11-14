@@ -4,18 +4,18 @@
 Name:           nisse-lookandfeel
 Version:        0.2
 Release:        1%{?dist}
-Summary:        The Nisse global themes and the system defaults for new users
+Summary:        The nisse global themes and the system defaults for new users
 License:        GPL-2.0-or-later
 BuildArch:      noarch
 Requires:       nisse-theme = %{version}
 Requires:       plasma-workspace
 
 %description
-The Nisse global themes for Plasma: Nisse (the Ember dark desktop, the default)
-and Nisse Light. Each one applies a Nisse color scheme with the stock Breeze
+The nisse global themes for Plasma: nisse (the Ember dark desktop, the default)
+and nisse Light. Each one applies a nisse color scheme with the stock Breeze
 widget style, window decoration, icons, cursor and splash. Also installs the
-system default settings, so a new user starts in the Nisse dark look with the
-Nisse interface font. The color schemes and fonts come from nisse-theme.
+system default settings, so a new user starts in the nisse dark look with the
+nisse interface font. The color schemes and fonts come from nisse-theme.
 
 %prep
 
@@ -46,4 +46,4 @@ install -pm 0644 %{nisse_root}/assets/theme/xdg/kdeglobals %{buildroot}%{_syscon
 
 %changelog
 * Fri Nov 13 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-1
-- Initial package: the Nisse dark and light global themes and the system defaults
+- Initial package: the nisse dark and light global themes and the system defaults

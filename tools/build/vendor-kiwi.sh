@@ -53,6 +53,6 @@ Pruned copy of Fedora's kiwi image description, kept as published (no local edit
 - License: GPL-3.0, see COPYING. These are build configuration files and keep their own license.
 - Refresh: tools/build/vendor-kiwi.sh COMMIT [BRANCH]; the file list is at the top of that script.
 
-Nisse's own files are in ../nisse/ and ../Nisse.kiwi.
+nisse's own files are in ../nisse/ and ../Nisse.kiwi.
 EOF
 echo "vendored $(find "$dest" -type f | wc -l) files from $branch at ${commit:0:7} into $dest"

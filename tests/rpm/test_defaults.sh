@@ -37,7 +37,7 @@ kr=/usr/share/kde-settings/kde-profile/default/xdg/konsolerc
 printf '%s\n' "$files" | grep -qxF "$kr" || fail "defaults RPM lacks $kr"
 if printf '%s\n' "$files" | grep -qxF /etc/xdg/konsolerc; then fail "defaults RPM must not ship /etc/xdg/konsolerc (konsole-part owns it)"; fi
 want "$scratch$kr" 'Desktop Entry' DefaultProfile Nisse.profile
-echo "ok   the Nisse terminal profile is the default"
+echo "ok   the nisse terminal profile is the default"
 
 # the lines the list keeps from Fedora must not be overridden here: this package sets only what changed
 for bad in SingleClick loginMode VirtualKeyboardEnabled; do

@@ -6,7 +6,7 @@
 Name:           nisse-panel
 Version:        0.1
 Release:        1%{?dist}
-Summary:        Nisse panel: chat with the AI that looks after this computer
+Summary:        nisse panel: chat with the AI that looks after this computer
 License:        GPL-2.0-or-later
 BuildRequires:  cmake
 BuildRequires:  ninja-build

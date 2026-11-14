@@ -4,7 +4,7 @@
 Name:           nisse-defaults
 Version:        0.2
 Release:        1%{?dist}
-Summary:        The approved Nisse desktop defaults for new users
+Summary:        The approved nisse desktop defaults for new users
 License:        GPL-2.0-or-later
 BuildArch:      noarch
 Requires:       kwin-common
@@ -12,9 +12,9 @@ Requires:       kde-settings
 Requires:       nisse-theme = %{version}
 
 %description
-The system defaults for the Nisse desktop that Fedora and Plasma do not already
+The system defaults for the nisse desktop that Fedora and Plasma do not already
 set: Night Light on, following the automatic day-night schedule, at 4500 K, and
-the Nisse terminal profile as the default.
+the nisse terminal profile as the default.
 Every other approved default is Fedora's or Plasma's own value, kept on purpose,
 and is checked by the image tests. The approved list is in the source tree.
 

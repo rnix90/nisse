@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Open a Nisse VM with a window (QEMU, UEFI, WHPX) on the Windows host, for installing and trying things by hand.
+# Open a nisse VM with a window (QEMU, UEFI, WHPX) on the Windows host, for installing and trying things by hand.
 # Run from Git Bash.
 #
 #   tools/vm/run-vm.sh DISK.qcow2 [--iso ISO] [--vendor V] [--product P] [--family F]

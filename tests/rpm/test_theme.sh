@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Checks the built nisse-theme RPM (the Nisse Ember Plasma color schemes). Run in the Fedora build VM after:
+# Checks the built nisse-theme RPM (the nisse Ember Plasma color schemes). Run in the Fedora build VM after:
 #   tools/rpm/build-rpm.sh nisse-theme
 set -euo pipefail
 cd "$(dirname "$0")/../.."

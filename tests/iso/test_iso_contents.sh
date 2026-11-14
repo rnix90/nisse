@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Inspect a built Nisse live ISO (kiwi layout: /LiveOS/squashfs.img is an EROFS image holding the root filesystem;
+# Inspect a built nisse live ISO (kiwi layout: /LiveOS/squashfs.img is an EROFS image holding the root filesystem;
 # see docs/kiwi-spike.md). Run in the Fedora build VM:
 #   tests/iso/test_iso_contents.sh out/nisse-live.iso
 set -euo pipefail
@@ -12,15 +12,15 @@ iso="${1:?usage: test_iso_contents.sh ISO}"
 # The volume id comes from the kiwi description, but a wrapper or a set-type-attr option could override it, so read it
 # from the ISO itself.
 fedora_base="$(tr -d '[:space:]' < "$(dirname "$0")/../../build/FEDORA_RELEASE")"
-release="$(tr -d '[:space:]' < "$(dirname "$0")/../../build/PRODUCT_VERSION")"   # Nisse's own version, not the Fedora base
-xorriso -indev "$iso" -pvd_info 2>/dev/null | grep -q "^Volume Id *: *Nisse-$release\$" \
-    || fail "the ISO volume id is not Nisse-$release"
+release="$(tr -d '[:space:]' < "$(dirname "$0")/../../build/PRODUCT_VERSION")"   # nisse's own version, not the Fedora base
+xorriso -indev "$iso" -pvd_info 2>/dev/null | grep -q "^Volume Id *: *nisse-$release\$" \
+    || fail "the ISO volume id is not nisse-$release"
 # The boot menu finds the ISO by this label: it must match the volume id, and nothing may still say the Fedora base.
 cfgs="$(mktemp -d)"
 xorriso -osirrox on -indev "$iso" -extract /EFI/BOOT "$cfgs/efi" >/dev/null 2>&1
 xorriso -osirrox on -indev "$iso" -extract /boot/grub2 "$cfgs/grub2" >/dev/null 2>&1
-grep -rqh "root=live:CDLABEL=Nisse-$release " "$cfgs" || { rm -rf "$cfgs"; fail "the boot menu does not boot from CDLABEL=Nisse-$release"; }
-if grep -rqh -E "Nisse[- ]$fedora_base" "$cfgs"; then rm -rf "$cfgs"; fail "the boot menu still names the Fedora base ($fedora_base) as Nisse's version"; fi
+grep -rqh "root=live:CDLABEL=nisse-$release " "$cfgs" || { rm -rf "$cfgs"; fail "the boot menu does not boot from CDLABEL=nisse-$release"; }
+if grep -rqh -E "nisse[- ]$fedora_base" "$cfgs"; then rm -rf "$cfgs"; fail "the boot menu still names the Fedora base ($fedora_base) as nisse's version"; fi
 rm -rf "$cfgs"
 
 work="$(mktemp -d)"
@@ -36,8 +36,8 @@ listing="$(sudo find "$root" -xdev -type f 2>/dev/null)"
 
 grep -qx 'ID=nisse' "$root/usr/lib/os-release" || fail "root filesystem os-release lacks ID=nisse"
 [ -d "$root/usr/share/fonts/nunito" ] || fail "Nunito font directory missing"
-[ -d "$root/usr/share/fonts/fira-code" ] || fail "Fira Code font directory missing (the Nisse monospace font, ledger N-101)"
-[ -d "$root/usr/share/fonts/typetogether-literata-fonts" ] || fail "Literata font directory missing (the Nisse document font, ledger N-101)"
+[ -d "$root/usr/share/fonts/fira-code" ] || fail "Fira Code font directory missing (the nisse monospace font, ledger N-101)"
+[ -d "$root/usr/share/fonts/typetogether-literata-fonts" ] || fail "Literata font directory missing (the nisse document font, ledger N-101)"
 for scheme in NisseEmber NisseEmberLight; do
     [ -f "$root/usr/share/color-schemes/$scheme.colors" ] || fail "Plasma color scheme $scheme is missing (nisse-theme)"
 done
@@ -60,7 +60,7 @@ for u in livesys.service livesys-late.service; do
     [ -L "$root/etc/systemd/system/multi-user.target.wants/$u" ] || fail "$u is not enabled in the image"
 done
 
-# Presets: every unit the Nisse presets enable must be enabled once the image applies its presets. The static image only
+# Presets: every unit the nisse presets enable must be enabled once the image applies its presets. The static image only
 # has the units whose package scriptlets preset them; systemd applies the rest (preset-all) at the live system's first
 # boot, so simulate that on a writable overlay of the image. Units of packages that are not installed are skipped and
 # listed. 80-nisse-desktop sorts first and wins.
@@ -102,7 +102,7 @@ done
 rpmq() { rpm --dbpath "$root/usr/lib/sysimage/rpm" "$@"; }
 qt="$(rpmq -q --qf '%{version}' qt6-qtbase 2>/dev/null)" || fail "qt6-qtbase is not installed in the image"
 case "$qt" in 6.10*) ;; *) fail "qt6-qtbase is $qt, expected 6.10.x (release repo only, no updates)";; esac
-if rpmq -q fedora-release-kde >/dev/null 2>&1; then fail "fedora-release-kde is installed (Nisse must use nisse-release)"; fi
+if rpmq -q fedora-release-kde >/dev/null 2>&1; then fail "fedora-release-kde is installed (nisse must use nisse-release)"; fi
 rpmq -q nisse-release >/dev/null 2>&1 || fail "nisse-release is not installed"
 
 # Fedora's placeholder art (generic-logos: the hot dog on the start button, About page and installer) must be gone, and
@@ -133,9 +133,9 @@ case "$(rpmq -qf "$about_logo" 2>/dev/null)" in nisse-branding-*) ;; *) fail "th
 case "$(rpmq -qf /usr/share/icons/hicolor/scalable/apps/start-here.svg 2>/dev/null)" in nisse-branding-*) ;; *) fail "the start button icon start-here.svg is not a nisse-branding file" ;; esac
 echo "placeholder art: $replaced paths replaced by nisse-branding, $(grep -c '^D ' "$manifest") dropped, generic-logos absent"
 
-# The Nisse global themes (ledger N-108). Fedora's look-and-feel package stays installed because plasma-workspace
-# requires it at an exact version, so the test is about the DEFAULT: Nisse's file is the first one the session reads,
-# and it names a Nisse look, whatever Fedora's kde-settings profile still says further down the search path.
+# The nisse global themes (ledger N-108). Fedora's look-and-feel package stays installed because plasma-workspace
+# requires it at an exact version, so the test is about the DEFAULT: nisse's file is the first one the session reads,
+# and it names a nisse look, whatever Fedora's kde-settings profile still says further down the search path.
 for id in org.nisse.desktop org.nisse.desktop.light; do
     [ -f "$root/usr/share/plasma/look-and-feel/$id/metadata.json" ] || fail "look-and-feel $id missing from the image"
 done
@@ -143,17 +143,17 @@ case "$(rpmq -qf /etc/xdg/kdeglobals 2>/dev/null)" in nisse-lookandfeel-*) ;; *)
 grep -qx 'LookAndFeelPackage=org.nisse.desktop' "$root/etc/xdg/kdeglobals" || fail "the system default look-and-feel is not org.nisse.desktop"
 grep -qx 'ColorScheme=NisseEmber' "$root/etc/xdg/kdeglobals" || fail "the system default color scheme is not NisseEmber"
 grep -qE '^ *XDG_CONFIG_DIRS=/etc/xdg:/usr/share/kde-settings' "$root/etc/xdg/plasma-workspace/env/env.sh" \
-    || fail "Fedora's session env no longer searches /etc/xdg before its own profile: Nisse's system default would lose"
+    || fail "Fedora's session env no longer searches /etc/xdg before its own profile: nisse's system default would lose"
 echo "look and feel: org.nisse.desktop is the system default, Fedora's profile is searched after it"
 
-# The default panel layout (ledger N-109): both looks carry the script, and the Nisse panel app it pins really exists.
+# The default panel layout (ledger N-109): both looks carry the script, and the nisse panel app it pins really exists.
 for id in org.nisse.desktop org.nisse.desktop.light; do
     f="$root/usr/share/plasma/look-and-feel/$id/contents/layouts/org.kde.plasma.desktop-layout.js"
     [ -f "$f" ] || fail "$id has no default panel layout script"
-    grep -q 'applications:nisse-panel.desktop' "$f" || fail "the $id layout does not pin the Nisse panel app"
+    grep -q 'applications:nisse-panel.desktop' "$f" || fail "the $id layout does not pin the nisse panel app"
 done
 case "$(rpmq -qf /usr/share/applications/nisse-panel.desktop 2>/dev/null)" in nisse-panel-*) ;; *) fail "nisse-panel.desktop is not owned by nisse-panel" ;; esac
-echo "panel layout: both looks pin the Nisse panel app first"
+echo "panel layout: both looks pin the nisse panel app first"
 
 # The approved desktop defaults (docs/defaults.md, ledger N-111). Night Light and Meta+N are ours; the rest are Fedora's
 # or Plasma's values kept on purpose, so assert that Fedora's kde-settings still ships them.
@@ -165,15 +165,15 @@ grep -qx 'SingleClick=false' "$prof/kdeglobals" || fail "Fedora no longer sets d
 grep -qx 'loginMode=default' "$prof/ksmserverrc" || fail "Fedora no longer starts sessions empty (approved default 7)"
 grep -q 'exclude folders.*=\$HOME' "$prof/baloofilerc" || fail "Fedora no longer excludes the home folder from indexing (approved default 8)"
 grep -qx 'VirtualKeyboardEnabled=true' "$prof/kwinrc" || fail "Fedora no longer enables the on-screen keyboard (approved default 9)"
-grep -qx 'X-KDE-Shortcuts=Meta+N' "$root/usr/share/kglobalaccel/nisse-panel.desktop" || fail "Meta+N is not the Nisse panel's default shortcut"
+grep -qx 'X-KDE-Shortcuts=Meta+N' "$root/usr/share/kglobalaccel/nisse-panel.desktop" || fail "Meta+N is not the nisse panel's default shortcut"
 echo "defaults: Night Light on at 4500 K, Meta+N for the panel, Fedora's kept values still in place"
 
-# The terminal (ledger N-112): the Nisse scheme and profile are in the image, and the default profile names them.
+# The terminal (ledger N-112): the nisse scheme and profile are in the image, and the default profile names them.
 for f in /usr/share/konsole/NisseEmber.colorscheme /usr/share/konsole/Nisse.profile; do
     [ -f "$root$f" ] || fail "$f missing from the image"
 done
 grep -qx 'DefaultProfile=Nisse.profile' "$root/usr/share/kde-settings/kde-profile/default/xdg/konsolerc" || fail "the default Konsole profile is not Nisse.profile"
 case "$(rpmq -qf /etc/xdg/konsolerc 2>/dev/null)" in konsole-part-*) ;; *) fail "/etc/xdg/konsolerc is no longer owned by konsole-part (Fedora changed where it keeps Konsole's defaults)" ;; esac
-echo "terminal: the Nisse scheme and profile are the Konsole default"
+echo "terminal: the nisse scheme and profile are the Konsole default"
 
 echo "PASS: ISO contents ($iso), Qt $qt"

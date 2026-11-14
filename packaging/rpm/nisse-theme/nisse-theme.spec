@@ -4,7 +4,7 @@
 Name:           nisse-theme
 Version:        0.2
 Release:        1%{?dist}
-Summary:        The Nisse Ember Plasma color schemes
+Summary:        The nisse Ember Plasma color schemes
 License:        GPL-2.0-or-later
 BuildArch:      noarch
 Requires:       nisse-fonts-nunito
@@ -12,10 +12,10 @@ Requires:       fira-code-fonts
 Requires:       typetogether-literata-fonts
 
 %description
-The Nisse Ember Plasma color schemes: NisseEmber (the dark desktop) and
+The nisse Ember Plasma color schemes: NisseEmber (the dark desktop) and
 NisseEmberLight (document apps), generated from the Ember palette tokens by
 tools/palette/build_scheme.py. Also the dark terminal color scheme and the
-Nisse terminal profile. Pulls in the three Nisse typefaces: the
+nisse terminal profile. Pulls in the three nisse typefaces: the
 interface font, the terminal font and the document font. Making a scheme the
 default is done by the look-and-feel package, not here.
 
@@ -42,4 +42,4 @@ install -pm 0644 %{nisse_root}/assets/theme/konsole/Nisse.profile %{buildroot}%{
 
 %changelog
 * Fri Nov 13 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-1
-- Initial package: the Nisse Ember color schemes and the fonts they go with
+- Initial package: the nisse Ember color schemes and the fonts they go with

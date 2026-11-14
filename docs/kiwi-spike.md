@@ -1,7 +1,7 @@
 # Kiwi spike results (2026-10-29)
 
 Question: does Fedora's own kiwi build of the KDE live image work in our build VM, and what do we need to know before
-building Nisse the same way? Answer: yes, with one host setting.
+building nisse the same way? Answer: yes, with one host setting.
 
 ## What was built
 
@@ -41,7 +41,7 @@ This is a property of the build host only; the image's own SELinux configuration
 ## Repositories (matters for the "release repo only" decision)
 
 Fedora's description uses both the release repo and `updates` (`repositories/core-nonrawhide.xml`). The stock ISO
-therefore ships Qt 6.11.2 and Plasma 6.7.5. To get the release-only image Bert chose (Qt 6.10, Plasma 6.6) the Nisse
+therefore ships Qt 6.11.2 and Plasma 6.7.5. To get the release-only image Bert chose (Qt 6.10, Plasma 6.6) the nisse
 description must carry its own repository list without `updates`.
 
 ## Pitfalls to remember

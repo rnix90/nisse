@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Generate the Nisse Plasma color schemes from assets/palette/ember.json.
+"""Generate the nisse Plasma color schemes from assets/palette/ember.json.
 
     python tools/palette/build_scheme.py          # writes assets/theme/color-schemes/*.colors
 
@@ -53,7 +53,7 @@ def build(pal, variant):
     lt = {k: v["hex"] for k, v in pal["light"].items()}
     dark_fg = dark_foregrounds(d)
     if variant == "dark":
-        name, ident = "Nisse Ember", "NisseEmber"
+        name, ident = "nisse Ember", "NisseEmber"
         fg = dark_fg
         sel_fg = {k: d["on-accent"] for k in dark_fg}
         sel_fg.update(focus=d["on-accent"], hover=d["on-accent"])
@@ -70,7 +70,7 @@ def build(pal, variant):
         wm = {"activeBackground": d["surface"], "activeBlend": d["text"], "activeForeground": d["text"],
               "inactiveBackground": d["base"], "inactiveBlend": d["text-muted"], "inactiveForeground": d["text-muted"]}
     elif variant == "light":
-        name, ident = "Nisse Ember Light", "NisseEmberLight"
+        name, ident = "nisse Ember Light", "NisseEmberLight"
         fg = {"normal": lt["text"], "inactive": lt["text-muted"], "active": lt["accent"], "link": lt["accent"],
               "visited": lt["visited"], "negative": lt["alert"], "neutral": lt["warn"], "positive": lt["ok"],
               "focus": lt["accent"], "hover": lt["accent"]}

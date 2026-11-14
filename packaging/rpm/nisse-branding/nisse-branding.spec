@@ -4,19 +4,19 @@
 Name:           nisse-branding
 Version:        0.2
 Release:        1%{?dist}
-Summary:        Nisse logo, icons and system artwork
+Summary:        nisse logo, icons and system artwork
 License:        GPL-2.0-or-later
 BuildArch:      noarch
 Requires:       hicolor-icon-theme
 # This package IS the system logo package: it replaces Fedora's generic-logos (the placeholder with the hot dog)
-# and fedora-logos, and ships Nisse art under the file names the rest of the system looks for.
+# and fedora-logos, and ships nisse art under the file names the rest of the system looks for.
 Provides:       system-logos = %{version}-%{release}
 Conflicts:      generic-logos
 Conflicts:      fedora-logos
 
 %description
-The Nisse logo as freedesktop icons (distributor-logo-nisse at every size,
-scalable and symbolic) and Nisse's artwork for the places Fedora's
+The nisse logo as freedesktop icons (distributor-logo-nisse at every size,
+scalable and symbolic) and nisse's artwork for the places Fedora's
 placeholder branding used to appear: the start button, the About page, the
 installer (Anaconda) and the boot media. The list of replaced files is kept
 with the sources of this package.
@@ -68,7 +68,7 @@ ln -s ../apps/start-here.svg %{buildroot}/usr/share/icons/hicolor/scalable/place
 
 %changelog
 * Wed Nov 04 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-1
-- Replace Fedora's generic-logos placeholder art with Nisse artwork (start button, About page, installer, boot media); provide system-logos and conflict with generic-logos and fedora-logos
+- Replace Fedora's generic-logos placeholder art with nisse artwork (start button, About page, installer, boot media); provide system-logos and conflict with generic-logos and fedora-logos
 
 * Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1
 - Initial package

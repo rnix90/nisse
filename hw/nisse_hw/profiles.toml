@@ -26,7 +26,7 @@ commands = [
     ["dnf", "copr", "enable", "-y", "sharpenedblade/t2linux"],
     ["dnf", "swap", "-y", "--from-repo=copr:copr.fedorainfracloud.org:sharpenedblade:t2linux", "kernel", "kernel"],
 ]
-notes = ["T2 Macs need Secure Boot turned off for Linux. Nisse does not change firmware settings."]
+notes = ["T2 Macs need Secure Boot turned off for Linux. nisse does not change firmware settings."]
 
 [apple-pre-t2]
 commands = [

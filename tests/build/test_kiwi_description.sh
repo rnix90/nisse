@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Checks the kiwi description under build/kiwi/.
 #   part 1 (always): the vendored Fedora copy is complete, well-formed, pinned and reproducible.
-#   part 2 (when out/kiwi-description exists or kiwi-ng is installed): the rendered Nisse description.
+#   part 2 (when out/kiwi-description exists or kiwi-ng is installed): the rendered nisse description.
 set -u
 cd "$(dirname "$0")/../.."
 fail=0
@@ -67,7 +67,7 @@ else
     bad "nisse-live.xml's iso package block drifted from the vendored liveinstall.xml (re-merge it): $(head -4 "$tmp/isoblock.diff" | tr '\n' ' ')"
 fi
 
-# Licenses: the vendored XML files carry no header and upstream's COPYING is the GPL-3.0, so the Nisse file that copies a
+# Licenses: the vendored XML files carry no header and upstream's COPYING is the GPL-3.0, so the nisse file that copies a
 # block from them is labelled GPL-3.0-only (never relabelled GPL-2.0-or-later), and the docs say the same thing.
 grep -q 'SPDX-License-Identifier: GPL-3.0-only' build/kiwi/nisse/components/nisse-live.xml     && ok "nisse-live.xml is labelled GPL-3.0-only (it copies Fedora's GPL-3.0 block)"     || bad "nisse-live.xml must be labelled GPL-3.0-only (it copies Fedora's GPL-3.0 liveinstall.xml)"
 grep -q 'build/kiwi/fedora' README.md && ok "README names build/kiwi/fedora as third-party" || bad "README does not list build/kiwi/fedora under third-party licenses"
@@ -108,7 +108,7 @@ else
     echo "skip modes: not a git checkout (the build VM copy has no .git); the host run checks them"
 fi
 
-# ---- part 2: the rendered Nisse description (needs kiwi-ng, so it runs in the build VM)
+# ---- part 2: the rendered nisse description (needs kiwi-ng, so it runs in the build VM)
 if command -v kiwi-ng >/dev/null 2>&1; then
     D=out/kiwi-description
     if bash build/render-kiwi.sh >"$tmp/render.log" 2>&1; then ok "render-kiwi.sh renders $D"
@@ -134,8 +134,8 @@ if command -v kiwi-ng >/dev/null 2>&1; then
     grep -q 'alias="nisse"' "$repos" && ok "repository alias nisse" || bad "no repository alias nisse"
     grep -rq 'alias="updates"' "$D" && bad "an updates repository is configured somewhere in the description (release repo only)" || ok "no updates repository"
     prod="$(tr -d '[:space:]' < build/PRODUCT_VERSION)"
-    grep -q "volid=\"Nisse-$prod\"" "$live" && ok "volid is Nisse-$prod" || bad "volid is not Nisse-$prod"
-    grep -q "volid=\"Nisse-$(tr -d '[:space:]' < build/FEDORA_RELEASE)\"" "$live" && bad "the volid still uses the Fedora base release" || ok "the volid does not use the Fedora base release"
+    grep -q "volid=\"nisse-$prod\"" "$live" && ok "volid is nisse-$prod" || bad "volid is not nisse-$prod"
+    grep -q "volid=\"nisse-$(tr -d '[:space:]' < build/FEDORA_RELEASE)\"" "$live" && bad "the volid still uses the Fedora base release" || ok "the volid does not use the Fedora base release"
     if grep -rn '@[A-Z_]*@' "$D/Nisse.kiwi" "$D/nisse" >/dev/null 2>&1; then bad "unfilled @...@ placeholder"; else ok "no unfilled placeholder"; fi
 else
     echo "skip part 2 (rendered description): kiwi-ng not installed; run this test in the build VM"

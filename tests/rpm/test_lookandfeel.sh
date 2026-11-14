@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Checks the built nisse-lookandfeel RPM (the Nisse global themes and the system defaults, ledger N-108). Run in the
+# Checks the built nisse-lookandfeel RPM (the nisse global themes and the system defaults, ledger N-108). Run in the
 # Fedora build VM after:
 #   tools/rpm/build-rpm.sh nisse-lookandfeel
 set -euo pipefail
@@ -42,7 +42,7 @@ for id in org.nisse.desktop org.nisse.desktop.light; do
 done
 echo "ok   metadata ids match the folders"
 
-# the defaults each look applies: the Nisse scheme (which must exist in nisse-theme's source), Breeze shapes (ledger N-106)
+# the defaults each look applies: the nisse scheme (which must exist in nisse-theme's source), Breeze shapes (ledger N-106)
 want() { # file section key value
     awk -v s="[$2]" -v k="$3" -F= '$0 == s {in_s=1; next} /^\[/ {in_s=0} in_s && $1 == k {print $2}' "$1" | grep -qxF "$4" \
         || fail "$1 lacks $3=$4 under $2"
@@ -63,7 +63,7 @@ done
 for n in NisseEmber NisseEmberLight; do
     [ -f "assets/theme/color-schemes/$n.colors" ] || fail "defaults name scheme $n but assets/theme/color-schemes/$n.colors is missing"
 done
-echo "ok   defaults name the Nisse schemes and the Breeze shapes"
+echo "ok   defaults name the nisse schemes and the Breeze shapes"
 
 # the system default for every new user
 g="$scratch/etc/xdg/kdeglobals"
@@ -72,7 +72,7 @@ want "$g" General ColorScheme NisseEmber
 want "$g" KDE widgetStyle Breeze
 grep -qE '^font=Nunito,' "$g" || fail "system default font is not Nunito"
 grep -qE '^fixed=Fira Code,' "$g" || fail "system default monospace font is not Fira Code"
-echo "ok   system default is the Nisse dark look, Nunito and Fira Code"
+echo "ok   system default is the nisse dark look, Nunito and Fira Code"
 
 # the start button icon script is Fedora's, unchanged in effect: it sets the icon to start-here, which nisse-branding owns
 for id in org.nisse.desktop org.nisse.desktop.light; do
@@ -84,7 +84,7 @@ done
 grep -q 'writeConfig("icon", "start-here")' assets/theme/lookandfeel/start-here-icon.js || fail "start-here-icon.js does not set the start-here icon"
 echo "ok   start button setup scripts match the one source file"
 
-# the default panel layout (ledger N-109): the same script in both looks, pinning the Nisse panel app first
+# the default panel layout (ledger N-109): the same script in both looks, pinning the nisse panel app first
 src=assets/theme/lookandfeel/layout.js
 for id in org.nisse.desktop org.nisse.desktop.light; do
     f="$scratch$LAF/$id/contents/layouts/org.kde.plasma.desktop-layout.js"
@@ -97,9 +97,9 @@ launchers="$(sed -n '/writeConfig("launchers"/,/\])/p' "$src" | grep -o '"[a-z]*
 grep -q 'addWidget("org.kde.plasma.kickoff")' "$src" || fail "layout lacks the start button"
 for w in systemtray digitalclock showdesktop; do grep -q "addWidget(\"org.kde.plasma.$w\")" "$src" || fail "layout lacks $w"; done
 if grep -v '^//' "$src" | grep -q -i -E 'pager|discover'; then fail "layout must not add the pager or Discover (approved N-109)"; fi
-# the pinned Nisse entry must name a desktop file that nisse-panel really ships
+# the pinned nisse entry must name a desktop file that nisse-panel really ships
 grep -q 'nisse-panel.desktop' packaging/rpm/nisse-panel/nisse-panel.spec || fail "nisse-panel does not ship nisse-panel.desktop"
-echo "ok   both looks carry the default panel layout, Nisse panel app pinned first"
+echo "ok   both looks carry the default panel layout, nisse panel app pinned first"
 
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpm_path")" = "GPL-2.0-or-later" ] || fail "look-and-feel License must be GPL-2.0-or-later"
 [ "$(rpm -qp --qf '%{ARCH}' "$rpm_path")" = "noarch" ] || fail "look-and-feel must be noarch"

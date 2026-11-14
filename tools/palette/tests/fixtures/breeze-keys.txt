@@ -1,5 +1,5 @@
 # Section/key pairs of stock Breeze Dark (plasma-breeze-common 6.8.2). Keys only, no values.
-# A Nisse color scheme must define every one of these.
+# A nisse color scheme must define every one of these.
 [ColorEffects:Disabled] Color
 [ColorEffects:Disabled] ColorAmount
 [ColorEffects:Disabled] ColorEffect

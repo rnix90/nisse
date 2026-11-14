@@ -1,5 +1,5 @@
 [Unit]
-Description=Nisse daemon (AI sessions for the Nisse panel)
+Description=nisse daemon (AI sessions for the nisse panel)
 
 [Service]
 Type=dbus

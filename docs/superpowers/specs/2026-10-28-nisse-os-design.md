@@ -1,4 +1,4 @@
-# Nisse OS - design
+# nisse OS - design
 
 Date: 2026-10-28. Status: draft for review. Owner: Bert (Robert Nix).
 
@@ -6,7 +6,7 @@ Date: 2026-10-28. Status: draft for review. Owner: Bert (Robert Nix).
 
 ## 1. Intent and why
 
-Nisse is Bert's own daily-driver desktop operating system. It is a Fedora remix with KDE Plasma
+nisse is Bert's own daily-driver desktop operating system. It is a Fedora remix with KDE Plasma
 where an AI agent (Claude Code) is wired through the whole system, so that setting up,
 maintaining, fixing and operating the computer is mostly a conversation instead of chores.
 
@@ -157,7 +157,7 @@ conditions, but both machines remain in scope.
   services and MCP servers; QML for the panel UI.
 
 ### 6.10 Distribution and updates
-- Nisse's own RPMs are served from a GitHub-hosted repo (Pages or Releases). `main` feeds the
+- nisse's own RPMs are served from a GitHub-hosted repo (Pages or Releases). `main` feeds the
   stable channel and `daily` feeds the daily channel.
 
 ### 6.11 Verification and rollout
@@ -185,9 +185,9 @@ conditions, but both machines remain in scope.
   `nisse-release` package holds which channel a machine follows (default stable), so one machine
   can follow daily while another follows stable. Builds are run by hand on RN-DESKTOP and
   published when ready; there is no nightly CI yet. Packages and repo metadata are signed with a
-  Nisse GPG key held on the build host.
+  nisse GPG key held on the build host.
 - Secure Boot and signing: where Secure Boot is on, the stock Fedora kernel uses Fedora's own
-  chain. Our patched kernels (linux-surface) are signed with a Nisse Machine Owner Key that the
+  chain. Our patched kernels (linux-surface) are signed with a nisse Machine Owner Key that the
   installer enrolls on that machine. The key lives on the RN-DESKTOP build host. T2 MacBooks run
   with Secure Boot off.
 - Milestone 1 panel: chat in a single tab talking to the Rust daemon, plus a read-only view of

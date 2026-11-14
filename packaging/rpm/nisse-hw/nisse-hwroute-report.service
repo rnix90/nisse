@@ -1,5 +1,5 @@
 [Unit]
-Description=Report the hardware profile Nisse detected (live sessions only)
+Description=Report the hardware profile nisse detected (live sessions only)
 ConditionKernelCommandLine=rd.live.image
 
 [Service]

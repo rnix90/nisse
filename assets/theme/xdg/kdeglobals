@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-# The Nisse system default for every new user (ledger N-108). Installed as /etc/xdg/kdeglobals, which the Plasma
+# The nisse system default for every new user (ledger N-108). Installed as /etc/xdg/kdeglobals, which the Plasma
 # session reads before Fedora's kde-settings profile, so the keys below win and every other Fedora key still applies.
 [General]
 ColorScheme=NisseEmber

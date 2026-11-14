@@ -1,8 +1,8 @@
-# Nisse Milestone 1 Implementation Plan
+# nisse Milestone 1 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A bootable, branded Nisse live/install ISO whose installed system picks a kernel by hardware (Surface, T2 MacBook, pre-T2 MacBook, generic) and ships a bare-bones AI panel talking to a Rust daemon that drives Claude Code.
+**Goal:** A bootable, branded nisse live/install ISO whose installed system picks a kernel by hardware (Surface, T2 MacBook, pre-T2 MacBook, generic) and ships a bare-bones AI panel talking to a Rust daemon that drives Claude Code.
 
 **Architecture:** Our own RPMs (`nisse-release`, `nisse-branding`, `nisse-fonts-nunito`, `nisse-hw`, `nisse-firstboot`, `nisse-daemon`, `nisse-panel`) are built into a local repo and pulled into a Fedora KDE kickstart that produces the ISO with `livemedia-creator`. Hardware detection is a pure Python library with a thin `nisse-hwroute` executor. The daemon is a Rust user service exposing a small D-Bus API; the panel is a Qt6/QML app that calls it. QEMU with spoofed SMBIOS stands in for real hardware.
 
@@ -101,7 +101,7 @@ All commands run inside the Fedora build environment from Task 0 unless a step s
 - [ ] **Step 1:** Write `tests/iso/test_iso_contents.sh ISO`: unpack the root filesystem with `unsquashfs`, assert `/usr/lib/os-release` has `ID=nisse`, `/usr/share/fonts/nunito/` exists, and no file named `claude` exists anywhere in it (Claude Code must not be bundled).
 - [ ] **Step 2:** Write `smoke-boot.sh` first and run it against the stock Fedora KDE live ISO to prove the harness works. Expected: PASS ("Graphical Interface" seen).
 - [ ] **Step 3:** Vendor the flattened kickstart: `ksflatten -c fedora-live-kde.ks` from the `fedora-kickstarts` branch matching `FEDORA_RELEASE`; record source branch and commit in a header comment. Write `nisse-live.ks`: `%include` the flat file, add `repo --name=nisse --baseurl=file:///$PWD/out/repo` (path injected by `build-iso.sh`), remove `fedora-release*`, add `nisse-release nisse-branding nisse-fonts-nunito`.
-- [ ] **Step 4:** Write `build-iso.sh`: run `livemedia-creator --ks build/kickstart/nisse-live.ks --no-virt --make-iso --project Nisse --releasever $(cat build/FEDORA_RELEASE) --volid Nisse --iso-only --iso-name nisse-live.iso --extra-boot-args "console=ttyS0 systemd.log_target=console" --resultdir out/iso`, then copy to `out/nisse-live.iso`.
+- [ ] **Step 4:** Write `build-iso.sh`: run `livemedia-creator --ks build/kickstart/nisse-live.ks --no-virt --make-iso --project nisse --releasever $(cat build/FEDORA_RELEASE) --volid nisse --iso-only --iso-name nisse-live.iso --extra-boot-args "console=ttyS0 systemd.log_target=console" --resultdir out/iso`, then copy to `out/nisse-live.iso`.
 - [ ] **Step 5:** Run `build-iso.sh`, then `test_iso_contents.sh out/nisse-live.iso` and `smoke-boot.sh out/nisse-live.iso`. Expected: both PASS. If `fedora-release` conflicts break the transaction, fix package exclusions until the build passes.
 - [ ] **Step 6:** Commit `build: branded live ISO and boot smoke test`.
 

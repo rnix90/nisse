@@ -3,13 +3,13 @@
     "KPlugin": {
         "Authors": [
             {
-                "Name": "Nisse"
+                "Name": "nisse"
             }
         ],
         "Category": "",
-        "Description": "The Nisse desktop: the Ember dark look",
+        "Description": "The nisse desktop: the Ember dark look",
         "Id": "org.nisse.desktop",
         "License": "GPL-2.0-or-later",
-        "Name": "Nisse"
+        "Name": "nisse"
     }
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Boots the Nisse ISO under QEMU with spoofed SMBIOS data and checks what nisse-hwroute-report prints on the serial
+# Boots the nisse ISO under QEMU with spoofed SMBIOS data and checks what nisse-hwroute-report prints on the serial
 # console, so the hardware routing can be tested without the real machines. Run from Git Bash on the Windows host:
 #   tests/e2e/test_hw_in_vm.sh /d/nisse-build-vm/out/nisse-live.iso [/d/nisse-build-vm/out/vm-hw]
 set -uo pipefail

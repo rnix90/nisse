@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Build out/nisse-live.iso with kiwi from the vendored Fedora description plus the Nisse overlay.
+# Build out/nisse-live.iso with kiwi from the vendored Fedora description plus the nisse overlay.
 # Run in the Fedora build VM (SELinux permissive, see docs/build-host.md) after tools/rpm/build-rpm.sh for each
 # package and tools/rpm/make-repo.sh. out/nisse-live.iso exists only if this script succeeded.
 #   NISSE_REPO_URL=dir:///path/to/repo   use another local repo (default: out/repo)

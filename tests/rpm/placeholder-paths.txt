@@ -1,4 +1,4 @@
-# Every file the generic-logos package (18.0.0-27.fc44) owns in the Nisse image (the Fedora placeholder branding:
+# Every file the generic-logos package (18.0.0-27.fc44) owns in the nisse image (the Fedora placeholder branding:
 # the hot dog). One line per file, with the first 16 hex digits of its sha256 in that image:
 #   R <path> <sha16> <kind>    replaced by nisse-branding; kind is png:WxH (same size as the original), svg, icns or symlink:<target>
 #   D <path> <sha16> <reason>  dropped on purpose (nothing in the image loads it, or it is documentation)

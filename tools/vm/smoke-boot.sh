@@ -69,7 +69,7 @@ trap cleanup EXIT
 
 # Fedora's live ISO menu defaults to "Test this media & start" (a checksum of the whole ISO, very slow under
 # emulation). Once the firmware starts GRUB (BdsDxe line on the serial console), press Up every second for 15 s: Up
-# selects "Start Nisse" and stops the menu countdown, and is harmless before the menu exists. Then press Enter once.
+# selects "Start nisse" and stops the menu countdown, and is harmless before the menu exists. Then press Enter once.
 # Enter alone would boot the default entry, so it must never be sent before an Up has reached the menu (a slow, loaded
 # host once let the old Up/Enter alternation race and boot the media check). --mediacheck keeps the default.
 if [ "$mediacheck" = 0 ]; then

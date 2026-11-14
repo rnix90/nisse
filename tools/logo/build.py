@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Build the Nisse logo package into assets/logo/.
+"""Build the nisse logo package into assets/logo/.
 
 Wordmark text is outlined from Nunito (SIL OFL 1.1, bundled in assets/fonts/Nunito),
 so no output file needs the font installed.
@@ -140,10 +140,10 @@ def form_tile(_fill):
 
 
 FORMS = {
-    "icon": (form_icon, "Nisse icon (1:1 round)"),
-    "lockup-horizontal": (form_lockup_h, "Nisse lockup, horizontal"),
-    "lockup-stacked": (form_lockup_v, "Nisse lockup, stacked"),
-    "wordmark": (form_wordmark, "Nisse wordmark with cap"),
+    "icon": (form_icon, "nisse icon (1:1 round)"),
+    "lockup-horizontal": (form_lockup_h, "nisse lockup, horizontal"),
+    "lockup-stacked": (form_lockup_v, "nisse lockup, stacked"),
+    "wordmark": (form_wordmark, "nisse wordmark with cap"),
 }
 
 HEAD = ('<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -154,7 +154,7 @@ HEAD = ('<?xml version="1.0" encoding="UTF-8"?>\n'
 def svg_doc(w, h, defs, body, label, style=""):
     d = f"  <defs>{defs}{style}</defs>\n" if (defs or style) else ""
     return (HEAD + f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" '
-            f'role="img" aria-label="Nisse">\n  <title>{label}</title>\n{d}  {body}\n</svg>\n')
+            f'role="img" aria-label="nisse">\n  <title>{label}</title>\n{d}  {body}\n</svg>\n')
 
 
 # ---------------------------------------------------------------- raster
@@ -229,15 +229,15 @@ def main():
             _, _, text = doc(form, fill)
             write(LOGO / "svg" / f"nisse-{form}{suffix}.svg", text)
     w, h, defs, body = form_tile(None)
-    write(LOGO / "svg" / "nisse-app-tile.svg", svg_doc(w, h, defs, body, "Nisse app tile"))
+    write(LOGO / "svg" / "nisse-app-tile.svg", svg_doc(w, h, defs, body, "nisse app tile"))
     # symbolic (inherits text colour) for panels and toolbars
     w, h, defs, body = form_icon("currentColor")
-    write(LOGO / "svg" / "nisse-icon-symbolic.svg", svg_doc(w, h, defs, body, "Nisse icon, symbolic"))
+    write(LOGO / "svg" / "nisse-icon-symbolic.svg", svg_doc(w, h, defs, body, "nisse icon, symbolic"))
 
     # ---- favicon.svg that follows the browser colour scheme
     defs, body = icon_parts(INK, cls="m")
     style = ('<style>.m{fill:%s}@media (prefers-color-scheme:dark){.m{fill:%s}}</style>' % (INK, PAPER))
-    write(LOGO / "favicon" / "favicon.svg", svg_doc(512, 512, defs, body, "Nisse", style))
+    write(LOGO / "favicon" / "favicon.svg", svg_doc(512, 512, defs, body, "nisse", style))
 
     with Raster() as R:
         def render(form, fill, width, path):
@@ -253,7 +253,7 @@ def main():
                 for px in (600, 1200, 2400) if form != "lockup-stacked" else (320, 640, 1280):
                     render(form, fill, px, LOGO / "png" / f"nisse-{form}{suffix}-{px}w.png")
         w, h, defs, body = form_tile(None)
-        tile = svg_doc(w, h, defs, body, "Nisse app tile")
+        tile = svg_doc(w, h, defs, body, "nisse app tile")
         for px in (256, 512, 1024):
             write(LOGO / "png" / f"nisse-app-tile-{px}.png", R.png(tile, px, px))
 
@@ -272,7 +272,7 @@ def main():
         write(hic / "scalable" / "apps" / "distributor-logo-nisse.svg", tile)
         w, h, defs, body = form_icon("currentColor")
         write(hic / "symbolic" / "apps" / "distributor-logo-nisse-symbolic.svg",
-              svg_doc(w, h, defs, body, "Nisse icon, symbolic"))
+              svg_doc(w, h, defs, body, "nisse icon, symbolic"))
 
         # ---- boot and splash
         rev = PAPER
@@ -284,7 +284,7 @@ def main():
             inner = (f'<rect width="{bw}" height="{bh}" fill="{INK}"/>'
                      f'<svg x="{num((bw - tw) / 2)}" y="{num((bh - th) / 2)}" width="{num(tw)}" height="{num(th)}" '
                      f'viewBox="0 0 {lw} {lh}"><defs>{ldefs}</defs>{lbody}</svg>')
-            write(LOGO / "boot" / f"splash-{bw}x{bh}.png", R.png(svg_doc(bw, bh, "", inner, "Nisse splash"), bw, bh))
+            write(LOGO / "boot" / f"splash-{bw}x{bh}.png", R.png(svg_doc(bw, bh, "", inner, "nisse splash"), bw, bh))
 
         # ---- social
         for name, bw, bh in (("github-social-preview-1280x640", 1280, 640), ("og-image-1200x630", 1200, 630)):
@@ -294,7 +294,7 @@ def main():
             inner = (f'<rect width="{bw}" height="{bh}" fill="{INK}"/>'
                      f'<svg x="{num((bw - tw) / 2)}" y="{num((bh - th) / 2)}" width="{num(tw)}" height="{num(th)}" '
                      f'viewBox="0 0 {lw} {lh}"><defs>{ldefs}</defs>{lbody}</svg>')
-            write(LOGO / "social" / f"{name}.png", R.png(svg_doc(bw, bh, "", inner, "Nisse"), bw, bh))
+            write(LOGO / "social" / f"{name}.png", R.png(svg_doc(bw, bh, "", inner, "nisse"), bw, bh))
 
         # ---- ASCII art for MOTD / fetch tools
         write(LOGO / "ascii" / "nisse-icon.txt", ascii_art(R.png(doc("icon", INK)[2], 256, 256)))

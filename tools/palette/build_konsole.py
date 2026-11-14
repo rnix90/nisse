@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Generate the Nisse Konsole color scheme from assets/palette/ember.json.
+"""Generate the nisse Konsole color scheme from assets/palette/ember.json.
 
     python tools/palette/build_konsole.py         # writes assets/theme/konsole/NisseEmber.colorscheme
 
@@ -31,7 +31,7 @@ def build(pal):
     for i, name in enumerate(NAMES):
         scheme[f"Color{i}"] = {"Color": rgb(t[name])}
         scheme[f"Color{i}Intense"] = {"Color": rgb(t["bright-" + name])}
-    scheme["General"] = {"Blur": "false", "ColorRandomization": "false", "Description": "Nisse Ember", "Opacity": "1"}
+    scheme["General"] = {"Blur": "false", "ColorRandomization": "false", "Description": "nisse Ember", "Opacity": "1"}
     return scheme
 
 

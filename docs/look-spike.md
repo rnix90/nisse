@@ -4,11 +4,11 @@ Date: 2026-11-12. Spike, not a plan. The pick is Bert's, at N-106.
 
 ## The question
 
-The Ember color scheme (N-104) recolors KDE. Is that enough of a "distinct Nisse identity", or do widget shapes and
+The Ember color scheme (N-104) recolors KDE. Is that enough of a "distinct nisse identity", or do widget shapes and
 window decorations need their own theme, and what does each way cost? Three candidates:
 
 - **A. Breeze plus our colors.** Keep KDE's Breeze widget style, Breeze window decoration and Breeze Plasma style; the
-  Nisse color scheme (and later icons, cursor, wallpaper) carries the identity.
+  nisse color scheme (and later icons, cursor, wallpaper) carries the identity.
 - **B. Kvantum, Aurorae and a custom Plasma Style.** Replace the widget style with Kvantum (an SVG and config driven
   style engine), the title bars with Aurorae (KWin's SVG decoration engine), the shell with our own Plasma Style SVGs.
   Data files only, no C++.
@@ -19,7 +19,7 @@ window decorations need their own theme, and what does each way cost? Three cand
 Real renders, not mockups. The 2026-11-05 ISO (Plasma 6.6.4, KWin 6.6.4, Qt 6.10.2) was booted under QEMU. A small
 driver (`tools/vm/livevm.py`) logged in over the serial console, applied each variant to the live Plasma
 Wayland session and screenshotted the same three apps each time: Dolphin (a Qt widgets app), System Settings (a
-Kirigami app) and the Nisse panel app (our own QML app). Variants:
+Kirigami app) and the nisse panel app (our own QML app). Variants:
 
 | Id | What was applied |
 |---|---|
@@ -38,10 +38,10 @@ Sheets (same windows, four variants each):
 
 | Claim | How | Result |
 |---|---|---|
-| The N-104 schemes load in a live Plasma session | `plasma-apply-colorscheme --list-schemes` and `NisseEmber` applied | Both Nisse schemes are listed, `NisseEmber` applied; System Settings Colors page renders both previews. This is the live-load part of N-104; the ISO packaging is still certified at GATE 1. |
+| The N-104 schemes load in a live Plasma session | `plasma-apply-colorscheme --list-schemes` and `NisseEmber` applied | Both nisse schemes are listed, `NisseEmber` applied; System Settings Colors page renders both previews. This is the live-load part of N-104; the ISO packaging is still certified at GATE 1. |
 | The Breeze icon theme follows the scheme | Dolphin folder icons | Blue in stock, Ember orange under the Ember scheme, with no icon work. |
 | Plasma's own shell (panel, launcher menu) follows the scheme | launcher screenshot | Dark navy surfaces, Ember selection. |
-| Kirigami and QML apps follow the scheme | System Settings, the Nisse panel app | Yes, in A. Under Kvantum they look almost the same as under Breeze. |
+| Kirigami and QML apps follow the scheme | System Settings, the nisse panel app | Yes, in A. Under Kvantum they look almost the same as under Breeze. |
 | Kvantum installs without root | `dnf download` then `rpm2cpio`, run from the home folder | Works; no missing libraries. (The live session's `sudo` wants a password.) |
 | A Kvantum theme can be generated from the tokens | sed recolor of KvFlat, below | Works; see B1 in the sheets. About ten SVG colors map to tokens; a second pass was needed for stock blue and greys. |
 | Aurorae is on the ISO | `rpm -q aurorae` | `aurorae-6.6.4-1.fc44`. |
@@ -61,7 +61,7 @@ every shape, radius and spacing is stock KDE. If the identity is meant to come f
 the mascot, A already carries it.
 
 **Kvantum changes the shapes only a little unless someone redraws the SVG.** B1 and B2 differ from A in toolbar,
-view-frame, button and field details, not in the overall silhouette. The Nisse panel app (QML) is nearly identical in A, B1
+view-frame, button and field details, not in the overall silhouette. The nisse panel app (QML) is nearly identical in A, B1
 and B2. A distinct widget shape language means editing or drawing the Kvantum SVG by hand; recoloring is scripted,
 reshaping is design work. A stock Kvantum theme (B2) brings its own greys and loses our surface colors.
 
@@ -87,7 +87,7 @@ The C figures are estimates, not measurements. C was not built.
 ## Recommendation
 
 **A for Milestone 2.** It costs nothing new, follows every KDE upgrade, and the sheets show it already looks like
-Nisse and not like stock Breeze. Spend the effort that would go into B on the stage 4 art instead.
+nisse and not like stock Breeze. Spend the effort that would go into B on the stage 4 art instead.
 
 **Keep B1 as a proven optional upgrade** (DEFERRED if Bert wants it): a generated Kvantum theme works and could be added
 later if the stock widget silhouette starts to bother him; reshaping the SVG is the real cost. **Do not build C.**

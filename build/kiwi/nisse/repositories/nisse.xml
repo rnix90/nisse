@@ -8,7 +8,7 @@
     </source>
   </repository>
   <!-- Our own packages, built into out/repo by tools/rpm/make-repo.sh. Unsigned for now; the lower priority
-       number wins, so a Nisse package always beats a Fedora package of the same name. -->
+       number wins, so a nisse package always beats a Fedora package of the same name. -->
   <repository type="rpm-md" alias="nisse" priority="90" package_gpgcheck="false" repository_gpgcheck="false">
     <source path="@NISSE_REPO@"/>
   </repository>

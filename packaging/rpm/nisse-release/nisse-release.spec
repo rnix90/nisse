@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: MIT
 # Derived from Fedora's generic-release 44-0.2 spec (MIT). See README.md.
 %{!?fedora_release:%global fedora_release 44}
-# Nisse's own product version (build/PRODUCT_VERSION): what the system calls itself. The RPM Version and VERSION_ID stay the
+# nisse's own product version (build/PRODUCT_VERSION): what the system calls itself. The RPM Version and VERSION_ID stay the
 # Fedora base release, because dnf's releasever, the COPR plugin and the %%fedora macro are derived from them.
 %{!?nisse_product:%global nisse_product 0.2}
-%global release_name Nisse
+%global release_name nisse
 
 Name:           nisse-release
 Version:        %{fedora_release}
 Release:        6%{?dist}
-Summary:        Nisse release files
+Summary:        nisse release files
 License:        MIT
 BuildArch:      noarch
 
@@ -36,19 +36,19 @@ Conflicts:      generic-release
 Requires:       nisse-release-common = %{version}-%{release}
 
 %description
-Release files that identify the system as Nisse, a Fedora-based
+Release files that identify the system as nisse, a Fedora-based
 distribution. This package replaces the trademarked fedora-release package.
 
 %package common
-Summary:        Nisse release files common to every install
+Summary:        nisse release files common to every install
 Requires:       nisse-release-variant = %{version}-%{release}
 Requires:       fedora-repos(%{version})
 Conflicts:      fedora-release-common
 Conflicts:      generic-release-common
 
 %description common
-Release files, systemd presets, the Nisse update channel file and the
-Nisse repository definitions.
+Release files, systemd presets, the nisse update channel file and the
+nisse repository definitions.
 
 %prep
 
@@ -58,7 +58,7 @@ Nisse repository definitions.
 mkdir -p licenses
 install -pm 0644 %{SOURCE0} licenses/LICENSE
 install -d %{buildroot}%{_prefix}/lib %{buildroot}%{_sysconfdir}
-echo "Nisse release %{nisse_product} (%{release_name})" > %{buildroot}%{_prefix}/lib/fedora-release
+echo "nisse release %{nisse_product} (%{release_name})" > %{buildroot}%{_prefix}/lib/fedora-release
 echo "cpe:/o:nisse:nisse:%{nisse_product}" > %{buildroot}%{_prefix}/lib/system-release-cpe
 ln -s ../usr/lib/fedora-release %{buildroot}%{_sysconfdir}/fedora-release
 ln -s ../usr/lib/system-release-cpe %{buildroot}%{_sysconfdir}/system-release-cpe
@@ -66,13 +66,13 @@ ln -s fedora-release %{buildroot}%{_sysconfdir}/redhat-release
 ln -s fedora-release %{buildroot}%{_sysconfdir}/system-release
 
 cat > %{buildroot}%{_prefix}/lib/os-release <<EOF
-NAME="Nisse"
+NAME="nisse"
 VERSION="%{nisse_product}"
 ID=nisse
 ID_LIKE="fedora"
 VERSION_ID=%{version}
 BUILD_ID=%{nisse_product}
-PRETTY_NAME="Nisse %{nisse_product}"
+PRETTY_NAME="nisse %{nisse_product}"
 ANSI_COLOR="0;34"
 LOGO=distributor-logo-nisse
 CPE_NAME="cpe:/o:nisse:nisse:%{nisse_product}"
@@ -146,7 +146,7 @@ install -Dm0644 %{SOURCE6} %{SOURCE7} -t %{buildroot}%{_sysconfdir}/yum.repos.d/
 
 %changelog
 * Wed Nov 04 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-6
-- Nisse's own product version (0.2) in os-release, fedora-release and the CPE name; VERSION_ID and the RPM Version stay the Fedora base
+- nisse's own product version (0.2) in os-release, fedora-release and the CPE name; VERSION_ID and the RPM Version stay the Fedora base
 
 * Mon Nov 02 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-5
 - sshd.service is off by default (opt-in); SUPPORT_URL points at the repository (Discussions are not enabled)
@@ -161,4 +161,4 @@ install -Dm0644 %{SOURCE6} %{SOURCE7} -t %{buildroot}%{_sysconfdir}/yum.repos.d/
 - Enable livesys.service and livesys-late.service so live media gets a live user and autologin
 
 * Thu Oct 29 2026 Bert <266182601+rnix90@users.noreply.github.com> - 44-1
-- Initial Nisse release package, derived from generic-release 44-0.2
+- Initial nisse release package, derived from generic-release 44-0.2

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Map a machine's DMI and PCI data to a Nisse hardware profile."""
+"""Map a machine's DMI and PCI data to a nisse hardware profile."""
 from __future__ import annotations
 
 import argparse
@@ -84,7 +84,7 @@ def detect(dmi: DmiInfo, pci_ids: frozenset[str] = frozenset()) -> Profile:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m nisse_hw.detect", description="Print this machine's Nisse hardware profile.")
+    parser = argparse.ArgumentParser(prog="python -m nisse_hw.detect", description="Print this machine's nisse hardware profile.")
     parser.add_argument("--dmi-root", type=Path, default=DMI_ROOT)
     parser.add_argument("--pci-root", type=Path, default=PCI_ROOT)
     parser.add_argument("--json", action="store_true", help='print {"profile": ..., "dmi": {...}}')

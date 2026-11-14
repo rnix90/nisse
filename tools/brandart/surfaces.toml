@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# What "every graphic" means for Nisse's brand art review (docs/brand-art.md): the identity and the desktop theme of a
+# What "every graphic" means for nisse's brand art review (docs/brand-art.md): the identity and the desktop theme of a
 # built image, grouped by where a person sees them. Patterns are relative to the image root and may use ** .
 #
 # Group keys:
@@ -17,7 +17,7 @@
 [[group]]
 id = "logos"
 title = "Logos and marks"
-seen = "Start button, About this System, installer, dialogs, the Nisse panel"
+seen = "Start button, About this System, installer, dialogs, the nisse panel"
 patterns = [
   "usr/share/icons/hicolor/scalable/apps/start-here.svg",
   "usr/share/icons/hicolor/scalable/apps/distributor-logo-nisse.svg",
@@ -32,7 +32,7 @@ patterns = [
 ]
 requests = [
   { title = "Website and favicon mark", seen = "Browser tab and the project page" },
-  { title = "Nisse panel tray icon (monochrome, all states)", seen = "System tray: idle, busy, needs-you, error" },
+  { title = "nisse panel tray icon (monochrome, all states)", seen = "System tray: idle, busy, needs-you, error" },
 ]
 
 [[group]]
@@ -45,7 +45,7 @@ patterns = [
   "usr/share/icons/hicolor/scalable/apps/fedora-loves-kde.svg",
 ]
 requests = [
-  { title = "A Nisse default user avatar set", seen = "Login screen and first-run user setup" },
+  { title = "A nisse default user avatar set", seen = "Login screen and first-run user setup" },
 ]
 
 [[group]]
@@ -80,7 +80,7 @@ patterns = [
   "usr/share/pixmaps/bootloader/*.icns",
 ]
 requests = [
-  { title = "Welcome Center slides (the pages of the first-run tour)", seen = "Welcome to Nisse! window on first boot" },
+  { title = "Welcome Center slides (the pages of the first-run tour)", seen = "Welcome to nisse! window on first boot" },
   { title = "Desktop icon: Install to Hard Drive", seen = "Live session desktop" },
 ]
 
@@ -97,7 +97,7 @@ patterns = [
 collapse_by = "usr/share/(?:wallpapers|backgrounds)/((?:[^/]+/)?[^/]+?)/(?:contents/)?(?:images|[^/]+\\.(?:png|jpg))"
 missing = true
 requests = [
-  { title = "Nisse default wallpaper (light, dark and a time-of-day pair)", seen = "First thing on the desktop" },
+  { title = "nisse default wallpaper (light, dark and a time-of-day pair)", seen = "First thing on the desktop" },
 ]
 
 [[group]]
@@ -131,7 +131,7 @@ title = "Color schemes"
 seen = "Window, view, button, selection and tooltip colours"
 patterns = ["usr/share/color-schemes/*.colors"]
 requests = [
-  { title = "Nisse Ember colour scheme (dark shell, light document areas)", seen = "Whole desktop; chosen palette is Ember, see docs/roadmap.md 1.1" },
+  { title = "nisse Ember colour scheme (dark shell, light document areas)", seen = "Whole desktop; chosen palette is Ember, see docs/roadmap.md 1.1" },
 ]
 
 [[group]]
@@ -152,5 +152,5 @@ title = "Sounds"
 seen = "Login, logout, notifications, errors and volume feedback (audio, not graphics)"
 patterns = ["usr/share/sounds/ocean/stereo/*.oga"]
 requests = [
-  { title = "Nisse login sound", seen = "After login" },
+  { title = "nisse login sound", seen = "After login" },
 ]

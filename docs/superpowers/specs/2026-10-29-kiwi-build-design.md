@@ -1,4 +1,4 @@
-# Nisse build tooling: move from kickstart to kiwi (design amendment)
+# nisse build tooling: move from kickstart to kiwi (design amendment)
 
 Date: 2026-10-29. Status: draft for review. Amends section 5 and 6.12 of
 `2026-10-28-nisse-os-design.md` (image built "with kickstart and the Anaconda installer").
@@ -21,7 +21,7 @@ Changes:
 
 Does not change:
 - Classic RPM remix, Anaconda as the installer, KDE Plasma, x86_64, btrfs, one image for all machines.
-- Our RPMs, their tests, the local repo (`out/repo`), the Nisse release package, the hardware routing, the daemon and panel.
+- Our RPMs, their tests, the local repo (`out/repo`), the nisse release package, the hardware routing, the daemon and panel.
 - The test surface: `tests/iso/test_iso_contents.sh`, `tools/vm/smoke-boot.sh`, `tests/e2e/test_hw_in_vm.sh`.
   The ISO contents test needs to learn the new image layout (kiwi uses an erofs root, not squashfs).
 - Where the build runs: the Fedora VM on RN-DESKTOP, run by hand.
@@ -45,13 +45,13 @@ exclusion list), users, and the post-build scripts. The cloud, server and other 
 Fedora's `COPYING` (GPL-3.0) stays with the vendored files; they keep their own license inside our
 GPL-2.0-or-later repository (call: acceptable, they are build configuration, not linked code).
 
-**Nisse overlay (call).** Our own files sit beside the vendored ones and never edit them:
-- `build/kiwi/Nisse.kiwi`: the top-level description (name Nisse, version from `build/FEDORA_RELEASE`, dnf5), which
+**nisse overlay (call).** Our own files sit beside the vendored ones and never edit them:
+- `build/kiwi/Nisse.kiwi`: the top-level description (name nisse, version from `build/FEDORA_RELEASE`, dnf5), which
   includes the vendored components plus ours.
 - `build/kiwi/nisse/components/nisse-live.xml`: a profile `Nisse-Live` requiring `BaseCommon`, `BootCoreLive` and
   `KDE-Desktop`. It deliberately does not use Fedora's `KDE-Desktop-Live` profile, which pulls in
-  `fedora-release-kde` and Fedora's volume id and publisher. It carries our ISO type block (volume id `Nisse-44`,
-  publisher Nisse, erofs root, UEFI, GRUB, a serial console on the kernel line for the boot tests), the live-install
+  `fedora-release-kde` and Fedora's volume id and publisher. It carries our ISO type block (volume id `nisse-44`,
+  publisher nisse, erofs root, UEFI, GRUB, a serial console on the kernel line for the boot tests), the live-install
   package set copied from Fedora's, and our packages: `nisse-release`, `nisse-release-common`, `nisse-branding`,
   `nisse-fonts-nunito`, `nisse-hw`, `nisse-firstboot`, `nisse-daemon`, `nisse-panel`.
 - `build/kiwi/nisse/repositories/nisse.xml`: the release repo (Fedora metalink, signed) and our local repo

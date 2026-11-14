@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Build every Nisse RPM, index them into out/repo, then build out/nisse-live.iso. Run in the Fedora build VM:
+# Build every nisse RPM, index them into out/repo, then build out/nisse-live.iso. Run in the Fedora build VM:
 #   setsid nohup bash build/build-all.sh > out/build-all.log 2>&1 < /dev/null &      (about 25-35 minutes)
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"

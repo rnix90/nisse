@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
-<!-- Top-level kiwi description for Nisse. build/render-kiwi.sh copies the vendored Fedora description
+<!-- Top-level kiwi description for nisse. build/render-kiwi.sh copies the vendored Fedora description
      (build/kiwi/fedora) and this overlay into one directory, fills in the @...@ placeholders, and kiwi builds
      the profile Nisse-Live from there. See docs/superpowers/specs/2026-10-29-kiwi-build-design.md. -->
-<image schemaversion="7.4" name="Nisse" displayname="Nisse">
+<image schemaversion="7.4" name="Nisse" displayname="nisse">
   <description type="system">
-    <author>Nisse contributors</author>
+    <author>nisse contributors</author>
     <contact>https://github.com/rnix90/nisse</contact>
-    <specification>Nisse, a Fedora-based distribution</specification>
+    <specification>nisse, a Fedora-based distribution</specification>
   </description>
   <preferences>
     <version>@RELEASE@</version>

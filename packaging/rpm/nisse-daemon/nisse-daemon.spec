@@ -6,7 +6,7 @@
 Name:           nisse-daemon
 Version:        0.1
 Release:        2%{?dist}
-Summary:        Nisse daemon: AI sessions for the Nisse panel
+Summary:        nisse daemon: AI sessions for the nisse panel
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
 BuildRequires:  gcc
@@ -20,7 +20,7 @@ Source3:        claude-settings.json
 
 %description
 A user service on the session bus (org.nisse.Daemon1) that runs Claude Code
-sessions for the Nisse panel, routes them to the configured backend and keeps
+sessions for the nisse panel, routes them to the configured backend and keeps
 an audit log. Includes the hook that records Claude Code's tool use.
 
 %prep
