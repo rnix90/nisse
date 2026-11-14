@@ -13,6 +13,7 @@ for f in build/FEDORA_RELEASE build/build-iso.sh build/build-all.sh build/render
          packaging/rpm/nisse-theme/nisse-theme.spec tests/rpm/test_theme.sh packaging/rpm/nisse-lookandfeel/nisse-lookandfeel.spec packaging/rpm/nisse-defaults/nisse-defaults.spec tests/rpm/test_defaults.sh assets/defaults/xdg/kwinrc assets/defaults/xdg/konsolerc assets/theme/konsole/NisseEmber.colorscheme assets/theme/konsole/Nisse.profile tools/palette/build_konsole.py tests/rpm/test_lookandfeel.sh assets/theme/xdg/kdeglobals assets/theme/lookandfeel/start-here-icon.js assets/theme/lookandfeel/layout.js assets/theme/lookandfeel/org.nisse.desktop/metadata.json assets/theme/lookandfeel/org.nisse.desktop/contents/defaults assets/theme/lookandfeel/org.nisse.desktop.light/metadata.json assets/theme/lookandfeel/org.nisse.desktop.light/contents/defaults assets/palette/ember.json tools/palette/build_scheme.py \
          assets/theme/color-schemes/NisseEmber.colors assets/theme/color-schemes/NisseEmberLight.colors \
          tools/vm/livevm.py tools/vm/imgdiff.py tools/vm/regress.py tools/vm/tests/test_imgdiff.py tools/vm/tests/test_regress.py \
+         tools/claude-probe/probe_cli.py tools/claude-probe/probe_host.py tools/claude-probe/tests/test_probe.py \
          tools/repo/lowercase_name.py tools/repo/tests/test_lowercase_name.py tests/repo/test_lowercase_name.sh \
          tests/golden/desktop.png tests/golden/panel.png tests/golden/launcher.png tests/golden/settings.png tests/golden/terminal.png; do
     if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
