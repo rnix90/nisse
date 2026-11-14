@@ -29,6 +29,8 @@ DaemonClient::DaemonClient(QObject *parent)
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionError"), this, SLOT(onFailed(QString, QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionsChanged"), this, SLOT(onSessionsChanged()));
     bus.connect(kService, kPath, kInterface, QStringLiteral("UsageChanged"), this, SLOT(onUsageChanged(QString)));
+    bus.connect(kService, kPath, kInterface, QStringLiteral("KillSwitchChanged"), this,
+                SLOT(onKillSwitchChanged(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("RemoteAccessChanged"), this,
                 SLOT(onRemoteAccessChanged(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("ApprovalChanged"), this,
@@ -38,6 +40,9 @@ DaemonClient::DaemonClient(QObject *parent)
     const QDBusReply<QString> usage = m_iface.call(QStringLiteral("GetUsage"));
     if (usage.isValid())
         m_usageJson = usage.value();
+    const QDBusReply<QString> kill = m_iface.call(QStringLiteral("GetKillSwitch"));
+    if (kill.isValid())
+        m_killSwitchJson = kill.value();
 }
 
 DaemonClient::~DaemonClient() = default;
@@ -218,6 +223,32 @@ void DaemonClient::enableNotifications(std::function<bool()> windowActive)
 void DaemonClient::onRemoteAccessChanged(const QString &json)
 {
     emit remoteAccessChanged(json);
+}
+
+QString DaemonClient::engageKillSwitch(const QString &reason)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("EngageKillSwitch"), QStringLiteral("desktop"), reason);
+    if (reply.type() != QDBusMessage::ReplyMessage)
+        return reply.errorMessage();
+    onKillSwitchChanged(reply.arguments().value(0).toString());
+    return QString();
+}
+
+QString DaemonClient::releaseKillSwitch()
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("ReleaseKillSwitch"), QStringLiteral("desktop"));
+    if (reply.type() != QDBusMessage::ReplyMessage)
+        return reply.errorMessage();
+    onKillSwitchChanged(reply.arguments().value(0).toString());
+    return QString();
+}
+
+void DaemonClient::onKillSwitchChanged(const QString &json)
+{
+    if (json == m_killSwitchJson)
+        return;
+    m_killSwitchJson = json;
+    emit killSwitchChanged();
 }
 
 void DaemonClient::refreshUsage()

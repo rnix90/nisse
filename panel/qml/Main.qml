@@ -23,8 +23,16 @@ ApplicationWindow {
         }
     }
 
-    header: StatusBar {
-        client: daemon
+    header: ColumnLayout {
+        spacing: 0
+        StatusBar {
+            Layout.fillWidth: true
+            client: daemon
+        }
+        KillSwitchBar {
+            Layout.fillWidth: true
+            client: daemon
+        }
     }
 
     StackLayout {

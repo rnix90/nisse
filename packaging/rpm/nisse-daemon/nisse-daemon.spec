@@ -5,7 +5,7 @@
 
 Name:           nisse-daemon
 Version:        0.1
-Release:        13%{?dist}
+Release:        14%{?dist}
 Summary:        nisse daemon: AI sessions for the nisse panel
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
@@ -62,6 +62,9 @@ install -Dpm 0644 %{SOURCE4} %{buildroot}%{_sysconfdir}/claude-code/managed-sett
 %config(noreplace) %{_sysconfdir}/claude-code/managed-settings.json
 
 %changelog
+* Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-14
+- Kill switch: GetKillSwitch, EngageKillSwitch, ReleaseKillSwitch and killswitch.json
+
 * Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-13
 - Usage status: GetUsage, RefreshUsage, the UsageChanged signal and usage.json
 

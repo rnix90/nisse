@@ -32,9 +32,11 @@ async fn main() -> zbus::Result<()> {
     .with_state_file(sessions_file.clone())
     .with_approvals_file(nisse_daemon::approvals::approvals_path_beside(&sessions_file))
     .with_remote_access(remote_options(&sessions_file))
-    .with_usage_file(sessions_file.with_file_name("usage.json"));
+    .with_usage_file(sessions_file.with_file_name("usage.json"))
+    .with_killswitch_file(sessions_file.with_file_name("killswitch.json"));
     let approvals = daemon.approvals();
     let usage = daemon.usage();
+    let kill = daemon.killswitch();
     let usage_refresher = daemon.usage_refresher();
     let remote = daemon.remote();
     let connection = zbus::connection::Builder::session()?
@@ -44,14 +46,17 @@ async fn main() -> zbus::Result<()> {
         .await?;
     nisse_daemon::dbus::forward_approval_signals(&connection, approvals).await?;
     nisse_daemon::dbus::forward_usage_signals(&connection, usage).await?;
+    nisse_daemon::dbus::forward_killswitch_signals(&connection, Arc::clone(&kill)).await?;
     // The limits are only known after a turn; read them once now so a status bar has something to show.
     tokio::spawn(async move {
         usage_refresher.refresh().await;
     });
     if let Some(remote) = &remote {
         nisse_daemon::dbus::forward_remote_signals(&connection, Arc::clone(remote)).await?;
-        // The switch was left on: bring the server back.
-        remote.resume().await;
+        // The switch was left on: bring the server back (not while the kill switch is on; releasing it does).
+        if !kill.is_engaged() {
+            remote.resume().await;
+        }
     }
     // Until the session ends: then the remote access server goes too, and the switch stays on for the next start.
     let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;

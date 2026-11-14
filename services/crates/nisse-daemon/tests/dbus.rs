@@ -1250,13 +1250,13 @@ mod remote_switch {
         path
     }
 
-    struct Remote {
-        s: Setup,
-        remote: Arc<RemoteAccess>,
-        dir: PathBuf,
+    pub(super) struct Remote {
+        pub(super) s: Setup,
+        pub(super) remote: Arc<RemoteAccess>,
+        pub(super) dir: PathBuf,
     }
 
-    async fn setup_remote(name: &str, config: Option<&str>) -> Remote {
+    pub(super) async fn setup_remote(name: &str, config: Option<&str>) -> Remote {
         let dir = scratch(name);
         let config_path = dir.join("backends.toml");
         if let Some(text) = config {
@@ -1778,5 +1778,243 @@ model = "m"
             message.contains("alone") && message.contains("not reachable"),
             "{message}"
         );
+    }
+}
+
+// ---- the kill switch over D-Bus (ledger N-215)
+
+mod kill_switch {
+    use super::*;
+    use nisse_daemon::dbus::forward_killswitch_signals;
+
+    async fn status(s: &Setup) -> serde_json::Value {
+        let text: String = s.proxy.call("GetKillSwitch", &()).await.unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    #[tokio::test]
+    async fn it_starts_released_and_engaging_records_who_and_why() {
+        let s = setup("ks-basic", Arc::new(FakeRunner)).await;
+        assert_eq!(status(&s).await["engaged"], false);
+        let text: String = s.proxy.call("EngageKillSwitch", &("phone", "not today")).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["engaged"], true);
+        assert_eq!(v["by"], "phone");
+        assert_eq!(v["reason"], "not today");
+        assert!(v["since"].as_i64().unwrap() > 1_700_000_000);
+        let audit = audit_lines(&s).await.join("\n");
+        assert!(audit.contains("kill-switch") && audit.contains("phone"), "{audit}");
+    }
+
+    #[tokio::test]
+    async fn a_device_name_is_required() {
+        let s = setup("ks-device", Arc::new(FakeRunner)).await;
+        let bad: Result<String, _> = s.proxy.call("EngageKillSwitch", &("", "x")).await;
+        assert!(bad.is_err());
+        let bad: Result<String, _> = s.proxy.call("ReleaseKillSwitch", &("",)).await;
+        assert!(bad.is_err());
+    }
+
+    #[tokio::test]
+    async fn a_running_turn_is_stopped_with_one_done_and_a_plain_line() {
+        let runner = hanging();
+        let s = setup("ks-running", Arc::clone(&runner) as Arc<dyn AgentRunner>).await;
+        let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+        let mut errors = s.proxy.receive_signal("SessionError").await.unwrap();
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let _: () = s.proxy.call("SendMessage", &(id.as_str(), "work")).await.unwrap();
+        wait_until("the turn to start", || runner.started.load(Ordering::SeqCst)).await;
+        let _: String = s.proxy.call("EngageKillSwitch", &("desktop", "stop")).await.unwrap();
+        let (_, message): (String, String) = next_signal(&mut errors).await.body().deserialize().unwrap();
+        assert!(
+            message.contains("kill switch") && message.contains("desktop"),
+            "{message}"
+        );
+        let done_id: String = next_signal(&mut done).await.body().deserialize().unwrap();
+        assert_eq!(done_id, id);
+        wait_until("the runner future to be dropped", || {
+            runner.dropped.load(Ordering::SeqCst)
+        })
+        .await;
+        assert!(
+            tokio::time::timeout(Duration::from_millis(400), done.next())
+                .await
+                .is_err(),
+            "a second SessionDone"
+        );
+        let lines: Vec<String> = s.proxy.call("ListSessions", &()).await.unwrap();
+        assert_eq!(parse_all(&lines)[0]["running"], false);
+    }
+
+    #[tokio::test]
+    async fn queued_messages_are_dropped_too() {
+        let runner = hanging();
+        let s = setup("ks-queue", Arc::clone(&runner) as Arc<dyn AgentRunner>).await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let _: () = s.proxy.call("SendMessage", &(id.as_str(), "one")).await.unwrap();
+        wait_until("the turn to start", || runner.started.load(Ordering::SeqCst)).await;
+        let _: () = s
+            .proxy
+            .call("SendMessage", &(id.as_str(), "two, queued"))
+            .await
+            .unwrap();
+        let _: String = s.proxy.call("EngageKillSwitch", &("desktop", "stop")).await.unwrap();
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert_eq!(runner.seen.lock().unwrap().len(), 1, "the queued message never ran");
+    }
+
+    #[tokio::test]
+    async fn new_sends_are_refused_with_the_reason_and_run_nothing() {
+        let runner = hanging();
+        let s = setup("ks-refuse", Arc::clone(&runner) as Arc<dyn AgentRunner>).await;
+        let _: String = s.proxy.call("EngageKillSwitch", &("phone", "stop")).await.unwrap();
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let mut errors = s.proxy.receive_signal("SessionError").await.unwrap();
+        let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+        let _: () = s.proxy.call("SendMessage", &(id.as_str(), "hello")).await.unwrap();
+        let (_, message): (String, String) = next_signal(&mut errors).await.body().deserialize().unwrap();
+        assert!(message.contains("paused") && message.contains("phone"), "{message}");
+        next_signal(&mut done).await;
+        assert!(!runner.started.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn pending_approvals_are_denied_by_the_device_and_new_ones_are_refused() {
+        let s = setup("ks-approvals", Arc::new(FakeRunner)).await;
+        let pending = s.approvals.request(ask("Bash"), 900).await;
+        let _: String = s.proxy.call("EngageKillSwitch", &("phone", "stop")).await.unwrap();
+        let a = s.approvals.get(&pending.id).await.unwrap();
+        assert_eq!(format!("{:?}", a.state), "Denied");
+        assert_eq!(a.decided_by.as_deref(), Some("phone"));
+        let again: Result<String, _> = s
+            .proxy
+            .call("RequestApproval", &("s1", "guardrail", "Bash", "git push", "{}"))
+            .await;
+        assert!(again.is_err(), "a held call cannot start while the AI is stopped");
+    }
+
+    #[tokio::test]
+    async fn releasing_lets_sends_run_again() {
+        let s = setup("ks-release", Arc::new(FakeRunner)).await;
+        let _: String = s.proxy.call("EngageKillSwitch", &("phone", "stop")).await.unwrap();
+        let released: String = s.proxy.call("ReleaseKillSwitch", &("desktop",)).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&released).unwrap()["engaged"],
+            false
+        );
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        send_and_wait(&s, &id, "hello").await;
+        let audit = audit_lines(&s).await.join("\n");
+        assert!(audit.contains("desktop"), "who released it is recorded: {audit}");
+    }
+
+    #[tokio::test]
+    async fn engaging_twice_changes_nothing_and_a_signal_goes_out_for_each_real_change() {
+        let dir = scratch("ks-signal");
+        let daemon = Daemon::new(Arc::new(FakeRunner), dir.join("backends.toml"), dir.join("audit.jsonl"))
+            .with_approvals_file(dir.join("approvals.json"));
+        let kill = daemon.killswitch();
+        let (a, b) = tokio::net::UnixStream::pair().unwrap();
+        let server = zbus::connection::Builder::unix_stream(a)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at(PATH, daemon)
+            .unwrap()
+            .build();
+        let client = zbus::connection::Builder::unix_stream(b).p2p().build();
+        let (server, client) = tokio::try_join!(server, client).unwrap();
+        forward_killswitch_signals(&server, kill).await.unwrap();
+        let proxy = Proxy::new(&client, NAME, PATH, NAME).await.unwrap();
+        let mut changed = proxy.receive_signal("KillSwitchChanged").await.unwrap();
+        let _: String = proxy.call("EngageKillSwitch", &("phone", "one")).await.unwrap();
+        let body: String = next_signal(&mut changed).await.body().deserialize().unwrap();
+        assert!(body.contains("\"engaged\":true"), "{body}");
+        let second: String = proxy.call("EngageKillSwitch", &("desktop", "two")).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&second).unwrap()["by"],
+            "phone",
+            "the first stays"
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_millis(300), changed.next())
+                .await
+                .is_err(),
+            "no signal for a no-op"
+        );
+        let _: String = proxy.call("ReleaseKillSwitch", &("desktop",)).await.unwrap();
+        let body: String = next_signal(&mut changed).await.body().deserialize().unwrap();
+        assert!(body.contains("\"engaged\":false"), "{body}");
+    }
+
+    #[tokio::test]
+    async fn it_stays_engaged_when_the_daemon_restarts() {
+        let dir = scratch("ks-restart");
+        let make = |dir: PathBuf| {
+            Daemon::new(Arc::new(FakeRunner), dir.join("backends.toml"), dir.join("audit.jsonl"))
+                .with_approvals_file(dir.join("approvals.json"))
+                .with_killswitch_file(dir.join("killswitch.json"))
+        };
+        {
+            let first = start_daemon(make(dir.clone())).await;
+            let _: String = first.call("EngageKillSwitch", &("phone", "stop")).await.unwrap();
+        }
+        let second = start_daemon(make(dir)).await;
+        let text: String = second.call("GetKillSwitch", &()).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&text).unwrap()["engaged"],
+            true
+        );
+        let id: String = second.call("NewSession", &()).await.unwrap();
+        let mut errors = second.receive_signal("SessionError").await.unwrap();
+        let _: () = second.call("SendMessage", &(id.as_str(), "hello")).await.unwrap();
+        let (_, message): (String, String) = next_signal(&mut errors).await.body().deserialize().unwrap();
+        assert!(message.contains("paused"), "{message}");
+    }
+
+    #[tokio::test]
+    async fn the_remote_access_server_is_stopped_and_stays_off_until_released() {
+        let r = super::remote_switch::setup_remote("ks-remote", None).await;
+        let _: String = r.s.proxy.call("SetRemoteAccess", &(true,)).await.unwrap();
+        wait_until("the server to run", || {
+            fs::read_to_string(r.dir.join("remote-args")).is_ok_and(|a| a.contains("remote-control"))
+        })
+        .await;
+        assert!(r.remote.status().await.running);
+        let _: String = r.s.proxy.call("EngageKillSwitch", &("phone", "stop")).await.unwrap();
+        assert!(
+            !r.remote.status().await.running,
+            "the server and what it started are gone"
+        );
+        assert!(
+            r.remote.status().await.enabled,
+            "the switch itself is left as the person set it"
+        );
+        let again: Result<String, _> = r.s.proxy.call("SetRemoteAccess", &(true,)).await;
+        assert!(again.is_err(), "it cannot be turned on while everything is stopped");
+        let _: String = r.s.proxy.call("ReleaseKillSwitch", &("desktop",)).await.unwrap();
+        for _ in 0..200 {
+            if r.remote.status().await.running {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        assert!(r.remote.status().await.running, "released: the server is brought back");
+        let _: String = r.s.proxy.call("SetRemoteAccess", &(false,)).await.unwrap();
+    }
+
+    async fn start_daemon(daemon: Daemon) -> Proxy<'static> {
+        let (a, b) = tokio::net::UnixStream::pair().unwrap();
+        let server = zbus::connection::Builder::unix_stream(a)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at(PATH, daemon)
+            .unwrap()
+            .build();
+        let client = zbus::connection::Builder::unix_stream(b).p2p().build();
+        let (server, client) = tokio::try_join!(server, client).unwrap();
+        std::mem::forget(server); // the proxy needs the other end alive for the length of the test
+        Proxy::new(&client, NAME, PATH, NAME).await.unwrap()
     }
 }

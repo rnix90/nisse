@@ -17,6 +17,7 @@ use zbus::{interface, object_server::SignalEmitter};
 
 use crate::approvals::{Approval, ApprovalQueue, ApprovalState, DecideError, NewApproval};
 use crate::backend::{HealthOptions, NetworkProber, Prober, Resolver};
+use crate::killswitch::KillSwitch;
 use crate::remote::{RemoteAccess, RemoteOptions};
 use crate::runner::{AgentRunner, ApprovalHook, RunEvent, RunRequest};
 use crate::state::{Keep, SessionStore};
@@ -50,6 +51,8 @@ struct Core {
     resolver: Arc<Resolver>,
     /// The account's limit windows and the tokens used per backend (N-214).
     usage: Arc<UsageTracker>,
+    /// "AI activity is stopped" (N-215): while on, nothing new runs.
+    kill: Arc<KillSwitch>,
     runs: Arc<Mutex<HashMap<String, RunState>>>,
     /// The config error already audited, so a file that stays broken is reported once, not on every call.
     config_error: Arc<std::sync::Mutex<Option<String>>>,
@@ -68,6 +71,14 @@ impl Core {
         if let Ok(log) = AuditLog::open(&self.audit_path) {
             let _ = log.append(&record);
         }
+    }
+
+    /// The line a refused send gets while the kill switch is on.
+    fn paused_message(&self) -> String {
+        let s = self.kill.status();
+        let by = s.by.as_deref().unwrap_or("someone");
+        let why = s.reason.map(|r| format!(" ({r})")).unwrap_or_default();
+        format!("AI activity is paused: the kill switch was turned on by {by}{why}. Turn it off to continue.")
     }
 
     async fn refresh_usage(&self) -> bool {
@@ -155,6 +166,7 @@ impl Daemon {
                     HealthOptions::default(),
                 )),
                 usage: Arc::new(UsageTracker::in_memory()),
+                kill: Arc::new(KillSwitch::in_memory()),
                 runs: Arc::new(Mutex::new(HashMap::new())),
                 config_error: Arc::new(std::sync::Mutex::new(None)),
             },
@@ -223,6 +235,23 @@ impl Daemon {
         self
     }
 
+    /// Keep the kill switch state in `path`: it stays on across a daemon restart, and a file that cannot be read starts
+    /// it ON (and says so in the audit log).
+    pub fn with_killswitch_file(mut self, path: PathBuf) -> Daemon {
+        let (kill, warning) = KillSwitch::open(path);
+        self.core.kill = Arc::new(kill);
+        if let Some(warning) = warning {
+            self.core
+                .audit(None, "daemon", "state-warning", serde_json::json!({ "error": warning }));
+        }
+        self
+    }
+
+    /// The kill switch, for the code that forwards its changes and starts the remote server at boot.
+    pub fn killswitch(&self) -> Arc<KillSwitch> {
+        Arc::clone(&self.core.kill)
+    }
+
     /// Keep the usage numbers in `path` so they survive a daemon restart (an unreadable file is set aside and audited).
     pub fn with_usage_file(mut self, path: PathBuf) -> Daemon {
         let (tracker, warning) = UsageTracker::open(path);
@@ -280,6 +309,22 @@ fn approval_json(approval: &Approval) -> String {
 
 fn approval_error(e: DecideError) -> zbus::fdo::Error {
     zbus::fdo::Error::Failed(e.to_string())
+}
+
+/// Emits `KillSwitchChanged` whenever the switch is turned on or off. Call once after the daemon is served.
+pub async fn forward_killswitch_signals(connection: &zbus::Connection, kill: Arc<KillSwitch>) -> zbus::Result<()> {
+    let iface = connection
+        .object_server()
+        .interface::<_, Daemon>("/org/nisse/Daemon1")
+        .await?;
+    let emitter = iface.signal_emitter().to_owned();
+    let mut changes = kill.subscribe();
+    tokio::spawn(async move {
+        while changes.changed().await.is_ok() {
+            let _ = Daemon::kill_switch_changed(&emitter, &kill.status().to_json()).await;
+        }
+    });
+    Ok(())
 }
 
 /// Emits `UsageChanged` whenever usage was recorded. Call once after the daemon is served.
@@ -365,6 +410,10 @@ fn now_secs() -> i64 {
 
 /// One turn: run the agent for `text` and turn its events into D-Bus signals. `drive` sends the `SessionDone`.
 async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &str, text: String) {
+    if core.kill.is_engaged() {
+        let _ = Daemon::session_error(emitter, session_id, &core.paused_message()).await;
+        return;
+    }
     let started = core.sessions.get(session_id).await.unwrap_or(false);
     let config = core.config();
     // The backend this session was pointed at, else the default for chat. A session pointed at a backend that has left
@@ -568,6 +617,9 @@ impl Daemon {
     /// their approvals are not in the approvals queue.
     async fn set_remote_access(&self, enabled: bool) -> zbus::fdo::Result<String> {
         let remote = self.core.remote()?;
+        if enabled && self.core.kill.is_engaged() {
+            return Err(zbus::fdo::Error::Failed(self.core.paused_message()));
+        }
         let status = remote.set_enabled(enabled).await;
         self.core.audit(
             None,
@@ -660,6 +712,79 @@ impl Daemon {
         .to_string())
     }
 
+    /// Whether the kill switch is on, as JSON: `engaged`, `by` (the device), `reason`, `since` (unix seconds).
+    async fn get_kill_switch(&self) -> String {
+        self.core.kill.status().to_json()
+    }
+
+    /// Stops all AI activity at once: every running turn and everything it started (the whole process tree) is killed,
+    /// queued messages are dropped, approvals waiting for an answer are denied, the remote access server is stopped, and
+    /// new work is refused until `ReleaseKillSwitch`. Nothing is rolled back. `by` names the device (required); the
+    /// first person to engage it stays on record. Returns the status.
+    async fn engage_kill_switch(
+        &self,
+        by: String,
+        reason: String,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<String> {
+        if by.trim().is_empty() {
+            return Err(zbus::fdo::Error::InvalidArgs("by must name the device".into()));
+        }
+        if self.core.kill.engage(by.trim(), &reason, now_secs()) {
+            let status = self.core.kill.status();
+            self.core.audit(
+                None,
+                by.trim(),
+                "kill-switch",
+                serde_json::json!({ "engaged": true, "reason": status.reason }),
+            );
+            // Running turns first: each gets a plain line, then exactly one SessionDone.
+            let running: Vec<String> = {
+                let runs = self.core.runs.lock().await;
+                runs.iter()
+                    .filter(|(_, r)| r.running)
+                    .map(|(id, _)| id.clone())
+                    .collect()
+            };
+            let line = format!(
+                "AI activity was stopped by the kill switch (turned on by {}).",
+                by.trim()
+            );
+            for id in running {
+                let _ = Self::session_error(&emitter, &id, &line).await;
+                self.stop_run(&id, &emitter).await;
+            }
+            // What waits for an answer will never get one that matters.
+            for approval in self.core.approvals.list(Some(ApprovalState::Pending)).await {
+                let _ = self
+                    .core
+                    .approvals
+                    .decide(&approval.id, false, by.trim(), "the kill switch was turned on")
+                    .await;
+            }
+            if let Some(remote) = &self.core.remote {
+                remote.stop_for_exit().await;
+            }
+        }
+        Ok(self.core.kill.status().to_json())
+    }
+
+    /// Turns the kill switch off: new work is accepted again, and the remote access server comes back if its switch is
+    /// on. Nothing that was stopped is restarted. `by` names the device (required). Returns the status.
+    async fn release_kill_switch(&self, by: String) -> zbus::fdo::Result<String> {
+        if by.trim().is_empty() {
+            return Err(zbus::fdo::Error::InvalidArgs("by must name the device".into()));
+        }
+        if self.core.kill.release(by.trim(), now_secs()) {
+            self.core
+                .audit(None, by.trim(), "kill-switch", serde_json::json!({ "engaged": false }));
+            if let Some(remote) = &self.core.remote {
+                remote.resume().await;
+            }
+        }
+        Ok(self.core.kill.status().to_json())
+    }
+
     /// How much of the account's limits is used and how many tokens went where, as JSON: `max` (`five_hour` and
     /// `seven_day` with `utilization` 0 to 1, `resets_at`, `status`, `expired`; `observed_at`; `others`) and `tokens`
     /// (`today` and `week`, per backend). The windows come from what the CLI reported at the start of the last turn
@@ -734,6 +859,11 @@ impl Daemon {
         if self.core.sessions.get(&session_id).await.is_none() {
             let _ = Self::session_error(&emitter, &session_id, &format!("unknown session: {session_id}")).await;
             let _ = Self::session_done(&emitter, &session_id).await; // every message ends with a Done: the panel unlocks
+            return;
+        }
+        if self.core.kill.is_engaged() {
+            let _ = Self::session_error(&emitter, &session_id, &self.core.paused_message()).await;
+            let _ = Self::session_done(&emitter, &session_id).await;
             return;
         }
         // Talking to a library session (from any client) brings it back as a tab.
@@ -832,6 +962,9 @@ impl Daemon {
                 "asked_by must name the asking device".into(),
             ));
         }
+        if self.core.kill.is_engaged() {
+            return Err(zbus::fdo::Error::Failed(self.core.paused_message()));
+        }
         let detail = if detail_json.trim().is_empty() {
             serde_json::json!({})
         } else {
@@ -924,6 +1057,10 @@ impl Daemon {
     /// The session list changed (made, renamed or closed): clients call `ListSessions` again.
     #[zbus(signal)]
     async fn sessions_changed(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
+
+    /// The kill switch was turned on or off: the argument is the same JSON as `GetKillSwitch`.
+    #[zbus(signal)]
+    async fn kill_switch_changed(emitter: &SignalEmitter<'_>, status_json: &str) -> zbus::Result<()>;
 
     /// Usage numbers changed: the argument is the same JSON as `GetUsage`.
     #[zbus(signal)]

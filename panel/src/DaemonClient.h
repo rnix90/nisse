@@ -20,6 +20,8 @@ class DaemonClient : public QObject
     Q_PROPERTY(int pendingCount READ pendingCount NOTIFY pendingCountChanged)
     // The usage status as the daemon's JSON (N-214); empty until it is known.
     Q_PROPERTY(QString usageJson READ usageJson NOTIFY usageChanged)
+    // The kill switch as the daemon's JSON ({engaged, by, reason, since}) (N-215).
+    Q_PROPERTY(QString killSwitchJson READ killSwitchJson NOTIFY killSwitchChanged)
 
 public:
     explicit DaemonClient(QObject *parent = nullptr);
@@ -63,6 +65,10 @@ public:
     Q_INVOKABLE QString deny(const QString &id, const QString &reason);
     int pendingCount() const { return m_pendingCount; }
     QString usageJson() const { return m_usageJson; }
+    QString killSwitchJson() const { return m_killSwitchJson; }
+    // Stops all AI activity (N-215); the click is recorded as the "desktop" device. Returns an error text, or empty.
+    Q_INVOKABLE QString engageKillSwitch(const QString &reason);
+    Q_INVOKABLE QString releaseKillSwitch();
     // Asks the daemon to read the account's limits now (no model call); the answer arrives as usageJson.
     Q_INVOKABLE void refreshUsage();
     // Starts desktop notices for new approvals. `windowActive` says whether the panel window is in the foreground.
@@ -81,6 +87,7 @@ signals:
     // A session was made, renamed or closed, by this panel or by any other client (the daemon's SessionsChanged).
     void sessionsChanged();
     void usageChanged();
+    void killSwitchChanged();
     // The remote access status changed (the same JSON as remoteAccess()).
     void remoteAccessChanged(const QString &json);
     // An approval was requested or decided (the daemon's ApprovalChanged signal).
@@ -95,6 +102,7 @@ private slots:
     void onApprovalChanged(const QString &id, const QString &state);
     void onSessionsChanged();
     void onUsageChanged(const QString &json);
+    void onKillSwitchChanged(const QString &json);
     void onRemoteAccessChanged(const QString &json);
 
 private:
@@ -103,6 +111,7 @@ private:
     QString m_authorityLabel = QStringLiteral("daemon offline");
     int m_pendingCount = 0;
     QString m_usageJson;
+    QString m_killSwitchJson;
     std::unique_ptr<ApprovalNotifier> m_notifier;
     std::unique_ptr<DesktopNotify> m_desktop;
 

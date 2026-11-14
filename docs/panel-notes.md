@@ -132,3 +132,19 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
   moves the real numbers in between.
 - Not shown: the per-model weekly limits (the daemon keeps them under `others`), and any cost (the CLI's cost is a list-price
   estimate, and a subscription is not billed per token).
+
+## Kill switch (N-215)
+
+- A red "Stop all AI" button sits under the status bar. Clicking it, or any paired device calling `EngageKillSwitch(by,
+  reason)` on D-Bus, stops everything at once: every running turn and everything it started (the whole process tree), queued
+  messages, approvals waiting for an answer (denied, by the device that stopped it), and the remote access server.
+  New sends are refused with a line saying who stopped it and why, and nothing new can start until `ReleaseKillSwitch`.
+  Nothing is rolled back: what the AI already did stays done.
+- While it is on, the bar shows a red banner ("AI activity is paused: stopped by phone (reason). Nothing was rolled back.")
+  with a Resume button. Resume brings the remote access server back if its switch is on; it does not restart what was
+  stopped.
+- The state survives a daemon restart (`killswitch.json`), so a reboot does not quietly turn the AI back on. A file that
+  cannot be read starts the switch ON (fail closed) and one click turns it off.
+- It is a plain daemon method with a device name and no panel-only state (the pairing in N-221 will decide who may call it).
+- Root actions (the privileged helper, N-602) do not exist yet; when they do they must stop and clean up under this switch
+  too (a ledger note on N-602 says so).

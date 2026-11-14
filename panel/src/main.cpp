@@ -174,11 +174,63 @@ static int selfTestRemote(int argc, char *argv[])
     return 0;
 }
 
+// Headless check for the kill switch's client side (N-215): engage it as the desktop, see a send refused, release it,
+// see a send run. Used by tests/e2e/panel_daemon.sh.
+static int selfTestKill(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QTextStream out(stdout);
+    DaemonClient client;
+    const auto engaged = [&client] {
+        return QJsonDocument::fromJson(client.killSwitchJson().toUtf8()).object().value(QStringLiteral("engaged")).toBool();
+    };
+    const auto by = [&client] {
+        return QJsonDocument::fromJson(client.killSwitchJson().toUtf8()).object().value(QStringLiteral("by")).toString();
+    };
+    out << "before: " << (engaged() ? "engaged" : "released") << Qt::endl;
+    const QString session = client.newSession();
+    if (session.isEmpty()) {
+        out << "error: no session" << Qt::endl;
+        return 3;
+    }
+    out << "engage error: " << client.engageKillSwitch(QStringLiteral("e2e")) << Qt::endl;
+    out << "after engage: " << (engaged() ? "engaged" : "released") << " by " << by() << Qt::endl;
+
+    QString failure;
+    QString reply;
+    QObject::connect(&client, &DaemonClient::failed, &app, [&](const QString &, const QString &m) { failure = m; });
+    QObject::connect(&client, &DaemonClient::chunk, &app, [&](const QString &, const QString &t) { reply += t; });
+    QObject::connect(&client, &DaemonClient::done, &app, [&](const QString &) { app.quit(); });
+    QTimer::singleShot(15000, &app, [&] {
+        out << "error: timed out" << Qt::endl;
+        app.exit(2);
+    });
+    client.send(session, QStringLiteral("hello while stopped"));
+    int rc = app.exec();
+    if (rc != 0)
+        return rc;
+    out << "refused: " << failure << Qt::endl;
+    out << "ran while stopped: " << (reply.isEmpty() ? "no" : "yes") << Qt::endl;
+
+    out << "release error: " << client.releaseKillSwitch() << Qt::endl;
+    out << "after release: " << (engaged() ? "engaged" : "released") << Qt::endl;
+    failure.clear();
+    reply.clear();
+    client.send(session, QStringLiteral("ping"));
+    rc = app.exec();
+    if (rc != 0)
+        return rc;
+    out << "reply: " << reply << Qt::endl;
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     for (int i = 1; i < argc; ++i) {
         if (QByteArray(argv[i]) == "--self-test")
             return selfTest(argc, argv);
+        if (QByteArray(argv[i]) == "--self-test-kill")
+            return selfTestKill(argc, argv);
         if (QByteArray(argv[i]) == "--self-test-remote")
             return selfTestRemote(argc, argv);
         if (QByteArray(argv[i]) == "--self-test-sessions")

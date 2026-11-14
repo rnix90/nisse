@@ -197,6 +197,14 @@ Live run (`tools/claude-probe/live_usage.sh`): GetUsage empty at start; RefreshU
 (`refreshed: true`); one real turn then gave the exact `resets_at` times and the token counts under `max`, and two
 `UsageChanged` signals went out.
 
+## The kill switch against the real CLI (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-215)
+
+`tools/claude-probe/live_kill.sh`: a real turn was asked to run `sleep 301` with the Bash tool. The `claude` process and
+the tool's `sleep 301` were both alive; `EngageKillSwitch` killed them both (nothing left in the process list 3 seconds
+later), the turn ended with the plain line "AI activity was stopped by the kill switch (turned on by ...)" and exactly one
+done signal, and the next send was refused ("AI activity is paused ... Turn it off to continue."). The CLI runs in its own
+process group and the runner kills the whole tree when a turn is stopped (the same path as Cancel).
+
 ## The daemon starts and stops `claude remote-control` (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-209)
 
 `tools/claude-probe/live_remote.sh`: the real `nisse-daemon` (no fake runner) in a private session bus, signed in to the
