@@ -27,6 +27,17 @@ impl Authority {
     }
 }
 
+/// Only the exact string "on" (or no setting at all) allows fallbacks: a step up can send work off this machine, so a
+/// typo or a wrong type fails closed to off.
+fn lenient_on<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
+    let value = toml::Value::deserialize(deserializer)?;
+    Ok(value.as_str() == Some("on"))
+}
+
+fn default_fallback_enabled() -> bool {
+    true
+}
+
 /// Only the exact string "autonomous" grants autonomy; anything else (a typo, a wrong type) fails closed.
 fn lenient_authority<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Authority, D::Error> {
     let value = toml::Value::deserialize(deserializer)?;
@@ -99,9 +110,26 @@ pub struct Backend {
     pub kind: BackendKind,
     pub base_url: Option<String>,
     pub model: Option<String>,
+    /// The backend to step up to when this one is not reachable (N-212, N-213). Followed in order; the chain ends at a
+    /// backend with none. Ignored when the top-level `fallback` switch is off.
+    #[serde(default)]
+    pub fallback: Option<String>,
 }
 
 impl Backend {
+    /// Where to connect for an Ollama backend; `None` for the Max account or an address that is not an http(s) one.
+    pub fn endpoint(&self) -> Option<Endpoint> {
+        if self.kind != BackendKind::Ollama {
+            return None;
+        }
+        let (host, port, tls) = parse_http(self.base_url.as_deref()?)?;
+        Some(Endpoint {
+            host,
+            port: port.unwrap_or(if tls { 443 } else { 80 }),
+            tls,
+        })
+    }
+
     /// Max account, local Ollama or remote Ollama. An Ollama address that is this machine (`localhost`, `127.x.x.x`,
     /// `::1`) is local; any other host is remote.
     pub fn target(&self) -> Target {
@@ -115,24 +143,52 @@ impl Backend {
     }
 }
 
-/// The host of an http(s) address, or `None` if it is not one.
-fn host_of(url: &str) -> Option<String> {
-    let rest = url
-        .strip_prefix("http://")
-        .or_else(|| url.strip_prefix("https://"))
-        .or_else(|| url.strip_prefix("HTTP://"))
-        .or_else(|| url.strip_prefix("HTTPS://"))?;
+/// A backend's address as a connection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Endpoint {
+    /// Lower case; an IPv6 address without its brackets.
+    pub host: String,
+    pub port: u16,
+    pub tls: bool,
+}
+
+/// An http(s) address taken apart: host, explicit port if any, and whether it is https.
+fn parse_http(url: &str) -> Option<(String, Option<u16>, bool)> {
+    let lower = url.get(..8).unwrap_or(url).to_ascii_lowercase();
+    let (tls, rest) = if lower.starts_with("https://") {
+        (true, &url[8..])
+    } else if lower.starts_with("http://") {
+        (false, &url[7..])
+    } else {
+        return None;
+    };
     let authority = rest.split(['/', '?', '#']).next()?;
     if authority.is_empty() || authority.chars().any(|c| c.is_whitespace()) {
         return None;
     }
     let authority = authority.rsplit('@').next()?;
-    let host = if let Some(inner) = authority.strip_prefix('[') {
-        inner.split(']').next()?.to_string()
+    let (host, port_text) = if let Some(inner) = authority.strip_prefix('[') {
+        let (host, after) = inner.split_once(']')?;
+        (host.to_string(), after.strip_prefix(':'))
     } else {
-        authority.split(':').next()?.to_string()
+        match authority.split_once(':') {
+            Some((host, port)) => (host.to_string(), Some(port)),
+            None => (authority.to_string(), None),
+        }
     };
-    (!host.is_empty()).then(|| host.to_ascii_lowercase())
+    if host.is_empty() {
+        return None;
+    }
+    let port = match port_text {
+        Some(text) => Some(text.parse::<u16>().ok()?),
+        None => None,
+    };
+    Some((host.to_ascii_lowercase(), port, tls))
+}
+
+/// The host of an http(s) address, or `None` if it is not one.
+fn host_of(url: &str) -> Option<String> {
+    parse_http(url).map(|(host, _, _)| host)
 }
 
 fn is_this_machine(host: &str) -> bool {
@@ -146,6 +202,14 @@ pub struct Config {
     /// Category ("chat", "vision" or "background") to backend name; a category with no entry uses `main`.
     #[serde(default)]
     pub routes: BTreeMap<String, String>,
+    /// `fallback = "on" | "off"` at the top of the file: whether a backend that is not reachable steps up to the
+    /// fallback named in its entry. On when absent; anything but the exact string "on" counts as off.
+    #[serde(
+        default = "default_fallback_enabled",
+        rename = "fallback",
+        deserialize_with = "lenient_on"
+    )]
+    pub fallback_enabled: bool,
     /// `authority = "autonomous" | "supervised"` at the top of the file; autonomous when absent.
     #[serde(default, deserialize_with = "lenient_authority")]
     pub authority: Authority,
@@ -185,6 +249,10 @@ pub enum ConfigError {
     DuplicateBackend(String),
     #[error("a backend has an empty name")]
     EmptyName,
+    #[error("backend {backend:?} names an unknown fallback {fallback:?}")]
+    UnknownFallback { backend: String, fallback: String },
+    #[error("the fallbacks starting at backend {0:?} lead back to a backend already in the chain")]
+    FallbackLoop(String),
 }
 
 impl Config {
@@ -197,8 +265,10 @@ impl Config {
                 kind: BackendKind::Max,
                 base_url: None,
                 model: None,
+                fallback: None,
             }],
             routes: BTreeMap::new(),
+            fallback_enabled: true,
             authority: Authority::Autonomous,
             approval_expiry_secs: default_approval_expiry_secs(),
         }
@@ -210,6 +280,27 @@ impl Config {
             .get(category.as_str())
             .and_then(|name| self.backends.iter().find(|b| &b.name == name))
             .unwrap_or_else(|| self.main_backend())
+    }
+
+    /// The backends to try, in order, when `backend` is not reachable: the one it names, then the one that names, and so
+    /// on. Empty when it names none or when fallbacks are switched off.
+    pub fn fallback_chain(&self, backend: &Backend) -> Vec<&Backend> {
+        let mut chain = Vec::new();
+        if !self.fallback_enabled {
+            return chain;
+        }
+        let mut next = backend.fallback.as_deref();
+        while let Some(name) = next {
+            let Some(found) = self.backends.iter().find(|b| b.name == name) else {
+                break;
+            };
+            if chain.len() > self.backends.len() {
+                break; // cannot happen in a validated config; never loops forever anyway
+            }
+            chain.push(found);
+            next = found.fallback.as_deref();
+        }
+        chain
     }
 
     pub fn main_backend(&self) -> &Backend {
@@ -258,6 +349,31 @@ impl Config {
                         });
                     }
                 }
+            }
+        }
+        for backend in &self.backends {
+            if let Some(fallback) = &backend.fallback {
+                if !self.backends.iter().any(|b| &b.name == fallback) {
+                    return Err(ConfigError::UnknownFallback {
+                        backend: backend.name.clone(),
+                        fallback: fallback.clone(),
+                    });
+                }
+            }
+        }
+        for backend in &self.backends {
+            let mut seen = std::collections::BTreeSet::new();
+            seen.insert(backend.name.as_str());
+            let mut next = backend.fallback.as_deref();
+            while let Some(name) = next {
+                if !seen.insert(name) {
+                    return Err(ConfigError::FallbackLoop(backend.name.clone()));
+                }
+                next = self
+                    .backends
+                    .iter()
+                    .find(|b| b.name == name)
+                    .and_then(|b| b.fallback.as_deref());
             }
         }
         if !self.backends.iter().any(|b| b.name == self.main) {

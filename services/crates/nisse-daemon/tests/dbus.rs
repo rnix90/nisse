@@ -30,6 +30,16 @@ fn scratch(name: &str) -> PathBuf {
     dir
 }
 
+/// Every backend answers its probe: these tests are about the daemon, not about the network.
+struct AllUp;
+
+#[async_trait]
+impl nisse_daemon::backend::Prober for AllUp {
+    async fn reachable(&self, _backend: &nisse_config::Backend) -> bool {
+        true
+    }
+}
+
 /// A daemon and a client joined by a socket pair, no bus needed.
 async fn setup(name: &str, runner: Arc<dyn AgentRunner>) -> Setup {
     start(scratch(name), runner, false).await
@@ -45,8 +55,9 @@ async fn start(dir: PathBuf, runner: Arc<dyn AgentRunner>, with_state: bool) -> 
 /// `start` with the state file at an explicit path (for tests that make its directory unwritable).
 async fn start_with_state(dir: PathBuf, runner: Arc<dyn AgentRunner>, state: Option<PathBuf>) -> Setup {
     let config = dir.join("backends.toml");
-    let mut daemon =
-        Daemon::new(runner, config.clone(), dir.join("audit.jsonl")).with_approvals_file(dir.join("approvals.json"));
+    let mut daemon = Daemon::new(runner, config.clone(), dir.join("audit.jsonl"))
+        .with_approvals_file(dir.join("approvals.json"))
+        .with_prober(Arc::new(AllUp));
     let approvals = daemon.approvals();
     if let Some(state) = state {
         daemon = daemon.with_state_file(state);
@@ -1542,6 +1553,230 @@ model = "qwen3-vl:8b"
         assert_eq!(
             (name.as_str(), kind.as_str(), model.as_str()),
             ("here", "ollama", "gpt-oss:20b")
+        );
+    }
+}
+
+// ---- a backend that may be away, over D-Bus (ledger N-212, N-213)
+
+mod fallback {
+    use super::*;
+    use nisse_config::Backend;
+    use nisse_daemon::backend::Prober;
+
+    const CONFIG: &str = r#"
+main = "max"
+
+[[backends]]
+name = "max"
+kind = "max"
+
+[[backends]]
+name = "here"
+kind = "ollama"
+base_url = "http://127.0.0.1:11434"
+model = "gpt-oss:20b"
+fallback = "desk"
+
+[[backends]]
+name = "desk"
+kind = "ollama"
+base_url = "http://192.0.2.10:11434"
+model = "qwen3-vl:8b"
+
+[[backends]]
+name = "alone"
+kind = "ollama"
+base_url = "http://192.0.2.11:11434"
+model = "m"
+"#;
+
+    /// Backends named in `up` are reachable; every probe is counted.
+    struct Switchboard {
+        up: Mutex<Vec<String>>,
+        probes: Mutex<Vec<String>>,
+    }
+
+    #[async_trait]
+    impl Prober for Switchboard {
+        async fn reachable(&self, backend: &Backend) -> bool {
+            self.probes.lock().unwrap().push(backend.name.clone());
+            self.up.lock().unwrap().contains(&backend.name)
+        }
+    }
+
+    type EnvLog = Arc<Mutex<Vec<Vec<(String, String)>>>>;
+
+    struct EnvSpy {
+        seen: EnvLog,
+    }
+
+    #[async_trait]
+    impl AgentRunner for EnvSpy {
+        async fn run(&self, req: RunRequest, tx: Sender<RunEvent>) {
+            self.seen.lock().unwrap().push(req.env.clone());
+            let _ = tx.send(RunEvent::Text("answer".into())).await;
+            let _ = tx.send(RunEvent::Done).await;
+        }
+    }
+
+    struct Fb {
+        s: Setup,
+        board: Arc<Switchboard>,
+        seen: EnvLog,
+    }
+
+    async fn setup_fb(name: &str, top: &str, up: &[&str]) -> Fb {
+        let dir = scratch(name);
+        let config = dir.join("backends.toml");
+        fs::write(&config, format!("{top}\n{CONFIG}")).unwrap();
+        let board = Arc::new(Switchboard {
+            up: Mutex::new(up.iter().map(|s| s.to_string()).collect()),
+            probes: Mutex::new(Vec::new()),
+        });
+        let seen: EnvLog = Arc::new(Mutex::new(Vec::new()));
+        let daemon = Daemon::new(
+            Arc::new(EnvSpy {
+                seen: Arc::clone(&seen),
+            }),
+            config.clone(),
+            dir.join("audit.jsonl"),
+        )
+        .with_approvals_file(dir.join("approvals.json"))
+        .with_prober(Arc::clone(&board) as Arc<dyn Prober>);
+        let (a, b) = tokio::net::UnixStream::pair().unwrap();
+        let server = zbus::connection::Builder::unix_stream(a)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at(PATH, daemon)
+            .unwrap()
+            .build();
+        let client = zbus::connection::Builder::unix_stream(b).p2p().build();
+        let (server, client) = tokio::try_join!(server, client).unwrap();
+        let proxy = Proxy::new(&client, NAME, PATH, NAME).await.unwrap();
+        Fb {
+            s: Setup {
+                _server: server,
+                proxy,
+                config,
+                approvals: Arc::new(nisse_daemon::approvals::ApprovalQueue::in_memory()),
+            },
+            board,
+            seen,
+        }
+    }
+
+    async fn pinned(f: &Fb, backend: &str) -> String {
+        let id: String = f.s.proxy.call("NewSession", &()).await.unwrap();
+        let _: () =
+            f.s.proxy
+                .call("SetSessionBackend", &(id.as_str(), backend))
+                .await
+                .unwrap();
+        id
+    }
+
+    fn model(env: &[(String, String)]) -> Option<String> {
+        env.iter().find(|(k, _)| k == "ANTHROPIC_MODEL").map(|(_, v)| v.clone())
+    }
+
+    #[tokio::test]
+    async fn a_session_whose_backend_is_away_runs_on_the_fallback_and_the_chat_is_told() {
+        let f = setup_fb("fb-step", "", &["desk"]).await;
+        let id = pinned(&f, "here").await;
+        let mut chunks = f.s.proxy.receive_signal("MessageChunk").await.unwrap();
+        send_and_wait(&f.s, &id, "hello").await;
+        assert_eq!(model(&f.seen.lock().unwrap()[0]).as_deref(), Some("qwen3-vl:8b"));
+        let (_, first): (String, String) = next_signal(&mut chunks).await.body().deserialize().unwrap();
+        assert!(
+            first.contains("here") && first.contains("desk") && first.contains("not reachable"),
+            "{first}"
+        );
+        let audit = audit_lines(&f.s).await.join("\n");
+        assert!(audit.contains("backend-fallback"), "{audit}");
+    }
+
+    #[tokio::test]
+    async fn a_session_whose_backend_is_there_runs_there_with_no_note() {
+        let f = setup_fb("fb-up", "", &["here", "desk"]).await;
+        let id = pinned(&f, "here").await;
+        let mut chunks = f.s.proxy.receive_signal("MessageChunk").await.unwrap();
+        send_and_wait(&f.s, &id, "hello").await;
+        assert_eq!(model(&f.seen.lock().unwrap()[0]).as_deref(), Some("gpt-oss:20b"));
+        let (_, first): (String, String) = next_signal(&mut chunks).await.body().deserialize().unwrap();
+        assert_eq!(first, "answer", "no fallback note");
+    }
+
+    #[tokio::test]
+    async fn with_no_fallback_named_the_turn_fails_loudly_and_runs_nowhere() {
+        let f = setup_fb("fb-none", "", &[]).await;
+        let id = pinned(&f, "alone").await;
+        let mut errors = f.s.proxy.receive_signal("SessionError").await.unwrap();
+        let mut done = f.s.proxy.receive_signal("SessionDone").await.unwrap();
+        let _: () = f.s.proxy.call("SendMessage", &(id.as_str(), "private")).await.unwrap();
+        let (_, message): (String, String) = next_signal(&mut errors).await.body().deserialize().unwrap();
+        assert!(
+            message.contains("alone") && message.contains("not reachable"),
+            "{message}"
+        );
+        next_signal(&mut done).await;
+        assert!(f.seen.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn the_switch_turns_the_step_up_off() {
+        let f = setup_fb("fb-off", "fallback = \"off\"", &["desk"]).await;
+        let id = pinned(&f, "here").await;
+        let mut errors = f.s.proxy.receive_signal("SessionError").await.unwrap();
+        let mut done = f.s.proxy.receive_signal("SessionDone").await.unwrap();
+        let _: () = f.s.proxy.call("SendMessage", &(id.as_str(), "x")).await.unwrap();
+        let (_, message): (String, String) = next_signal(&mut errors).await.body().deserialize().unwrap();
+        assert!(message.contains("switched off"), "{message}");
+        next_signal(&mut done).await;
+        assert!(f.seen.lock().unwrap().is_empty(), "it did not run on the fallback");
+    }
+
+    #[tokio::test]
+    async fn a_session_on_the_default_max_account_never_causes_a_probe() {
+        let f = setup_fb("fb-max", "", &[]).await;
+        let id: String = f.s.proxy.call("NewSession", &()).await.unwrap();
+        send_and_wait(&f.s, &id, "hello").await;
+        assert!(f.board.probes.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resolve_backend_answers_for_a_category_the_way_a_turn_would() {
+        let f = setup_fb("fb-resolve", "", &["desk"]).await;
+        let text = format!(
+            "main = \"max\"\n{}\n[routes]\nvision = \"here\"\n",
+            CONFIG.replace("main = \"max\"\n", "")
+        );
+        fs::write(&f.s.config, text).unwrap();
+        let json: String = f.s.proxy.call("ResolveBackend", &("vision",)).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["requested"], "here");
+        assert_eq!(v["name"], "desk");
+        assert_eq!(v["fell_back"], true);
+        assert_eq!(v["target"], "remote-ollama");
+        let chat: String = f.s.proxy.call("ResolveBackend", &("chat",)).await.unwrap();
+        let c: serde_json::Value = serde_json::from_str(&chat).unwrap();
+        assert_eq!(c["name"], "max");
+        assert_eq!(c["fell_back"], false);
+    }
+
+    #[tokio::test]
+    async fn resolve_backend_refuses_an_unknown_category_and_reports_when_nothing_is_reachable() {
+        let f = setup_fb("fb-resolve-bad", "", &[]).await;
+        let bad: Result<String, _> = f.s.proxy.call("ResolveBackend", &("images",)).await;
+        assert!(bad.is_err());
+        let text = format!("main = \"alone\"\n{}", CONFIG.replace("main = \"max\"\n", ""));
+        fs::write(&f.s.config, text).unwrap();
+        let down: Result<String, _> = f.s.proxy.call("ResolveBackend", &("chat",)).await;
+        let message = format!("{:?}", down.unwrap_err());
+        assert!(
+            message.contains("alone") && message.contains("not reachable"),
+            "{message}"
         );
     }
 }

@@ -162,6 +162,17 @@ No second model name was requested in this short run (no small-and-fast model ca
 tool use against a real Ollama (the model name for background calls the CLI may make, context size limits, whether
 `gpt-oss:20b` holds a tool loop through the daemon; see the local-ollama memory note for the model findings).
 
+## A backend that is away, with the real CLI (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-213)
+
+The same stub as above (`tools/claude-probe/live_backend.sh`), plus a backend `away` where nothing listens, with the stub
+named as its fallback:
+
+- a session pointed at `away`: the daemon found it unreachable, the chat got `[away is not reachable; using stub for this
+  message]` as its first line, the real CLI's request arrived at the stub (`HEAD /api/hello`, `POST /v1/messages` with
+  `gpt-oss:20b`) and the stub's answer came back;
+- with `fallback = "off"` at the top of the config the same session failed at once with "The backend "away" is not
+  reachable ... Fallbacks are switched off in the configuration." and nothing reached the stub.
+
 ## The daemon starts and stops `claude remote-control` (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-209)
 
 `tools/claude-probe/live_remote.sh`: the real `nisse-daemon` (no fake runner) in a private session bus, signed in to the

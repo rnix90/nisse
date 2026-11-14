@@ -128,6 +128,14 @@ async fn daemon(name: &str, port: u16) -> (Proxy<'static>, zbus::Connection, Pat
     (proxy, server, dir)
 }
 
+/// The requests that carry a turn (the daemon's reachability probes are not).
+fn posts(all: &[Seen]) -> Vec<Seen> {
+    all.iter()
+        .filter(|r| r.request_line.starts_with("POST "))
+        .cloned()
+        .collect()
+}
+
 async fn say(proxy: &Proxy<'static>, id: &str, text: &str) {
     let mut done = proxy.receive_signal("SessionDone").await.unwrap();
     let _: () = proxy.call("SendMessage", &(id, text)).await.unwrap();
@@ -145,7 +153,13 @@ async fn a_session_pointed_at_the_local_backend_delivers_its_request_there() {
     let _: () = proxy.call("SetSessionBackend", &(id.as_str(), "here")).await.unwrap();
     say(&proxy, &id, "what is in my downloads folder").await;
 
-    let seen = seen.lock().unwrap();
+    let all = seen.lock().unwrap().clone();
+    // the daemon first asks whether the backend is there (N-213), then the turn's request arrives
+    assert!(
+        all.iter().any(|r| r.request_line.starts_with("GET /api/version")),
+        "{all:?}"
+    );
+    let seen = posts(&all);
     assert_eq!(seen.len(), 1, "{seen:?}");
     assert_eq!(seen[0].request_line, "POST /v1/messages HTTP/1.1");
     assert!(
@@ -179,7 +193,7 @@ async fn pointing_a_session_back_at_the_default_stops_the_delivery() {
     say(&proxy, &id, "first").await;
     let _: () = proxy.call("SetSessionBackend", &(id.as_str(), "")).await.unwrap();
     say(&proxy, &id, "second").await;
-    let seen = seen.lock().unwrap();
+    let seen = posts(&seen.lock().unwrap());
     assert_eq!(seen.len(), 1);
     assert!(seen[0].body.contains("first"));
 }
@@ -196,7 +210,7 @@ async fn two_sessions_at_once_only_the_pointed_one_reaches_the_stub() {
         .unwrap();
     say(&proxy, &cloud, "cloud question").await;
     say(&proxy, &local, "local question").await;
-    let seen = seen.lock().unwrap();
+    let seen = posts(&seen.lock().unwrap());
     assert_eq!(seen.len(), 1);
     assert!(seen[0].body.contains("local question"));
 }

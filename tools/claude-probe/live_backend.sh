@@ -1,7 +1,9 @@
 #!/bin/bash
 # N-211 live run: the real nisse-daemon and the real `claude` CLI, with a session pointed at a stub that implements the
 # Anthropic /v1/messages endpoint (what Ollama serves). Shows that the request really arrives at the stub, with which
-# model names, and that the stub's answer comes back as the reply. Run inside the Fedora build VM after `cargo build`.
+# model names, and that the stub's answer comes back as the reply. Then a session pointed at a backend that is away
+# (nothing listens there) with the stub named as its fallback: the turn must arrive at the stub, with a note in the chat
+# (N-212, N-213). Run inside the Fedora build VM after `cargo build`.
 set -u
 R=/tmp/live211
 rm -rf "$R"; mkdir -p "$R/cfg/nisse" "$R/state" "$R/work"
@@ -72,7 +74,7 @@ class H(BaseHTTPRequestHandler):
 
 ThreadingHTTPServer(("127.0.0.1", 18434), H).serve_forever()
 STUB
-printf 'main = "max"\n[[backends]]\nname = "max"\nkind = "max"\n[[backends]]\nname = "stub"\nkind = "ollama"\nbase_url = "http://127.0.0.1:18434"\nmodel = "gpt-oss:20b"\n' > "$R/cfg/nisse/backends.toml"
+printf 'main = "max"\n[[backends]]\nname = "max"\nkind = "max"\n[[backends]]\nname = "stub"\nkind = "ollama"\nbase_url = "http://127.0.0.1:18434"\nmodel = "gpt-oss:20b"\n[[backends]]\nname = "away"\nkind = "ollama"\nbase_url = "http://127.0.0.1:18439"\nmodel = "gpt-oss:20b"\nfallback = "stub"\n' > "$R/cfg/nisse/backends.toml"
 cat > "$R/inner.sh" <<'INNER'
 export XDG_CONFIG_HOME=/tmp/live211/cfg XDG_STATE_HOME=/tmp/live211/state
 cd /tmp/live211/work
@@ -93,7 +95,41 @@ call SendMessage ss "$SID" "Reply with the single word pong." >/dev/null
 for i in $(seq 1 90); do grep -q SessionDone /tmp/live211/monitor.jsonl && break; sleep 1; done
 echo "--- what reached the stub"
 cat /tmp/live211/stub.log
-echo "--- chunks and errors"
+echo "--- chunks and errors (first turn)"
+python3 - <<PY
+import json
+for l in open("/tmp/live211/monitor.jsonl"):
+    try: m = json.loads(l)
+    except Exception: continue
+    if m.get("member") == "MessageChunk": print("chunk:", m["payload"]["data"][1][:200].replace("\n", " "))
+    if m.get("member") == "SessionError": print("ERROR:", m["payload"]["data"])
+PY
+echo "=== second turn: a session pointed at a backend that is away, with the stub as its fallback"
+: > /tmp/live211/stub.log
+: > /tmp/live211/monitor.jsonl
+call SetSessionBackend ss "$SID" away >/dev/null && echo "session pointed at away"
+call SendMessage ss "$SID" "Reply with the single word pong." >/dev/null
+for i in $(seq 1 90); do grep -q SessionDone /tmp/live211/monitor.jsonl && break; sleep 1; done
+echo "--- what reached the stub"
+cat /tmp/live211/stub.log
+echo "--- chunks and errors (second turn)"
+python3 - <<PY
+import json
+for l in open("/tmp/live211/monitor.jsonl"):
+    try: m = json.loads(l)
+    except Exception: continue
+    if m.get("member") == "MessageChunk": print("chunk:", m["payload"]["data"][1][:200].replace("\n", " "))
+    if m.get("member") == "SessionError": print("ERROR:", m["payload"]["data"])
+PY
+echo "=== third turn: fallbacks switched off"
+printf 'fallback = "off"\n' | cat - "$XDG_CONFIG_HOME/nisse/backends.toml" > /tmp/live211/cfg.new && mv /tmp/live211/cfg.new "$XDG_CONFIG_HOME/nisse/backends.toml"
+: > /tmp/live211/stub.log
+: > /tmp/live211/monitor.jsonl
+sleep 6
+call SendMessage ss "$SID" "Reply with the single word pong." >/dev/null
+for i in $(seq 1 30); do grep -q SessionDone /tmp/live211/monitor.jsonl && break; sleep 1; done
+echo "--- what reached the stub (expect nothing)"
+cat /tmp/live211/stub.log
 python3 - <<PY
 import json
 for l in open("/tmp/live211/monitor.jsonl"):

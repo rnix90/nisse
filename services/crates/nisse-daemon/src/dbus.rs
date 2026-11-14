@@ -16,6 +16,7 @@ use uuid::Uuid;
 use zbus::{interface, object_server::SignalEmitter};
 
 use crate::approvals::{Approval, ApprovalQueue, ApprovalState, DecideError, NewApproval};
+use crate::backend::{HealthOptions, NetworkProber, Prober, Resolver};
 use crate::remote::{RemoteAccess, RemoteOptions};
 use crate::runner::{AgentRunner, ApprovalHook, RunEvent, RunRequest};
 use crate::state::{Keep, SessionStore};
@@ -44,6 +45,8 @@ struct Core {
     approvals: Arc<ApprovalQueue>,
     /// The per-machine remote access switch (N-209); `None` when the daemon was built without it.
     remote: Option<Arc<RemoteAccess>>,
+    /// Decides which backend a turn really goes to when one may be away (N-212, N-213).
+    resolver: Arc<Resolver>,
     runs: Arc<Mutex<HashMap<String, RunState>>>,
     /// The config error already audited, so a file that stays broken is reported once, not on every call.
     config_error: Arc<std::sync::Mutex<Option<String>>>,
@@ -132,6 +135,10 @@ impl Daemon {
                 sessions: Arc::new(SessionStore::in_memory()),
                 approvals: Arc::new(ApprovalQueue::in_memory().with_audit(audit_path)),
                 remote: None,
+                resolver: Arc::new(Resolver::new(
+                    Arc::new(NetworkProber::default()),
+                    HealthOptions::default(),
+                )),
                 runs: Arc::new(Mutex::new(HashMap::new())),
                 config_error: Arc::new(std::sync::Mutex::new(None)),
             },
@@ -197,6 +204,12 @@ impl Daemon {
             self.core
                 .audit(None, "daemon", "state-warning", serde_json::json!({ "error": warning }));
         }
+        self
+    }
+
+    /// Replaces how a backend's reachability is checked (tests use a switchboard instead of the network).
+    pub fn with_prober(mut self, prober: Arc<dyn Prober>) -> Daemon {
+        self.core.resolver = Arc::new(Resolver::new(prober, HealthOptions::default()));
         self
     }
 
@@ -293,7 +306,7 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
         .into_iter()
         .find(|s| s.id == session_id)
         .and_then(|s| s.backend);
-    let backend: &Backend = match &pinned {
+    let requested: &Backend = match &pinned {
         Some(name) => match config.backends.iter().find(|b| &b.name == name) {
             Some(backend) => backend,
             None => {
@@ -307,6 +320,25 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
         },
         None => config.backend_for(Category::Chat),
     };
+    // The requested backend may be away (another computer's Ollama): step up through the fallbacks named in the
+    // configuration, tell the chat, or fail loudly when there is nowhere to go (N-212, N-213).
+    let resolved = match core.resolver.resolve(&config, requested).await {
+        Ok(resolved) => resolved,
+        Err(unreachable) => {
+            let _ = Daemon::session_error(emitter, session_id, &unreachable.to_string()).await;
+            return;
+        }
+    };
+    if let Some(note) = &resolved.note {
+        core.audit(
+            Some(session_id),
+            "daemon",
+            "backend-fallback",
+            serde_json::json!({ "requested": resolved.requested, "used": resolved.backend.name }),
+        );
+        let _ = Daemon::message_chunk(emitter, session_id, &format!("{note}\n\n")).await;
+    }
+    let backend = &resolved.backend;
     let request = RunRequest {
         session_id: session_id.to_string(),
         prompt: text,
@@ -526,6 +558,32 @@ impl Daemon {
                 .to_string()
             })
             .collect()
+    }
+
+    /// The backend a turn of this category goes to right now, as JSON (`category`, `requested`, `name`, `kind`, `target`,
+    /// `fell_back`, `note`): the route (or main) checked for reachability, stepping up through its fallbacks. An error
+    /// for an unknown category or when nothing in the chain is reachable. Every tool that needs a backend asks this.
+    async fn resolve_backend(&self, category: String) -> zbus::fdo::Result<String> {
+        let category = Category::parse(&category)
+            .ok_or_else(|| zbus::fdo::Error::InvalidArgs(format!("unknown category: {category}")))?;
+        let config = self.core.config();
+        let requested = config.backend_for(category);
+        let resolved = self
+            .core
+            .resolver
+            .resolve(&config, requested)
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
+        Ok(serde_json::json!({
+            "category": category.as_str(),
+            "requested": resolved.requested,
+            "name": resolved.backend.name,
+            "kind": match resolved.backend.kind { BackendKind::Max => "max", BackendKind::Ollama => "ollama" },
+            "target": resolved.backend.target().as_str(),
+            "fell_back": resolved.fell_back,
+            "note": resolved.note,
+        })
+        .to_string())
     }
 
     /// Names a session; an empty name goes back to none. Every client is told through `SessionsChanged`.

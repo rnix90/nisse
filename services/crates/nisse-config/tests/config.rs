@@ -59,6 +59,7 @@ fn max_env_is_empty() {
         kind: BackendKind::Max,
         base_url: None,
         model: None,
+        fallback: None,
     };
     assert!(claude_env(&b).is_empty());
 }
@@ -368,4 +369,150 @@ fn the_target_has_stable_names_for_clients() {
     assert_eq!(Target::MaxAccount.as_str(), "max-account");
     assert_eq!(Target::LocalOllama.as_str(), "local-ollama");
     assert_eq!(Target::RemoteOllama.as_str(), "remote-ollama");
+}
+
+// ---- fallbacks (ledger N-212 decision, N-213): a backend can name the backend to step up to when it is not reachable
+
+const THREE: &str = r#"
+main = "max"
+
+[[backends]]
+name = "max"
+kind = "max"
+
+[[backends]]
+name = "here"
+kind = "ollama"
+base_url = "http://127.0.0.1:11434"
+model = "gpt-oss:20b"
+fallback = "desk"
+
+[[backends]]
+name = "desk"
+kind = "ollama"
+base_url = "http://192.0.2.10:11434"
+model = "qwen3-vl:8b"
+fallback = "max"
+"#;
+
+#[test]
+fn a_backend_can_name_a_fallback_and_the_chain_is_followed_in_order() {
+    let cfg = load(&write("fb-chain", THREE)).unwrap();
+    let here = cfg.backends.iter().find(|b| b.name == "here").unwrap();
+    let names: Vec<&str> = cfg.fallback_chain(here).iter().map(|b| b.name.as_str()).collect();
+    assert_eq!(names, ["desk", "max"]);
+    let max = cfg.backends.iter().find(|b| b.name == "max").unwrap();
+    assert!(cfg.fallback_chain(max).is_empty(), "no fallback named means none");
+}
+
+#[test]
+fn fallbacks_are_on_unless_the_file_says_off() {
+    assert!(load(&write("fb-default", THREE)).unwrap().fallback_enabled);
+    let on = format!("fallback = \"on\"\n{THREE}");
+    assert!(load(&write("fb-on", &on)).unwrap().fallback_enabled);
+    let off = format!("fallback = \"off\"\n{THREE}");
+    assert!(!load(&write("fb-off", &off)).unwrap().fallback_enabled);
+}
+
+#[test]
+fn a_fallback_setting_that_is_not_exactly_on_fails_closed_to_off() {
+    // an automatic step-up can send work off the machine, so a typo must not switch it on
+    for bad in [
+        "fallback = \"ON \"\n",
+        "fallback = \"yes\"\n",
+        "fallback = true\n",
+        "fallback = 1\n",
+    ] {
+        let text = format!("{bad}{THREE}");
+        assert!(!load(&write("fb-typo", &text)).unwrap().fallback_enabled, "{bad}");
+    }
+}
+
+#[test]
+fn switching_fallbacks_off_leaves_the_chain_empty() {
+    let off = format!("fallback = \"off\"\n{THREE}");
+    let cfg = load(&write("fb-off-chain", &off)).unwrap();
+    let here = cfg.backends.iter().find(|b| b.name == "here").unwrap();
+    assert!(cfg.fallback_chain(here).is_empty());
+}
+
+#[test]
+fn a_fallback_to_an_unknown_backend_is_rejected() {
+    let text = THREE.replace("fallback = \"desk\"", "fallback = \"ghost\"");
+    assert!(matches!(
+        load(&write("fb-unknown", &text)),
+        Err(ConfigError::UnknownFallback { backend, fallback }) if backend == "here" && fallback == "ghost"
+    ));
+}
+
+#[test]
+fn a_backend_cannot_be_its_own_fallback_and_a_loop_is_rejected() {
+    let own = THREE.replace("fallback = \"desk\"", "fallback = \"here\"");
+    assert!(matches!(
+        load(&write("fb-own", &own)),
+        Err(ConfigError::FallbackLoop(name)) if name == "here"
+    ));
+    let looped = THREE.replace("fallback = \"max\"", "fallback = \"here\"");
+    assert!(matches!(
+        load(&write("fb-loop", &looped)),
+        Err(ConfigError::FallbackLoop(_))
+    ));
+}
+
+#[test]
+fn a_max_backend_may_name_a_fallback_too() {
+    let text = format!("{THREE}\n[[backends]]\nname = \"spare\"\nkind = \"max\"\n").replace(
+        "name = \"max\"\nkind = \"max\"",
+        "name = \"max\"\nkind = \"max\"\nfallback = \"spare\"",
+    );
+    let cfg = load(&write("fb-max", &text)).unwrap();
+    let max = cfg.backends.iter().find(|b| b.name == "max").unwrap();
+    assert_eq!(cfg.fallback_chain(max).len(), 1);
+}
+
+// ---- where a backend is, as a connection (N-213: the reachability probe connects there)
+
+#[test]
+fn an_ollama_address_becomes_a_host_a_port_and_whether_it_is_https() {
+    let cases = [
+        ("http://192.0.2.10:11434", "192.0.2.10", 11434, false),
+        ("http://localhost", "localhost", 80, false),
+        ("https://ollama.example.net", "ollama.example.net", 443, true),
+        ("https://ollama.example.net:8443/", "ollama.example.net", 8443, true),
+        ("http://[::1]:11434/path?x=1", "::1", 11434, false),
+        ("HTTP://User:pw@Desk.Example.Net:9/x", "desk.example.net", 9, false),
+    ];
+    for (url, host, port, tls) in cases {
+        let b = Backend {
+            name: "x".into(),
+            kind: BackendKind::Ollama,
+            base_url: Some(url.into()),
+            model: Some("m".into()),
+            fallback: None,
+        };
+        let e = b.endpoint().unwrap_or_else(|| panic!("{url} has no endpoint"));
+        assert_eq!((e.host.as_str(), e.port, e.tls), (host, port, tls), "{url}");
+    }
+}
+
+#[test]
+fn a_max_backend_or_a_bad_address_has_no_endpoint() {
+    let max = Backend {
+        name: "m".into(),
+        kind: BackendKind::Max,
+        base_url: None,
+        model: None,
+        fallback: None,
+    };
+    assert!(max.endpoint().is_none());
+    for url in ["", "nothing", "http://", "http://host:notaport", "http://host:99999"] {
+        let b = Backend {
+            name: "x".into(),
+            kind: BackendKind::Ollama,
+            base_url: Some(url.into()),
+            model: Some("m".into()),
+            fallback: None,
+        };
+        assert!(b.endpoint().is_none(), "{url}");
+    }
 }

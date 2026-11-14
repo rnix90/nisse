@@ -11,6 +11,10 @@ authority = "autonomous"
 # How long an approval waits for an answer before it expires and counts as denied. Default 900; zero is refused.
 approval_expiry_secs = 900
 
+# Whether a backend that is not reachable steps up to the fallback named in its entry: "on" (default) or "off". Anything
+# but exactly "on" counts as off, because a step up can send work off this computer.
+fallback = "on"
+
 # The backend used for every kind of work that has no route of its own.
 main = "max"
 
@@ -23,6 +27,7 @@ name = "desk"
 kind = "ollama"       # Ollama's native Anthropic endpoint
 base_url = "http://192.0.2.10:11434"   # required, http or https
 model = "gpt-oss:20b"                  # required
+fallback = "max"      # optional: where to step up to when this one is not reachable
 
 # Per-category routes. Categories: "chat" (conversation and code), "vision" (looking at images) and
 # "background" (jobs nobody is waiting on). A category with no entry uses `main`. Anything else is refused.
@@ -47,3 +52,24 @@ with a `base_url`; two backends with one name, or an empty name; a `main` or a r
 category that does not exist (a typo would otherwise silently route nothing).
 
 `Config::backend_for(category)` is the one place that turns a category into a backend; N-211 and N-213 build on it.
+
+## When a backend is away (N-212, N-213)
+
+Decision (Bert, 2026-11-14): by default a turn steps up by itself through the fallbacks named in the config and the chat
+is told; a config switch turns that off.
+
+- Before a turn goes to an Ollama backend, the daemon checks that it is there: it connects to the address and, for http,
+  asks `GET /api/version` (any answer below 500 counts; a failing server, silence for 2 seconds, something that is not
+  http and a closed port do not; https is checked by connecting only). The Max account is never probed.
+- If the backend is not reachable, the turn goes to the backend named in its `fallback`, then that one's `fallback`, and so
+  on. The chat gets a first line such as `[desk is not reachable; using max for this message]` and the audit log a
+  `backend-fallback` record. Only fallbacks the file names are ever used: nothing reaches the cloud unless the Max account
+  is written into a chain. A fallback to a backend that names none ends the chain.
+- If nothing in the chain is reachable, or there is no fallback, or `fallback = "off"`, the turn fails with a plain message
+  naming what was tried (and saying fallbacks are switched off when that is why); it is never sent anywhere else.
+- A machine that comes and goes would bounce a session between backends, so a result is remembered (30 seconds while
+  up, 5 while down) and a backend that was down must answer twice in a row before it is used again; one that was up is
+  dropped on its first failure.
+- A `fallback` that names no backend, names itself, or leads back into its own chain is refused when the file is read.
+- `ResolveBackend(category)` on D-Bus gives the same answer a turn would get (`name`, `target`, `fell_back`, `note`), for
+  every tool that needs a backend.

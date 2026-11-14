@@ -2,6 +2,7 @@
 //! The nisse daemon: runs Claude Code sessions for the panel and exposes them over D-Bus.
 
 pub mod approvals;
+pub mod backend;
 pub mod dbus;
 pub mod remote;
 pub mod runner;
