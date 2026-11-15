@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 
+#include <QDBusError>
 #include <QDBusInterface>
+#include <QDBusMessage>
+#include <QDBusServiceWatcher>
+#include <QTimer>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -22,6 +26,12 @@ class DaemonClient : public QObject
     Q_PROPERTY(QString usageJson READ usageJson NOTIFY usageChanged)
     // The kill switch as the daemon's JSON ({engaged, by, reason, since}) (N-215).
     Q_PROPERTY(QString killSwitchJson READ killSwitchJson NOTIFY killSwitchChanged)
+    // Whether the daemon is there (N-218): "connected", "waiting" (never seen since the panel started) or "restarting"
+    // (it was there and went away), and the sentence for the person; empty when connected.
+    Q_PROPERTY(QString connectionState READ connectionState NOTIFY connectionChanged)
+    Q_PROPERTY(QString connectionText READ connectionText NOTIFY connectionChanged)
+    // What the first-boot setup says is still missing (Claude Code not fetched yet); empty when nothing is.
+    Q_PROPERTY(QString setupText READ setupText NOTIFY setupChanged)
 
 public:
     explicit DaemonClient(QObject *parent = nullptr);
@@ -77,6 +87,9 @@ public:
     int pendingCount() const { return m_pendingCount; }
     QString usageJson() const { return m_usageJson; }
     QString killSwitchJson() const { return m_killSwitchJson; }
+    QString connectionState() const;
+    QString connectionText() const;
+    QString setupText() const { return m_setupText; }
     // Stops all AI activity (N-215); the click is recorded as the "desktop" device. Returns an error text, or empty.
     Q_INVOKABLE QString engageKillSwitch(const QString &reason);
     Q_INVOKABLE QString releaseKillSwitch();
@@ -99,6 +112,10 @@ signals:
     void sessionsChanged();
     void usageChanged();
     void killSwitchChanged();
+    void connectionChanged();
+    // The daemon is back after being away: views read their data again.
+    void reconnected();
+    void setupChanged();
     // The remote access status changed (the same JSON as remoteAccess()).
     void remoteAccessChanged(const QString &json);
     // An approval was requested or decided (the daemon's ApprovalChanged signal).
@@ -114,10 +131,31 @@ private slots:
     void onSessionsChanged();
     void onUsageChanged(const QString &json);
     void onKillSwitchChanged(const QString &json);
+    void onServiceOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
+    void tryConnect();
+    void refreshSetup();
     void onRemoteAccessChanged(const QString &json);
 
 private:
+    // A call to the daemon; while it is away this answers at once with an error instead of waiting for D-Bus to give up.
+    template<typename... Args>
+    QDBusMessage invoke(const QString &method, Args &&...args)
+    {
+        if (!m_connected)
+            return QDBusMessage::createError(QDBusError::ServiceUnknown, QStringLiteral("Waiting for the nisse daemon."));
+        return m_iface.call(method, std::forward<Args>(args)...);
+    }
+
     QDBusInterface m_iface;
+    QDBusServiceWatcher m_watcher;
+    QTimer m_retry;
+    QTimer m_setupTimer;
+    bool m_connected = false;
+    bool m_everConnected = false;
+    QString m_setupText;
+
+    void setConnected(bool connected);
+    void reload();
     QString m_backendLabel = QStringLiteral("daemon offline");
     QString m_authorityLabel = QStringLiteral("daemon offline");
     int m_pendingCount = 0;

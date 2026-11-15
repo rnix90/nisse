@@ -33,6 +33,35 @@ pub fn state_path_from(override_path: Option<&str>, xdg_state: Option<&str>, hom
     PathBuf::from("sessions.json")
 }
 
+/// Where the first-boot fetch script (`nisse-fetch-claude`) writes its status: `NISSE_FETCH_STATUS`, else
+/// `$XDG_STATE_HOME/nisse/claude-fetch.status`, else `~/.local/state/nisse/claude-fetch.status` (the script's own rule).
+pub fn fetch_status_path_from(override_path: Option<&str>, xdg_state: Option<&str>, home: Option<&str>) -> PathBuf {
+    let set = |v: Option<&str>| v.filter(|s| !s.is_empty()).map(PathBuf::from);
+    if let Some(path) = set(override_path) {
+        return path;
+    }
+    if let Some(dir) = set(xdg_state) {
+        return dir.join("nisse").join("claude-fetch.status");
+    }
+    if let Some(dir) = set(home) {
+        return dir
+            .join(".local")
+            .join("state")
+            .join("nisse")
+            .join("claude-fetch.status");
+    }
+    PathBuf::from("claude-fetch.status")
+}
+
+pub fn default_fetch_status_path() -> PathBuf {
+    let get = |k: &str| std::env::var(k).ok();
+    fetch_status_path_from(
+        get("NISSE_FETCH_STATUS").as_deref(),
+        get("XDG_STATE_HOME").as_deref(),
+        get("HOME").as_deref(),
+    )
+}
+
 pub fn default_state_path() -> PathBuf {
     let get = |k: &str| std::env::var(k).ok();
     state_path_from(

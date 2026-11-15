@@ -17,6 +17,7 @@ TestCase {
         property var calls: []
         property string failWith: ""
         signal remoteAccessChanged(string json)
+        signal reconnected()
 
         function remoteAccess() { return JSON.stringify(state) }
         function setRemoteAccess(on) {

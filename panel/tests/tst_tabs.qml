@@ -35,6 +35,7 @@ TestCase {
         signal failed(string session, string message)
         signal approvalChanged(string id, string state)
         signal sessionsChanged()
+        signal reconnected()
 
         function sessions() {
             var out = []

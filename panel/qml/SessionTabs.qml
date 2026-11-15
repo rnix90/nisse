@@ -320,6 +320,7 @@ Item {
         target: root.client
         function onSessionsChanged() { root.refresh() }
         function onApprovalChanged() { root.refresh() }
+        function onReconnected() { root.refresh() }
         function onChunk(sid, text) {
             if (root.workingMap[sid] !== true) {
                 var w = Object.assign({}, root.workingMap)

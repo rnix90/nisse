@@ -53,6 +53,8 @@ struct Core {
     usage: Arc<UsageTracker>,
     /// "AI activity is stopped" (N-215): while on, nothing new runs.
     kill: Arc<KillSwitch>,
+    /// What the first-boot fetch of Claude Code last said (N-218).
+    fetch_status: PathBuf,
     runs: Arc<Mutex<HashMap<String, RunState>>>,
     /// The config error already audited, so a file that stays broken is reported once, not on every call.
     config_error: Arc<std::sync::Mutex<Option<String>>>,
@@ -167,6 +169,7 @@ impl Daemon {
                 )),
                 usage: Arc::new(UsageTracker::in_memory()),
                 kill: Arc::new(KillSwitch::in_memory()),
+                fetch_status: crate::state::default_fetch_status_path(),
                 runs: Arc::new(Mutex::new(HashMap::new())),
                 config_error: Arc::new(std::sync::Mutex::new(None)),
             },
@@ -232,6 +235,12 @@ impl Daemon {
             self.core
                 .audit(None, "daemon", "state-warning", serde_json::json!({ "error": warning }));
         }
+        self
+    }
+
+    /// Where to read the first-boot fetch status from (tests point it at a scratch file).
+    pub fn with_fetch_status_file(mut self, path: PathBuf) -> Daemon {
+        self.core.fetch_status = path;
         self
     }
 
@@ -794,6 +803,22 @@ impl Daemon {
             }),
         );
         Ok(self.get_config().await)
+    }
+
+    /// How the first-boot setup stands, as JSON: `claude` is "installed", "waiting-for-network" (the fetch of Claude Code
+    /// tries again every two minutes), "failed" (it tries again too), "not-started" (no status yet) or "unknown". Read from
+    /// the file `nisse-fetch-claude` writes, every time.
+    async fn get_setup_status(&self) -> String {
+        let claude = match std::fs::read_to_string(&self.core.fetch_status) {
+            Ok(text) => match text.trim() {
+                "installed" => "installed",
+                "waiting-for-network" => "waiting-for-network",
+                "failed" => "failed",
+                _ => "unknown",
+            },
+            Err(_) => "not-started",
+        };
+        serde_json::json!({ "claude": claude }).to_string()
     }
 
     /// Whether the kill switch is on, as JSON: `engaged`, `by` (the device), `reason`, `since` (unix seconds).

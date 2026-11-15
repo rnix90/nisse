@@ -53,6 +53,7 @@ ColumnLayout {
 
     Connections {
         target: root.client
+        function onReconnected() { root.refresh() }
         function onRemoteAccessChanged(json) {
             try {
                 root.apply(JSON.parse(json))

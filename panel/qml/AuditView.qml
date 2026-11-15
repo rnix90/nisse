@@ -142,6 +142,11 @@ Item {
         search()
     }
 
+    Connections {
+        target: root.client
+        function onReconnected() { root.loadSessions(); root.search(root.offset) }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 8

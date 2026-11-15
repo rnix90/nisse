@@ -19,6 +19,7 @@ TestCase {
         property var denied: []
         property string failWith: ""    // when set, approve and deny return this error text
         signal approvalChanged(string id, string state)
+        signal reconnected()
 
         function approvals(state) {
             var out = []

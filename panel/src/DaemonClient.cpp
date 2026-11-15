@@ -6,6 +6,7 @@
 #include "MicWatcher.h"
 
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QDBusReply>
@@ -26,7 +27,9 @@ const QString kInterface = QStringLiteral("org.nisse.Daemon1");
 DaemonClient::DaemonClient(QObject *parent)
     : QObject(parent)
     , m_iface(kService, kPath, kInterface, QDBusConnection::sessionBus())
+    , m_watcher(kService, QDBusConnection::sessionBus(), QDBusServiceWatcher::WatchForOwnerChange)
 {
+    m_iface.setTimeout(5000);
     auto bus = QDBusConnection::sessionBus();
     bus.connect(kService, kPath, kInterface, QStringLiteral("MessageChunk"), this, SLOT(onChunk(QString, QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionDone"), this, SLOT(onDone(QString)));
@@ -39,21 +42,129 @@ DaemonClient::DaemonClient(QObject *parent)
                 SLOT(onRemoteAccessChanged(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("ApprovalChanged"), this,
                 SLOT(onApprovalChanged(QString, QString)));
-    refreshBackend();
-    updatePendingCount();
-    const QDBusReply<QString> usage = m_iface.call(QStringLiteral("GetUsage"));
-    if (usage.isValid())
-        m_usageJson = usage.value();
-    const QDBusReply<QString> kill = m_iface.call(QStringLiteral("GetKillSwitch"));
-    if (kill.isValid())
-        m_killSwitchJson = kill.value();
+    connect(&m_watcher, &QDBusServiceWatcher::serviceOwnerChanged, this, &DaemonClient::onServiceOwnerChanged);
+    m_retry.setInterval(2000);
+    connect(&m_retry, &QTimer::timeout, this, &DaemonClient::tryConnect);
+    // How often the first-boot status is looked at while Claude Code is still missing (tests shorten it).
+    m_setupTimer.setInterval(qEnvironmentVariableIntValue("NISSE_PANEL_SETUP_POLL_MS") > 0
+                                 ? qEnvironmentVariableIntValue("NISSE_PANEL_SETUP_POLL_MS")
+                                 : 30000);
+    connect(&m_setupTimer, &QTimer::timeout, this, &DaemonClient::refreshSetup);
+    const bool up = bus.interface() && bus.interface()->isServiceRegistered(kService);
+    if (up) {
+        m_connected = true;
+        m_everConnected = true;
+        reload();
+        refreshSetup();
+    } else {
+        // Not there yet (the panel started first, or the daemon is starting): say so, and keep asking, which also lets D-Bus
+        // start it. Nothing here waits for it.
+        m_retry.start();
+        QTimer::singleShot(0, this, &DaemonClient::tryConnect);
+    }
 }
 
 DaemonClient::~DaemonClient() = default;
 
+QString DaemonClient::connectionState() const
+{
+    if (m_connected)
+        return QStringLiteral("connected");
+    return m_everConnected ? QStringLiteral("restarting") : QStringLiteral("waiting");
+}
+
+QString DaemonClient::connectionText() const
+{
+    if (m_connected)
+        return QString();
+    return m_everConnected ? tr("The nisse daemon is restarting. This usually takes a few seconds.")
+                           : tr("Waiting for connection to the nisse daemon.");
+}
+
+void DaemonClient::setConnected(bool connected)
+{
+    if (m_connected == connected)
+        return;
+    m_connected = connected;
+    if (connected) {
+        const bool wasAway = m_everConnected;
+        m_everConnected = true;
+        m_retry.stop();
+        reload();
+        refreshSetup();
+        emit connectionChanged();
+        if (wasAway)
+            emit reconnected();
+    } else {
+        m_setupTimer.stop();
+        m_retry.start();
+        emit connectionChanged();
+    }
+}
+
+void DaemonClient::reload()
+{
+    refreshBackend();
+    updatePendingCount();
+    const QDBusReply<QString> usage = invoke(QStringLiteral("GetUsage"));
+    if (usage.isValid())
+        onUsageChanged(usage.value());
+    const QDBusReply<QString> kill = invoke(QStringLiteral("GetKillSwitch"));
+    if (kill.isValid())
+        onKillSwitchChanged(kill.value());
+}
+
+void DaemonClient::onServiceOwnerChanged(const QString &, const QString &, const QString &newOwner)
+{
+    setConnected(!newOwner.isEmpty());
+}
+
+void DaemonClient::tryConnect()
+{
+    if (m_connected)
+        return;
+    // Any call will do; it also asks D-Bus to start the daemon if it is installed but not running.
+    auto *watcher = new QDBusPendingCallWatcher(m_iface.asyncCall(QStringLiteral("GetAuthority")), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        if (!w->isError())
+            setConnected(true);
+        w->deleteLater();
+    });
+}
+
+void DaemonClient::refreshSetup()
+{
+    if (!m_connected)
+        return;
+    auto *watcher = new QDBusPendingCallWatcher(m_iface.asyncCall(QStringLiteral("GetSetupStatus")), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        const QDBusPendingReply<QString> reply = *w;
+        QString text;
+        bool installed = false;
+        if (reply.isValid()) {
+            const QString claude = QJsonDocument::fromJson(reply.value().toUtf8()).object().value(QStringLiteral("claude")).toString();
+            installed = claude == QLatin1String("installed");
+            if (claude == QLatin1String("waiting-for-network"))
+                text = tr("Claude Code is not installed yet: waiting for a network connection. nisse tries again every 2 minutes.");
+            else if (claude == QLatin1String("failed"))
+                text = tr("Claude Code could not be installed yet. nisse keeps trying; check the network connection.");
+        }
+        if (text != m_setupText) {
+            m_setupText = text;
+            emit setupChanged();
+        }
+        // keep looking while it is not done, so the sentence goes away by itself once it is
+        if (!installed && m_connected)
+            m_setupTimer.start();
+        else
+            m_setupTimer.stop();
+        w->deleteLater();
+    });
+}
+
 QString DaemonClient::newSession()
 {
-    QDBusReply<QString> reply = m_iface.call(QStringLiteral("NewSession"));
+    QDBusReply<QString> reply = invoke(QStringLiteral("NewSession"));
     return reply.isValid() ? reply.value() : QString();
 }
 
@@ -84,67 +195,67 @@ void DaemonClient::cancel(const QString &session)
 
 QStringList DaemonClient::sessions()
 {
-    QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("ListSessions"));
+    QDBusReply<QStringList> reply = invoke(QStringLiteral("ListSessions"));
     return reply.isValid() ? reply.value() : QStringList();
 }
 
 QString DaemonClient::renameSession(const QString &session, const QString &title)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("RenameSession"), session, title);
+    const QDBusMessage reply = invoke(QStringLiteral("RenameSession"), session, title);
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
 QString DaemonClient::closeSession(const QString &session)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("CloseSession"), session);
+    const QDBusMessage reply = invoke(QStringLiteral("CloseSession"), session);
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
 QString DaemonClient::setKeepMode(const QString &session, const QString &mode)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("SetKeepMode"), session, mode);
+    const QDBusMessage reply = invoke(QStringLiteral("SetKeepMode"), session, mode);
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
 QString DaemonClient::openSession(const QString &session)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("OpenSession"), session);
+    const QDBusMessage reply = invoke(QStringLiteral("OpenSession"), session);
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
 QString DaemonClient::remoteAccess()
 {
-    QDBusReply<QString> reply = m_iface.call(QStringLiteral("GetRemoteAccess"));
+    QDBusReply<QString> reply = invoke(QStringLiteral("GetRemoteAccess"));
     return reply.isValid() ? reply.value() : QString();
 }
 
 QString DaemonClient::setRemoteAccess(bool on)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("SetRemoteAccess"), on);
+    const QDBusMessage reply = invoke(QStringLiteral("SetRemoteAccess"), on);
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
 QStringList DaemonClient::backends()
 {
-    QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("ListBackends"));
+    QDBusReply<QStringList> reply = invoke(QStringLiteral("ListBackends"));
     return reply.isValid() ? reply.value() : QStringList();
 }
 
 QString DaemonClient::setSessionBackend(const QString &session, const QString &backend)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("SetSessionBackend"), session, backend);
+    const QDBusMessage reply = invoke(QStringLiteral("SetSessionBackend"), session, backend);
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
 QString DaemonClient::config()
 {
-    QDBusReply<QString> reply = m_iface.call(QStringLiteral("GetConfig"));
+    QDBusReply<QString> reply = invoke(QStringLiteral("GetConfig"));
     return reply.isValid() ? reply.value() : QString();
 }
 
 QString DaemonClient::saveConfig(const QString &configJson)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("SetConfig"), configJson, QStringLiteral("desktop"));
+    const QDBusMessage reply = invoke(QStringLiteral("SetConfig"), configJson, QStringLiteral("desktop"));
     if (reply.type() == QDBusMessage::ReplyMessage) {
         refreshBackend();
         return QString();
@@ -154,13 +265,13 @@ QString DaemonClient::saveConfig(const QString &configJson)
 
 QString DaemonClient::searchAudit(const QString &queryJson)
 {
-    QDBusReply<QString> reply = m_iface.call(QStringLiteral("SearchAudit"), queryJson);
+    QDBusReply<QString> reply = invoke(QStringLiteral("SearchAudit"), queryJson);
     return reply.isValid() ? reply.value() : QString();
 }
 
 QString DaemonClient::exportAudit(const QString &queryJson)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("ExportAudit"), queryJson);
+    const QDBusMessage reply = invoke(QStringLiteral("ExportAudit"), queryJson);
     if (reply.type() != QDBusMessage::ReplyMessage)
         return QStringLiteral("error: ") + reply.errorMessage();
     QString folder = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
@@ -178,13 +289,13 @@ QString DaemonClient::exportAudit(const QString &queryJson)
 
 QStringList DaemonClient::auditTail(int n)
 {
-    QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("AuditTail"), static_cast<uint>(qMax(0, n)));
+    QDBusReply<QStringList> reply = invoke(QStringLiteral("AuditTail"), static_cast<uint>(qMax(0, n)));
     return reply.isValid() ? reply.value() : QStringList();
 }
 
 void DaemonClient::refreshBackend()
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("GetBackend"));
+    const QDBusMessage reply = invoke(QStringLiteral("GetBackend"));
     QString label = QStringLiteral("daemon offline");
     if (reply.type() == QDBusMessage::ReplyMessage && reply.arguments().size() == 4)
         label = labelFor(reply.arguments().at(1).toString(), reply.arguments().at(2).toString());
@@ -193,7 +304,7 @@ void DaemonClient::refreshBackend()
         emit backendLabelChanged();
     }
 
-    const QDBusMessage authority = m_iface.call(QStringLiteral("GetAuthority"));
+    const QDBusMessage authority = invoke(QStringLiteral("GetAuthority"));
     QString authorityText = QStringLiteral("daemon offline");
     if (authority.type() == QDBusMessage::ReplyMessage && authority.arguments().size() == 1)
         authorityText = authority.arguments().at(0).toString();
@@ -229,19 +340,19 @@ void DaemonClient::onFailed(const QString &session, const QString &message)
 
 QStringList DaemonClient::approvals(const QString &state)
 {
-    QDBusReply<QStringList> reply = m_iface.call(QStringLiteral("ListApprovals"), state);
+    QDBusReply<QStringList> reply = invoke(QStringLiteral("ListApprovals"), state);
     return reply.isValid() ? reply.value() : QStringList();
 }
 
 QString DaemonClient::approve(const QString &id)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("Approve"), id, QStringLiteral("desktop"));
+    const QDBusMessage reply = invoke(QStringLiteral("Approve"), id, QStringLiteral("desktop"));
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
 QString DaemonClient::deny(const QString &id, const QString &reason)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("Deny"), id, QStringLiteral("desktop"), reason);
+    const QDBusMessage reply = invoke(QStringLiteral("Deny"), id, QStringLiteral("desktop"), reason);
     return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
@@ -271,7 +382,7 @@ void DaemonClient::onRemoteAccessChanged(const QString &json)
 
 QString DaemonClient::engageKillSwitch(const QString &reason)
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("EngageKillSwitch"), QStringLiteral("desktop"), reason);
+    const QDBusMessage reply = invoke(QStringLiteral("EngageKillSwitch"), QStringLiteral("desktop"), reason);
     if (reply.type() != QDBusMessage::ReplyMessage)
         return reply.errorMessage();
     onKillSwitchChanged(reply.arguments().value(0).toString());
@@ -280,7 +391,7 @@ QString DaemonClient::engageKillSwitch(const QString &reason)
 
 QString DaemonClient::releaseKillSwitch()
 {
-    const QDBusMessage reply = m_iface.call(QStringLiteral("ReleaseKillSwitch"), QStringLiteral("desktop"));
+    const QDBusMessage reply = invoke(QStringLiteral("ReleaseKillSwitch"), QStringLiteral("desktop"));
     if (reply.type() != QDBusMessage::ReplyMessage)
         return reply.errorMessage();
     onKillSwitchChanged(reply.arguments().value(0).toString());

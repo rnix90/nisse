@@ -2296,3 +2296,84 @@ mod audit_search {
         assert_eq!(found["records"], serde_json::json!([]));
     }
 }
+
+// ---- first-boot status over D-Bus (ledger N-218)
+
+mod setup_status {
+    use super::*;
+
+    async fn claude_state(s: &Setup) -> String {
+        let text: String = s.proxy.call("GetSetupStatus", &()).await.unwrap();
+        serde_json::from_str::<serde_json::Value>(&text).unwrap()["claude"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    fn status_file(s: &Setup) -> PathBuf {
+        s.config.with_file_name("claude-fetch.status")
+    }
+
+    async fn with_status_file(name: &str) -> Setup {
+        let dir = scratch(name);
+        let daemon = Daemon::new(Arc::new(FakeRunner), dir.join("backends.toml"), dir.join("audit.jsonl"))
+            .with_approvals_file(dir.join("approvals.json"))
+            .with_fetch_status_file(dir.join("claude-fetch.status"));
+        let (a, b) = tokio::net::UnixStream::pair().unwrap();
+        let server = zbus::connection::Builder::unix_stream(a)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at(PATH, daemon)
+            .unwrap()
+            .build();
+        let client = zbus::connection::Builder::unix_stream(b).p2p().build();
+        let (server, client) = tokio::try_join!(server, client).unwrap();
+        let proxy = Proxy::new(&client, NAME, PATH, NAME).await.unwrap();
+        Setup {
+            _server: server,
+            proxy,
+            config: dir.join("backends.toml"),
+            approvals: Arc::new(nisse_daemon::approvals::ApprovalQueue::in_memory()),
+        }
+    }
+
+    #[tokio::test]
+    async fn with_no_status_file_the_fetch_has_not_run() {
+        let s = with_status_file("ss-none").await;
+        assert_eq!(claude_state(&s).await, "not-started");
+    }
+
+    #[tokio::test]
+    async fn each_state_the_fetch_script_writes_is_reported_and_follows_the_file() {
+        let s = with_status_file("ss-states").await;
+        for (text, want) in [
+            ("waiting-for-network\n", "waiting-for-network"),
+            ("failed\n", "failed"),
+            ("installed\n", "installed"),
+            ("  installed  ", "installed"),
+            ("something-new\n", "unknown"),
+            ("", "unknown"),
+        ] {
+            fs::write(status_file(&s), text).unwrap();
+            assert_eq!(claude_state(&s).await, want, "{text:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn the_default_location_is_the_one_the_fetch_script_writes() {
+        use nisse_daemon::state::fetch_status_path_from;
+        assert_eq!(
+            fetch_status_path_from(Some("/o/s"), Some("/x"), Some("/h")),
+            PathBuf::from("/o/s")
+        );
+        assert_eq!(
+            fetch_status_path_from(None, Some("/x"), Some("/h")),
+            PathBuf::from("/x/nisse/claude-fetch.status")
+        );
+        assert_eq!(
+            fetch_status_path_from(None, None, Some("/h")),
+            PathBuf::from("/h/.local/state/nisse/claude-fetch.status")
+        );
+    }
+}

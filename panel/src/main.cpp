@@ -254,11 +254,31 @@ static int selfTestConfig(int argc, char *argv[])
     return 0;
 }
 
+// Prints what the panel would tell the person about the daemon and about first-boot setup, as it changes (N-218). Runs until
+// it is stopped (or 90 seconds). Used by tests/e2e/connection_inner.sh, which stops and starts the daemon around it.
+static int selfTestConnection(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QTextStream out(stdout);
+    DaemonClient client;
+    const auto setup = [&client] { return client.setupText().isEmpty() ? QStringLiteral("(none)") : client.setupText(); };
+    out << "start: " << client.connectionState() << " | " << client.connectionText() << Qt::endl;
+    QObject::connect(&client, &DaemonClient::connectionChanged, &app, [&] {
+        out << "state: " << client.connectionState() << " | " << client.connectionText() << Qt::endl;
+    });
+    QObject::connect(&client, &DaemonClient::reconnected, &app, [&] { out << "reconnected" << Qt::endl; });
+    QObject::connect(&client, &DaemonClient::setupChanged, &app, [&] { out << "setup: " << setup() << Qt::endl; });
+    QTimer::singleShot(90000, &app, [&app] { app.quit(); });
+    return app.exec();
+}
+
 int main(int argc, char *argv[])
 {
     for (int i = 1; i < argc; ++i) {
         if (QByteArray(argv[i]) == "--self-test")
             return selfTest(argc, argv);
+        if (QByteArray(argv[i]) == "--self-test-connection")
+            return selfTestConnection(argc, argv);
         if (QByteArray(argv[i]) == "--self-test-config")
             return selfTestConfig(argc, argv);
         if (QByteArray(argv[i]) == "--self-test-kill")

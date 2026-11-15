@@ -25,6 +25,10 @@ ApplicationWindow {
 
     header: ColumnLayout {
         spacing: 0
+        ConnectionBanner {
+            Layout.fillWidth: true
+            client: daemon
+        }
         StatusBar {
             Layout.fillWidth: true
             client: daemon

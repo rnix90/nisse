@@ -20,6 +20,7 @@ TestCase {
     QtObject {
         id: stub
         property var queries: []
+        signal reconnected()
         property var exports: []
         property var reply: ({ records: [], total: 0, scanned: 0, offset: 0, limit: 100 })
         property string failWith: ""

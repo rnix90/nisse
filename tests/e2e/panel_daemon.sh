@@ -54,4 +54,7 @@ dbus-run-session -- bash tests/e2e/kill_inner.sh "$daemon" "$panel" "$work"
 # N-216: the settings panel's client edits and saves a config the daemon accepts and uses.
 dbus-run-session -- bash tests/e2e/config_inner.sh "$daemon" "$panel" "$work"
 
+# N-218: the daemon stopped and started, the network off for the first-boot fetch, and what the panel says about each.
+dbus-run-session -- bash tests/e2e/connection_inner.sh "$daemon" "$panel" "$work"
+
 echo "PASS: panel and daemon end to end"

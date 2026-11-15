@@ -138,6 +138,7 @@ Item {
     Connections {
         target: root.client
         function onApprovalChanged() { root.refresh() }
+        function onReconnected() { root.refresh() }
     }
 
     Timer {

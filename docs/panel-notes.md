@@ -175,3 +175,21 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 - Speed: a 10,000-record fixture is searched in well under the stated bound of 1.5 seconds in a debug build (the whole test,
   fixture included, runs in about 0.4 s; 0.1 s in a release build). The log is read once per search, so a log of millions of
   records would be slower: a rotation or an index is not part of this task.
+
+## Offline and daemon-down states (N-218)
+
+- The panel never freezes on a missing daemon. It watches the daemon's name on the session bus: before it has ever seen the
+  daemon it says "Waiting for connection to the nisse daemon." (and keeps asking, which also lets D-Bus start the daemon); if
+  the daemon was there and went away it says "The nisse daemon is restarting. This usually takes a few seconds." While it is
+  away every call answers at once with a plain error instead of waiting, and every call has a 5 second limit as a safety net.
+  When the daemon is back the banner goes by itself and the views (chat tabs, approvals, settings, audit, remote access) read
+  their data again.
+- Claude Code itself: the first-boot fetch (`nisse-fetch-claude`) writes its state to `claude-fetch.status`; the daemon reports
+  it (`GetSetupStatus`: installed, waiting-for-network, failed, not-started, unknown) and the panel shows "Claude Code is not
+  installed yet: waiting for a network connection. nisse tries again every 2 minutes." (or the failed line) until it is
+  installed, looking again every 30 seconds. Nothing shows for "not-started", which is also what a live session reports (the
+  fetch skips live media).
+- The first-boot fetch already keeps retrying (verified by `tests/shell/test_fetch_claude.sh`: `Restart=on-failure`, exit 75
+  forces a retry, `RestartSec=120`, `StartLimitIntervalSec=0` so it never gives up); nothing needed changing there.
+- What this does not cover: the network dropping in the middle of a turn (the CLI's own error is shown in the chat as before),
+  and a Max account that cannot be reached for reasons the CLI does not name.

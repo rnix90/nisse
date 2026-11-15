@@ -189,6 +189,11 @@ Item {
 
     Component.onCompleted: load()
 
+    Connections {
+        target: root.client
+        function onReconnected() { if (!root.dirty) root.load() }
+    }
+
     Flickable {
         anchors.fill: parent
         contentWidth: width
