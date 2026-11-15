@@ -40,7 +40,7 @@ fn record(i: usize) -> AuditRecord {
             actor: "user".into(),
             kind: "message".into(),
             source: None,
-            detail: json!({ "text": if i % 997 == 0 { "find the needle in a haystack".to_string() } else { format!("message number {i}") } }),
+            detail: json!({ "text": if i.is_multiple_of(997) { "find the needle in a haystack".to_string() } else { format!("message number {i}") } }),
         },
         3 => AuditRecord {
             ts: at,
@@ -55,7 +55,14 @@ fn record(i: usize) -> AuditRecord {
             session,
             actor: "claude".into(),
             kind: "tool".into(),
-            source: Some(if (i / 5) % 3 == 0 { "terminal" } else { "daemon" }.into()),
+            source: Some(
+                if (i / 5).is_multiple_of(3) {
+                    "terminal"
+                } else {
+                    "daemon"
+                }
+                .into(),
+            ),
             detail: json!({
                 "hook_event_name": "PreToolUse",
                 "tool_name": TOOLS[i % 4],
@@ -480,5 +487,5 @@ fn the_export_is_not_cut_at_the_page_limit_but_has_a_ceiling() {
     let path = big_log("export-all");
     let all = nisse_audit::export_jsonl(&path, &Query::default()).unwrap();
     assert_eq!(all.lines().count(), N, "the page limit does not apply to an export");
-    assert!(nisse_audit::EXPORT_LIMIT >= N);
+    const { assert!(nisse_audit::EXPORT_LIMIT >= N) };
 }
