@@ -132,3 +132,206 @@ pub fn default_log_path() -> PathBuf {
         get("HOME").as_deref(),
     )
 }
+
+// ---- search (ledger N-217)
+
+/// What to look for in the log. Every filter that is set must match; unset ones match everything.
+#[derive(Debug, Clone, Default)]
+pub struct Query {
+    /// A session id, exactly.
+    pub session: Option<String>,
+    /// A tool name (Bash, Read ...), any case, matched against a hook record's `tool_name` and an approval's `tool`.
+    pub tool: Option<String>,
+    /// A record kind, exactly (message, tool, approval-requested ...).
+    pub kind: Option<String>,
+    /// `daemon` or `terminal`; a record with no source counts as the daemon's.
+    pub source: Option<String>,
+    /// RFC 3339, inclusive.
+    pub since: Option<String>,
+    /// RFC 3339, inclusive.
+    pub until: Option<String>,
+    /// Words anywhere in what was said or run (any case): the kind, actor, session and every text value of the detail,
+    /// never the names of the fields.
+    pub text: Option<String>,
+    /// How many records to return: 0 means 100, and at most `PAGE_LIMIT`.
+    pub limit: usize,
+    /// How many matches to skip (newest first).
+    pub offset: usize,
+}
+
+/// The default page size.
+pub const DEFAULT_PAGE: usize = 100;
+/// The most a page can hold.
+pub const PAGE_LIMIT: usize = 1000;
+/// The most an export holds.
+pub const EXPORT_LIMIT: usize = 50_000;
+
+/// One page of matches, newest first.
+#[derive(Debug, Clone)]
+pub struct Page {
+    pub records: Vec<AuditRecord>,
+    /// How many records matched in all (not just this page).
+    pub total: usize,
+    /// How many records were read (lines that were not records are not counted).
+    pub scanned: usize,
+}
+
+fn bad_time(what: &str, value: &str) -> io::Error {
+    io::Error::new(
+        io::ErrorKind::InvalidInput,
+        format!("{what} is not a time (RFC 3339): {value:?}"),
+    )
+}
+
+fn parse_time(value: &str) -> Option<i128> {
+    time::OffsetDateTime::parse(value, &Rfc3339)
+        .ok()
+        .map(|t| t.unix_timestamp_nanos())
+}
+
+/// Every text value inside `v`, lower case, joined by spaces; the names of fields are left out.
+fn flatten_text(v: &serde_json::Value, out: &mut String) {
+    match v {
+        serde_json::Value::String(s) => {
+            out.push_str(&s.to_lowercase());
+            out.push(' ');
+        }
+        serde_json::Value::Array(items) => items.iter().for_each(|i| flatten_text(i, out)),
+        serde_json::Value::Object(map) => map.values().for_each(|i| flatten_text(i, out)),
+        serde_json::Value::Number(n) => {
+            out.push_str(&n.to_string());
+            out.push(' ');
+        }
+        _ => {}
+    }
+}
+
+struct Compiled {
+    since: Option<i128>,
+    until: Option<i128>,
+    text: Option<String>,
+    /// The text can be looked for in the raw line first (no escaping or non-ASCII that the JSON encoding would change).
+    plain_text: bool,
+}
+
+fn compile(q: &Query) -> io::Result<Compiled> {
+    let since = match &q.since {
+        Some(v) => Some(parse_time(v).ok_or_else(|| bad_time("since", v))?),
+        None => None,
+    };
+    let until = match &q.until {
+        Some(v) => Some(parse_time(v).ok_or_else(|| bad_time("until", v))?),
+        None => None,
+    };
+    let text = q.text.as_ref().map(|t| t.to_lowercase()).filter(|t| !t.is_empty());
+    let plain_text = text
+        .as_ref()
+        .is_some_and(|t| t.is_ascii() && !t.contains(['"', '\\']) && t.chars().all(|c| !c.is_control()));
+    Ok(Compiled {
+        since,
+        until,
+        text,
+        plain_text,
+    })
+}
+
+fn matches(q: &Query, c: &Compiled, line: &[u8], r: &AuditRecord) -> bool {
+    if q.session.as_deref().is_some_and(|s| r.session.as_deref() != Some(s)) {
+        return false;
+    }
+    if q.kind.as_deref().is_some_and(|k| r.kind != k) {
+        return false;
+    }
+    if q.source
+        .as_deref()
+        .is_some_and(|s| r.source.as_deref().unwrap_or("daemon") != s)
+    {
+        return false;
+    }
+    if let Some(tool) = q.tool.as_deref() {
+        let named = |key: &str| {
+            r.detail
+                .get(key)
+                .and_then(|v| v.as_str())
+                .is_some_and(|t| t.eq_ignore_ascii_case(tool))
+        };
+        if !(named("tool_name") || named("tool")) {
+            return false;
+        }
+    }
+    if c.since.is_some() || c.until.is_some() {
+        let Some(at) = parse_time(&r.ts) else { return false };
+        if c.since.is_some_and(|s| at < s) || c.until.is_some_and(|u| at > u) {
+            return false;
+        }
+    }
+    if let Some(text) = &c.text {
+        if c.plain_text && !String::from_utf8_lossy(line).to_lowercase().contains(text.as_str()) {
+            return false;
+        }
+        let mut haystack = format!(
+            "{} {} {} ",
+            r.kind.to_lowercase(),
+            r.actor.to_lowercase(),
+            r.session.as_deref().unwrap_or("").to_lowercase()
+        );
+        flatten_text(&r.detail, &mut haystack);
+        if !haystack.contains(text.as_str()) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Reads the log once and returns the matching records, in the order they were written.
+fn scan(path: &Path, q: &Query) -> io::Result<(Vec<AuditRecord>, usize)> {
+    let compiled = compile(q)?;
+    let file = match fs::File::open(path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok((Vec::new(), 0)),
+        Err(e) => return Err(e),
+    };
+    let mut found = Vec::new();
+    let mut scanned = 0;
+    for line in BufReader::new(file).split(b'\n').map_while(Result::ok) {
+        let Ok(record) = serde_json::from_slice::<AuditRecord>(&line) else {
+            continue;
+        };
+        scanned += 1;
+        if matches(q, &compiled, &line, &record) {
+            found.push(record);
+        }
+    }
+    Ok((found, scanned))
+}
+
+/// The matches of `q`, newest first, one page of them (`limit` and `offset`), with how many matched in all.
+pub fn search(path: &Path, q: &Query) -> io::Result<Page> {
+    let (mut found, scanned) = scan(path, q)?;
+    let total = found.len();
+    found.reverse();
+    let limit = if q.limit == 0 {
+        DEFAULT_PAGE
+    } else {
+        q.limit.min(PAGE_LIMIT)
+    };
+    let records = found.into_iter().skip(q.offset).take(limit).collect();
+    Ok(Page {
+        records,
+        total,
+        scanned,
+    })
+}
+
+/// Every match of `q` (up to `EXPORT_LIMIT`; `limit` and `offset` do not apply), newest first, one record per line in the
+/// log's own format, so another client can read it with the same record type.
+pub fn export_jsonl(path: &Path, q: &Query) -> io::Result<String> {
+    let (mut found, _) = scan(path, q)?;
+    found.reverse();
+    let mut out = String::new();
+    for record in found.into_iter().take(EXPORT_LIMIT) {
+        out.push_str(&serde_json::to_string(&record).map_err(io::Error::other)?);
+        out.push('\n');
+    }
+    Ok(out)
+}

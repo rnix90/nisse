@@ -59,6 +59,11 @@ public:
     // Saves edited settings (the `config` object as JSON) as the "desktop" device. Returns the daemon's refusal in words,
     // or an empty string when it saved them.
     Q_INVOKABLE QString saveConfig(const QString &configJson);
+    // Searches the audit log (N-217): the query as JSON (session, tool, kind, source, since, until, text, limit, offset); the
+    // daemon's answer as JSON ({records, total, scanned, offset, limit}), or an empty string if it could not be had.
+    Q_INVOKABLE QString searchAudit(const QString &queryJson);
+    // Exports every matching record as JSON lines to a file in the Documents folder. Returns the file's path, or "error: ..." in words.
+    Q_INVOKABLE QString exportAudit(const QString &queryJson);
     // The last n audit records, one JSON object per string.
     Q_INVOKABLE QStringList auditTail(int n);
     Q_INVOKABLE void refreshBackend();

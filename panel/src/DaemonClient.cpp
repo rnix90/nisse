@@ -9,7 +9,11 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QDBusReply>
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QJsonDocument>
+#include <QStandardPaths>
 #include <QJsonObject>
 #include <QUrl>
 
@@ -146,6 +150,30 @@ QString DaemonClient::saveConfig(const QString &configJson)
         return QString();
     }
     return reply.errorMessage();
+}
+
+QString DaemonClient::searchAudit(const QString &queryJson)
+{
+    QDBusReply<QString> reply = m_iface.call(QStringLiteral("SearchAudit"), queryJson);
+    return reply.isValid() ? reply.value() : QString();
+}
+
+QString DaemonClient::exportAudit(const QString &queryJson)
+{
+    const QDBusMessage reply = m_iface.call(QStringLiteral("ExportAudit"), queryJson);
+    if (reply.type() != QDBusMessage::ReplyMessage)
+        return QStringLiteral("error: ") + reply.errorMessage();
+    QString folder = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    if (folder.isEmpty())
+        folder = QDir::homePath();
+    QDir().mkpath(folder);
+    const QString path = QDir(folder).filePath(QStringLiteral("nisse-audit-%1.jsonl")
+                                                   .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd-HHmmss"))));
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return QStringLiteral("error: cannot write ") + path + QStringLiteral(": ") + file.errorString();
+    file.write(reply.arguments().value(0).toString().toUtf8());
+    return path;
 }
 
 QStringList DaemonClient::auditTail(int n)

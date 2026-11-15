@@ -2164,3 +2164,135 @@ mod config_api {
         assert_eq!(nisse_config::load(&s.config).unwrap(), before);
     }
 }
+
+// ---- searching the audit log over D-Bus (ledger N-217)
+
+mod audit_search {
+    use super::*;
+    use nisse_audit::{AuditLog, AuditRecord};
+
+    fn audit_path(s: &Setup) -> PathBuf {
+        s.config.with_file_name("audit.jsonl")
+    }
+
+    fn terminal_record(session: &str, command: &str) -> AuditRecord {
+        AuditRecord {
+            ts: nisse_audit::now_rfc3339(),
+            session: Some(session.into()),
+            actor: "claude".into(),
+            kind: "tool".into(),
+            source: Some("terminal".into()),
+            detail: serde_json::json!({ "tool_name": "Bash", "tool_input": { "command": command } }),
+        }
+    }
+
+    async fn search(s: &Setup, query: serde_json::Value) -> serde_json::Value {
+        let text: String = s.proxy.call("SearchAudit", &(query.to_string(),)).await.unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    #[tokio::test]
+    async fn the_daemons_own_records_are_found_by_text_and_session() {
+        let s = setup("as-text", Arc::new(FakeRunner)).await;
+        let a: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let b: String = s.proxy.call("NewSession", &()).await.unwrap();
+        send_and_wait(&s, &a, "remember the blue folder").await;
+        send_and_wait(&s, &b, "something else entirely").await;
+        let found = search(&s, serde_json::json!({ "text": "BLUE folder" })).await;
+        assert_eq!(found["total"], 1);
+        assert_eq!(found["records"][0]["session"], a.as_str());
+        let by_session = search(&s, serde_json::json!({ "session": b, "kind": "message" })).await;
+        assert_eq!(by_session["total"], 1);
+    }
+
+    #[tokio::test]
+    async fn terminal_records_are_told_apart_from_the_daemons() {
+        let s = setup("as-source", Arc::new(FakeRunner)).await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        send_and_wait(&s, &id, "hello").await;
+        AuditLog::open(audit_path(&s))
+            .unwrap()
+            .append(&terminal_record("t1", "ls -la"))
+            .unwrap();
+        let terminal = search(&s, serde_json::json!({ "source": "terminal" })).await;
+        assert_eq!(terminal["total"], 1);
+        assert_eq!(terminal["records"][0]["detail"]["tool_input"]["command"], "ls -la");
+        let daemon = search(&s, serde_json::json!({ "source": "daemon" })).await;
+        assert!(daemon["total"].as_u64().unwrap() >= 1);
+        assert!(daemon["records"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["source"] != "terminal"));
+        let tool = search(&s, serde_json::json!({ "tool": "bash" })).await;
+        assert_eq!(tool["total"], 1);
+    }
+
+    #[tokio::test]
+    async fn paging_and_the_total() {
+        let s = setup("as-page", Arc::new(FakeRunner)).await;
+        let log = AuditLog::open(audit_path(&s)).unwrap();
+        for i in 0..25 {
+            log.append(&terminal_record("t", &format!("echo {i}"))).unwrap();
+        }
+        let first = search(&s, serde_json::json!({ "source": "terminal", "limit": 10 })).await;
+        assert_eq!(first["total"], 25);
+        assert_eq!(first["records"].as_array().unwrap().len(), 10);
+        assert_eq!(
+            first["records"][0]["detail"]["tool_input"]["command"], "echo 24",
+            "newest first"
+        );
+        let third = search(
+            &s,
+            serde_json::json!({ "source": "terminal", "limit": 10, "offset": 20 }),
+        )
+        .await;
+        assert_eq!(third["records"].as_array().unwrap().len(), 5);
+        assert_eq!(third["offset"], 20);
+    }
+
+    #[tokio::test]
+    async fn a_time_range_and_bad_input() {
+        let s = setup("as-time", Arc::new(FakeRunner)).await;
+        AuditLog::open(audit_path(&s))
+            .unwrap()
+            .append(&terminal_record("t", "x"))
+            .unwrap();
+        let future = search(&s, serde_json::json!({ "since": "2999-01-01T00:00:00Z" })).await;
+        assert_eq!(future["total"], 0);
+        let past = search(&s, serde_json::json!({ "until": "2000-01-01T00:00:00Z" })).await;
+        assert_eq!(past["total"], 0);
+        let bad_time: Result<String, _> = s.proxy.call("SearchAudit", &(r#"{"since":"yesterday"}"#,)).await;
+        assert!(bad_time.is_err());
+        let bad_json: Result<String, _> = s.proxy.call("SearchAudit", &("{ nope",)).await;
+        assert!(bad_json.is_err());
+        let empty = search(&s, serde_json::json!({})).await;
+        assert!(empty["total"].as_u64().unwrap() >= 1, "an empty query is everything");
+    }
+
+    #[tokio::test]
+    async fn the_export_is_json_lines_of_everything_that_matches() {
+        let s = setup("as-export", Arc::new(FakeRunner)).await;
+        let log = AuditLog::open(audit_path(&s)).unwrap();
+        for i in 0..30 {
+            log.append(&terminal_record("t", &format!("echo {i}"))).unwrap();
+        }
+        let text: String = s
+            .proxy
+            .call("ExportAudit", &(r#"{"source":"terminal","limit":5}"#,))
+            .await
+            .unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 30, "the page limit does not cut an export");
+        let first: AuditRecord = serde_json::from_str(lines[0]).unwrap();
+        assert_eq!(first.detail["tool_input"]["command"], "echo 29");
+    }
+
+    #[tokio::test]
+    async fn an_audit_log_with_nothing_in_it_is_an_empty_result_not_an_error() {
+        let s = setup("as-empty", Arc::new(FakeRunner)).await;
+        let found = search(&s, serde_json::json!({ "text": "anything" })).await;
+        assert_eq!(found["total"], 0);
+        assert_eq!(found["records"], serde_json::json!([]));
+    }
+}

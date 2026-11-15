@@ -161,3 +161,17 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 - Plain words about terminal sessions: Claude Code sessions started in a terminal are recorded in the local audit log (marked
   terminal) but never limited, and deleting `/etc/claude-code/managed-settings.json` (which holds only nisse's two audit hooks)
   stops the recording. Checked against the RPM test (N-226).
+
+## Audit view (N-217)
+
+- The Audit tab searches everything the AI said and did on this computer: text (what was said or run, any case; never the
+  names of fields), source (daemon sessions or terminal sessions, N-223 and N-226), session, tool, kind and time range, newest
+  first, 100 at a time with Newer and Older, and a count ("Showing 101-200 of 4,321"). Clicking a record shows its full
+  detail. Export writes every match (up to 50,000) as JSON lines to a file in the Documents folder and says where.
+- The daemon does the searching (`SearchAudit`, `ExportAudit` on D-Bus; the code is `nisse_audit::search` and `export_jsonl`),
+  so any client asks the same way. Records keep the log's own format (`ts`, `session`, `actor`, `kind`, `source`, `detail`):
+  that is the audit record type N-220 will move into the shared protocol crate; the export is already in it.
+- A record with no source counts as the daemon's. A line in the log that is not a record is skipped, not fatal.
+- Speed: a 10,000-record fixture is searched in well under the stated bound of 1.5 seconds in a debug build (the whole test,
+  fixture included, runs in about 0.4 s; 0.1 s in a release build). The log is read once per search, so a log of millions of
+  records would be slower: a rotation or an index is not part of this task.

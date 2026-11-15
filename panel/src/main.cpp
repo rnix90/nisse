@@ -20,6 +20,8 @@ static int selfTest(int argc, char *argv[])
     DaemonClient client;
     out << "backend: " << client.backendLabel() << Qt::endl;
     out << "authority: " << client.authorityLabel() << Qt::endl;
+    const QJsonObject found = QJsonDocument::fromJson(client.searchAudit(QStringLiteral("{\"text\":\"direct ping\"}")).toUtf8()).object();
+    out << "audit search: " << found.value(QStringLiteral("total")).toInt() << " match" << Qt::endl;
     out << "usage: "
         << (QJsonDocument::fromJson(client.usageJson().toUtf8()).object().contains(QStringLiteral("max")) ? "available" : "missing")
         << Qt::endl;

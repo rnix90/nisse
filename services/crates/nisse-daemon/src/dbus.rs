@@ -303,6 +303,27 @@ impl Daemon {
     }
 }
 
+/// The audit query a client sent as JSON.
+fn audit_query(text: &str) -> zbus::fdo::Result<nisse_audit::Query> {
+    let v: serde_json::Value = if text.trim().is_empty() {
+        serde_json::json!({})
+    } else {
+        serde_json::from_str(text).map_err(|e| zbus::fdo::Error::InvalidArgs(format!("the query is not JSON: {e}")))?
+    };
+    let word = |key: &str| v[key].as_str().map(String::from).filter(|s| !s.is_empty());
+    Ok(nisse_audit::Query {
+        session: word("session"),
+        tool: word("tool"),
+        kind: word("kind"),
+        source: word("source"),
+        since: word("since"),
+        until: word("until"),
+        text: word("text"),
+        limit: v["limit"].as_u64().unwrap_or(0) as usize,
+        offset: v["offset"].as_u64().unwrap_or(0) as usize,
+    })
+}
+
 fn approval_json(approval: &Approval) -> String {
     serde_json::to_string(approval).unwrap_or_default()
 }
@@ -1008,6 +1029,33 @@ impl Daemon {
             .iter()
             .filter_map(|record| serde_json::to_string(record).ok())
             .collect()
+    }
+
+    /// Searches the audit log: `query_json` has any of `session`, `tool`, `kind`, `source` ("daemon" or "terminal"), `since`
+    /// and `until` (RFC 3339, inclusive), `text` (what was said or run, any case), `limit` (default 100, at most 1000) and
+    /// `offset`. Returns JSON: `records` (newest first, in the log's own record format), `total` (all matches), `scanned`,
+    /// `offset`, `limit`. An error for a query that is not JSON or a time that cannot be read.
+    async fn search_audit(&self, query_json: String) -> zbus::fdo::Result<String> {
+        let query = audit_query(&query_json)?;
+        let (limit, offset) = (query.limit, query.offset);
+        let page = nisse_audit::search(&self.core.audit_path, &query)
+            .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
+        Ok(serde_json::json!({
+            "records": page.records,
+            "total": page.total,
+            "scanned": page.scanned,
+            "offset": offset,
+            "limit": if limit == 0 { nisse_audit::DEFAULT_PAGE } else { limit.min(nisse_audit::PAGE_LIMIT) },
+        })
+        .to_string())
+    }
+
+    /// Every record that matches (same query as `SearchAudit`, but `limit` and `offset` do not apply; at most 50,000),
+    /// newest first, one JSON record per line in the audit log's own format, so another client can read it the same way.
+    async fn export_audit(&self, query_json: String) -> zbus::fdo::Result<String> {
+        let query = audit_query(&query_json)?;
+        nisse_audit::export_jsonl(&self.core.audit_path, &query)
+            .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))
     }
 
     /// Asks for an approval and returns its id. `detail_json` is whatever the decider needs to see (a JSON object, or
