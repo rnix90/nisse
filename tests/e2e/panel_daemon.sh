@@ -57,4 +57,7 @@ dbus-run-session -- bash tests/e2e/config_inner.sh "$daemon" "$panel" "$work"
 # N-218: the daemon stopped and started, the network off for the first-boot fetch, and what the panel says about each.
 dbus-run-session -- bash tests/e2e/connection_inner.sh "$daemon" "$panel" "$work"
 
+# N-220: the event log through the real daemon and panel client, across a daemon restart.
+dbus-run-session -- bash tests/e2e/events_inner.sh "$daemon" "$panel" "$work"
+
 echo "PASS: panel and daemon end to end"

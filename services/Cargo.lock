@@ -288,6 +288,7 @@ dependencies = [
 name = "nisse-audit"
 version = "0.1.0"
 dependencies = [
+ "nisse-proto",
  "serde",
  "serde_json",
  "time",
@@ -312,6 +313,7 @@ dependencies = [
  "libc",
  "nisse-audit",
  "nisse-config",
+ "nisse-proto",
  "serde",
  "serde_json",
  "tokio",
@@ -327,6 +329,14 @@ dependencies = [
  "serde_json",
  "tokio",
  "zbus",
+]
+
+[[package]]
+name = "nisse-proto"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

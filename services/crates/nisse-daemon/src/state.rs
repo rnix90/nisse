@@ -71,35 +71,7 @@ pub fn default_state_path() -> PathBuf {
     )
 }
 
-/// What a daemon start does to a session. The default is `Library`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Keep {
-    /// Comes back as an open tab.
-    Always,
-    /// Comes back in the library: not a tab, but listed so it can be reopened.
-    Library,
-    /// Is forgotten at the next start.
-    Drop,
-}
-
-impl Keep {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Keep::Always => "always",
-            Keep::Library => "library",
-            Keep::Drop => "drop",
-        }
-    }
-
-    pub fn parse(text: &str) -> Option<Keep> {
-        match text {
-            "always" => Some(Keep::Always),
-            "library" => Some(Keep::Library),
-            "drop" => Some(Keep::Drop),
-            _ => None,
-        }
-    }
-}
+pub use nisse_proto::Keep;
 
 /// What a daemon start did to the sessions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

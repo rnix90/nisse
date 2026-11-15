@@ -35,6 +35,30 @@ TestCase {
         signal failed(string session, string message)
         signal approvalChanged(string id, string state)
         signal sessionsChanged()
+        signal userMessage(string session, string text)
+
+        // events (N-220): what the daemon kept per session, and what this panel has seen
+        property var eventsFor: ({})
+        property var gapFor: ({})
+        property var seen: ({})
+        property var markCalls: []
+        function ev(seq, type, extra) {
+            var e = { seq: seq, session: "x", at_ms: 1700000000000 + seq, type: type }
+            for (var k in extra) e[k] = extra[k]
+            return e
+        }
+        function eventsSince(session, after) {
+            var all = eventsFor[session] || []
+            var rest = all.filter(function (e) { return e.seq > after })
+            return JSON.stringify({ session: session, events: rest, after: after, last_seq: all.length ? all[all.length - 1].seq : 0, gap: gapFor[session] === true })
+        }
+        function lastSeq(session) { return seen[session] || 0 }
+        function markSeen(session, seq) {
+            markCalls.push([session, seq])
+            var s = JSON.parse(JSON.stringify(seen))
+            s[session] = Math.max(s[session] || 0, seq)
+            seen = s
+        }
         signal reconnected()
 
         function sessions() {
@@ -101,7 +125,7 @@ TestCase {
         function setPending(id, n) {
             list = list.map(function (s) { if (s.id === id) s.pending_approvals = n; return s })
         }
-        function reset() { list = []; counter = 0; sent = []; closed = []; renamed = []; keepSet = []; backendSet = []; opened = []; offline = false }
+        function reset() { list = []; counter = 0; sent = []; closed = []; renamed = []; keepSet = []; backendSet = []; opened = []; offline = false; eventsFor = ({}); gapFor = ({}); seen = ({}); markCalls = [] }
     }
 
     SessionTabs {
@@ -318,15 +342,90 @@ TestCase {
         compare(tabs.selectedId, "s1")
     }
 
-    function test_a_tab_restored_from_the_daemon_says_earlier_messages_are_not_shown() {
+    function test_a_tab_restored_from_the_daemon_shows_what_it_kept_of_the_conversation() {
+        stub.eventsFor = { s1: [
+            stub.ev(1, "user_message", { text: "hello" }), stub.ev(2, "chunk", { text: "Hi " }), stub.ev(3, "chunk", { text: "there" }),
+            stub.ev(4, "done", {}), stub.ev(5, "user_message", { text: "bye" }), stub.ev(6, "error", { message: "boom" }), stub.ev(7, "done", {}) ] }
         stub.add(true)
         tabs.refresh()
-        var restored = tabs.chatFor("s1")
-        compare(restored.messages.count, 1)
-        compare(restored.messages.get(0).role, "note")
-        verify(restored.messages.get(0).text.indexOf("Earlier messages") >= 0)
+        var chat = tabs.chatFor("s1")
+        compare(chat.messages.count, 4)
+        compare(chat.messages.get(0).role, "user")
+        compare(chat.messages.get(0).text, "hello")
+        compare(chat.messages.get(1).role, "assistant")
+        compare(chat.messages.get(1).text, "Hi there", "chunks of one reply are one bubble")
+        compare(chat.messages.get(2).text, "bye")
+        compare(chat.messages.get(3).role, "error")
+        compare(stub.markCalls[0][1], 7)
         mouseClick(findChild(tabs, "newTab"))
-        compare(tabs.chatFor(tabs.selectedId).messages.count, 0)
+        compare(tabs.chatFor(tabs.selectedId).messages.count, 0, "a new tab has nothing to replay")
+    }
+
+    function test_a_restored_tab_with_nothing_kept_says_so() {
+        stub.add(true)
+        tabs.refresh()
+        var chat = tabs.chatFor("s1")
+        compare(chat.messages.count, 1)
+        compare(chat.messages.get(0).role, "note")
+        compare(chat.messages.get(0).text, "Earlier messages are not available.")
+    }
+
+    function test_a_restored_tab_whose_older_events_are_gone_says_so_before_what_is_left() {
+        stub.eventsFor = { s1: [stub.ev(9, "chunk", { text: "the end of a reply" }), stub.ev(10, "done", {}) ] }
+        stub.gapFor = { s1: true }
+        stub.add(true)
+        tabs.refresh()
+        var chat = tabs.chatFor("s1")
+        compare(chat.messages.get(0).text, "Older messages are no longer kept.")
+        compare(chat.messages.get(1).text, "the end of a reply")
+    }
+
+    function test_after_the_daemon_is_back_each_missed_event_is_added_once_and_a_second_look_adds_nothing() {
+        stub.add(true)
+        stub.eventsFor = { s1: [stub.ev(1, "user_message", { text: "hello" }), stub.ev(2, "chunk", { text: "Hi" }), stub.ev(3, "done", {}) ] }
+        tabs.refresh()
+        var chat = tabs.chatFor("s1")
+        compare(chat.messages.count, 2)
+        // while the daemon was away, two more things happened
+        stub.eventsFor = { s1: [stub.ev(1, "user_message", { text: "hello" }), stub.ev(2, "chunk", { text: "Hi" }), stub.ev(3, "done", {}),
+            stub.ev(4, "user_message", { text: "from the phone" }), stub.ev(5, "chunk", { text: "answer" }), stub.ev(6, "done", {}) ] }
+        stub.reconnected()
+        compare(chat.messages.count, 4)
+        compare(chat.messages.get(2).text, "from the phone")
+        compare(chat.messages.get(3).text, "answer")
+        stub.reconnected()
+        compare(chat.messages.count, 4, "nothing is added twice")
+    }
+
+    function test_a_reply_cut_off_by_a_restart_does_not_leave_the_tab_waiting_for_ever() {
+        stub.add(false)
+        tabs.refresh()
+        var chat = tabs.chatFor("s1")
+        chat.submit("go")
+        verify(chat.busy)
+        stub.reconnected() // the daemon says the session is not running any more
+        verify(!chat.busy)
+        compare(chat.messages.get(chat.messages.count - 1).role, "note")
+        verify(chat.messages.get(chat.messages.count - 1).text.indexOf("cut off") >= 0)
+    }
+
+    function test_a_reply_that_is_still_running_after_the_reconnect_keeps_waiting() {
+        stub.add(false)
+        tabs.refresh()
+        var chat = tabs.chatFor("s1")
+        chat.submit("go")
+        stub.list = stub.list.map(function (s) { s.running = true; return s })
+        stub.reconnected()
+        verify(chat.busy)
+    }
+
+    function test_a_message_another_client_sent_shows_up_in_its_own_tab_only() {
+        stub.add(false); stub.add(false)
+        tabs.refresh()
+        stub.userMessage("s1", "typed on the phone")
+        compare(tabs.chatFor("s1").messages.count, 1)
+        compare(tabs.chatFor("s1").messages.get(0).role, "user")
+        compare(tabs.chatFor("s2").messages.count, 0)
     }
 
     function test_a_session_the_daemon_says_is_running_shows_working() {

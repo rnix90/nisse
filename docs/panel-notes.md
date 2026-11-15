@@ -193,3 +193,17 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
   forces a retry, `RestartSec=120`, `StartLimitIntervalSec=0` so it never gives up); nothing needed changing there.
 - What this does not cover: the network dropping in the middle of a turn (the CLI's own error is shown in the chat as before),
   and a Max account that cannot be reached for reasons the CLI does not name.
+
+## Earlier messages, catching up, and a cut-off reply (N-220)
+
+- A tab that comes back after a panel restart now shows what the daemon kept of that conversation (the person's messages, the
+  replies as whole bubbles, errors), replacing the old "earlier messages are not shown yet" note. A session made before the
+  log existed says "Earlier messages are not available."; one whose oldest events were dropped says "Older messages are no
+  longer kept." before what is left.
+- The panel follows each session through its numbered events (`SessionEvent`), so every event reaches it exactly once, and the
+  older per-kind signals are ignored for those sessions. A message another client sent into a session shows up as a message
+  bubble in its tab; the panel's own sends are not shown twice.
+- After the daemon was away and is back, every tab asks for the events it missed (each once, in order) and adds them. A reply
+  that was running when the daemon restarted was cut off (its process died with the daemon): the tab stops waiting for it and
+  says so, instead of staying locked.
+- The contract itself is in `docs/daemon-protocol.md`.

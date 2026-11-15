@@ -2377,3 +2377,253 @@ mod setup_status {
         );
     }
 }
+
+// ---- the event log and the shared types over D-Bus (ledger N-220)
+
+mod protocol {
+    use super::*;
+    use nisse_proto::{Approval, AuditRecord, Event, EventKind, EventsPage, Session};
+
+    async fn start_daemon(daemon: Daemon) -> Proxy<'static> {
+        let (a, b) = tokio::net::UnixStream::pair().unwrap();
+        let server = zbus::connection::Builder::unix_stream(a)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at(PATH, daemon)
+            .unwrap()
+            .build();
+        let client = zbus::connection::Builder::unix_stream(b).p2p().build();
+        let (server, client) = tokio::try_join!(server, client).unwrap();
+        std::mem::forget(server); // the proxy needs the other end alive for the length of the test
+        Proxy::new(&client, NAME, PATH, NAME).await.unwrap()
+    }
+
+    async fn since(s: &Setup, session: &str, after: u64) -> EventsPage {
+        let text: String = s.proxy.call("EventsSince", &(session, after, 0u32)).await.unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    fn kinds(events: &[Event]) -> Vec<&'static str> {
+        events
+            .iter()
+            .map(|e| match e.kind {
+                EventKind::UserMessage { .. } => "user_message",
+                EventKind::Chunk { .. } => "chunk",
+                EventKind::Error { .. } => "error",
+                EventKind::Done => "done",
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn a_turn_is_logged_as_the_message_the_reply_and_the_end_numbered_from_one() {
+        let s = setup("pr-turn", Arc::new(FakeRunner)).await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        send_and_wait(&s, &id, "hello").await;
+        let page = since(&s, &id, 0).await;
+        assert_eq!(kinds(&page.events), ["user_message", "chunk", "done"]);
+        assert_eq!(page.events.iter().map(|e| e.seq).collect::<Vec<_>>(), [1, 2, 3]);
+        assert_eq!((page.last_seq, page.gap), (3, false));
+        assert!(matches!(&page.events[0].kind, EventKind::UserMessage { text } if text == "hello"));
+        assert!(matches!(&page.events[1].kind, EventKind::Chunk { text } if text.contains("hello")));
+        assert!(page
+            .events
+            .iter()
+            .all(|e| e.session == id && e.at_ms > 1_700_000_000_000));
+    }
+
+    #[tokio::test]
+    async fn every_event_is_also_announced_as_a_signal_with_the_same_json() {
+        let s = setup("pr-signal", Arc::new(FakeRunner)).await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let mut signals = s.proxy.receive_signal("SessionEvent").await.unwrap();
+        send_and_wait(&s, &id, "hello").await;
+        let mut seen = Vec::new();
+        for _ in 0..3 {
+            let (session, json): (String, String) = next_signal(&mut signals).await.body().deserialize().unwrap();
+            assert_eq!(session, id);
+            seen.push(serde_json::from_str::<Event>(&json).unwrap());
+        }
+        assert_eq!(seen, since(&s, &id, 0).await.events);
+    }
+
+    #[tokio::test]
+    async fn a_client_that_dropped_off_catches_up_with_every_missed_event_exactly_once_in_order() {
+        let s = setup("pr-replay", Arc::new(FakeRunner)).await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        send_and_wait(&s, &id, "one").await;
+
+        // the client is connected for the first turn and has seen up to the last event of it
+        let first = since(&s, &id, 0).await;
+        let seen_up_to = first.last_seq;
+        let mut held: Vec<Event> = first.events;
+
+        // ... then it drops off: two more turns happen without it
+        send_and_wait(&s, &id, "two").await;
+        send_and_wait(&s, &id, "three").await;
+
+        // when it comes back it asks for what came after what it saw
+        let missed = since(&s, &id, seen_up_to).await;
+        assert!(!missed.gap);
+        assert_eq!(missed.events.len(), 6, "two turns of three events each");
+        assert_eq!(missed.events[0].seq, seen_up_to + 1, "no gap");
+        let seqs: Vec<u64> = missed.events.iter().map(|e| e.seq).collect();
+        assert_eq!(
+            seqs,
+            (seen_up_to + 1..=seen_up_to + 6).collect::<Vec<u64>>(),
+            "in order"
+        );
+        held.extend(missed.events);
+
+        // what it now holds is exactly the daemon's log: nothing lost, nothing doubled
+        assert_eq!(held, since(&s, &id, 0).await.events);
+        // and asking again from its new position finds nothing more
+        assert!(since(&s, &id, held.last().unwrap().seq).await.events.is_empty());
+    }
+
+    #[tokio::test]
+    async fn the_limit_pages_a_long_catch_up() {
+        let s = setup("pr-page", Arc::new(FakeRunner)).await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        for i in 0..4 {
+            send_and_wait(&s, &id, &format!("m{i}")).await;
+        }
+        let mut after = 0;
+        let mut all = Vec::new();
+        loop {
+            let text: String = s.proxy.call("EventsSince", &(id.as_str(), after, 5u32)).await.unwrap();
+            let page: EventsPage = serde_json::from_str(&text).unwrap();
+            assert!(page.events.len() <= 5);
+            if page.events.is_empty() {
+                break;
+            }
+            after = page.events.last().unwrap().seq;
+            all.extend(page.events);
+        }
+        assert_eq!(all.len(), 12);
+        assert_eq!(
+            all.iter().map(|e| e.seq).collect::<Vec<_>>(),
+            (1..=12).collect::<Vec<u64>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn an_unknown_session_is_an_error() {
+        let s = setup("pr-unknown", Arc::new(FakeRunner)).await;
+        let bad: Result<String, _> = s.proxy.call("EventsSince", &("nope", 0u64, 0u32)).await;
+        assert!(bad.is_err());
+    }
+
+    #[tokio::test]
+    async fn a_new_session_has_an_empty_log() {
+        let s = setup("pr-empty", Arc::new(FakeRunner)).await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let page = since(&s, &id, 0).await;
+        assert!(page.events.is_empty());
+        assert_eq!(page.last_seq, 0);
+    }
+
+    #[tokio::test]
+    async fn a_refused_send_and_a_stopped_turn_are_in_the_log_too() {
+        let runner = hanging();
+        let s = setup("pr-stop", Arc::clone(&runner) as Arc<dyn AgentRunner>).await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let _: () = s.proxy.call("SendMessage", &(id.as_str(), "work")).await.unwrap();
+        wait_until("the turn to start", || runner.started.load(Ordering::SeqCst)).await;
+        let _: String = s.proxy.call("EngageKillSwitch", &("phone", "stop")).await.unwrap();
+        let _: () = s.proxy.call("SendMessage", &(id.as_str(), "again")).await.unwrap();
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let page = since(&s, &id, 0).await;
+        let k = kinds(&page.events);
+        assert_eq!(
+            k.iter().filter(|x| **x == "done").count(),
+            2,
+            "one done for the stopped turn, one for the refusal: {k:?}"
+        );
+        assert!(k.contains(&"error"));
+        assert_eq!(k[0], "user_message");
+    }
+
+    #[tokio::test]
+    async fn closing_a_session_removes_its_events() {
+        let s = setup("pr-close", Arc::new(FakeRunner)).await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        send_and_wait(&s, &id, "hello").await;
+        let _: () = s.proxy.call("CloseSession", &(id.as_str(),)).await.unwrap();
+        let gone: Result<String, _> = s.proxy.call("EventsSince", &(id.as_str(), 0u64, 0u32)).await;
+        assert!(gone.is_err());
+    }
+
+    #[tokio::test]
+    async fn the_log_and_its_numbers_survive_a_daemon_restart() {
+        let dir = scratch("pr-restart");
+        let make = |dir: PathBuf| {
+            Daemon::new(Arc::new(FakeRunner), dir.join("backends.toml"), dir.join("audit.jsonl"))
+                .with_approvals_file(dir.join("approvals.json"))
+                .with_state_file(dir.join("sessions.json"))
+                .with_events_dir(dir.join("events"))
+        };
+        let id = {
+            let first = start_daemon(make(dir.clone())).await;
+            let id: String = first.call("NewSession", &()).await.unwrap();
+            let mut done = first.receive_signal("SessionDone").await.unwrap();
+            let _: () = first.call("SendMessage", &(id.as_str(), "before")).await.unwrap();
+            next_signal(&mut done).await;
+            id
+        };
+        let second = start_daemon(make(dir)).await;
+        let text: String = second.call("EventsSince", &(id.as_str(), 0u64, 0u32)).await.unwrap();
+        let page: EventsPage = serde_json::from_str(&text).unwrap();
+        assert_eq!(page.events.len(), 3, "what was said before the restart is still there");
+        let mut done = second.receive_signal("SessionDone").await.unwrap();
+        let _: () = second.call("SendMessage", &(id.as_str(), "after")).await.unwrap();
+        next_signal(&mut done).await;
+        let text: String = second.call("EventsSince", &(id.as_str(), 3u64, 0u32)).await.unwrap();
+        let more: EventsPage = serde_json::from_str(&text).unwrap();
+        assert_eq!(
+            more.events.iter().map(|e| e.seq).collect::<Vec<_>>(),
+            [4, 5, 6],
+            "the numbers went on"
+        );
+    }
+
+    // ---- the lists the daemon sends are the shared types
+
+    #[tokio::test]
+    async fn list_sessions_lines_are_protocol_sessions() {
+        let s = setup("pr-sessions", Arc::new(FakeRunner)).await;
+        let _: String = s.proxy.call("NewSession", &()).await.unwrap();
+        let lines: Vec<String> = s.proxy.call("ListSessions", &()).await.unwrap();
+        for line in &lines {
+            let session: Session = serde_json::from_str(line).unwrap();
+            let raw: serde_json::Value = serde_json::from_str(line).unwrap();
+            assert_eq!(
+                serde_json::to_value(&session).unwrap(),
+                raw,
+                "same JSON, field for field"
+            );
+        }
+        assert_eq!(lines.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn list_approvals_lines_are_protocol_approvals() {
+        let s = setup("pr-approvals", Arc::new(FakeRunner)).await;
+        s.approvals.request(ask("Bash"), 900).await;
+        let lines: Vec<String> = s.proxy.call("ListApprovals", &("",)).await.unwrap();
+        let a: Approval = serde_json::from_str(&lines[0]).unwrap();
+        assert_eq!(a.tool, "Bash");
+    }
+
+    #[tokio::test]
+    async fn search_audit_records_are_protocol_audit_records() {
+        let s = setup("pr-audit", Arc::new(FakeRunner)).await;
+        let id: String = s.proxy.call("NewSession", &()).await.unwrap();
+        send_and_wait(&s, &id, "hello").await;
+        let text: String = s.proxy.call("SearchAudit", &("{}",)).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let records: Vec<AuditRecord> = serde_json::from_value(v["records"].clone()).unwrap();
+        assert!(!records.is_empty());
+    }
+}

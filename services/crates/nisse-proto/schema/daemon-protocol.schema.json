@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/rnix90/nisse/services/crates/nisse-proto/schema/daemon-protocol.schema.json",
+  "title": "nisse daemon protocol",
+  "description": "The types every client of the nisse daemon needs. D-Bus carries them as JSON strings; any other transport carries the same JSON. See docs/daemon-protocol.md.",
+  "definitions": {
+    "Keep": {
+      "description": "What a session does after a daemon start.",
+      "type": "string",
+      "enum": ["always", "library", "drop"]
+    },
+    "Session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "created_at", "started", "keep", "open", "backend", "running", "pending_approvals"],
+      "properties": {
+        "id": {"type": "string"},
+        "title": {"type": ["string", "null"]},
+        "created_at": {"type": "integer"},
+        "started": {"type": "boolean"},
+        "keep": {"$ref": "#/definitions/Keep"},
+        "open": {"type": "boolean"},
+        "backend": {"type": ["string", "null"]},
+        "running": {"type": "boolean"},
+        "pending_approvals": {"type": "integer", "minimum": 0}
+      }
+    },
+    "ApprovalState": {
+      "type": "string",
+      "enum": ["pending", "approved", "denied", "expired"]
+    },
+    "Approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "session", "asked_by", "tool", "summary", "detail", "asked_at", "expires_at", "state", "decided_by", "decided_at", "reason"],
+      "properties": {
+        "id": {"type": "string"},
+        "session": {"type": ["string", "null"]},
+        "asked_by": {"type": "string"},
+        "tool": {"type": "string"},
+        "summary": {"type": "string"},
+        "detail": {},
+        "asked_at": {"type": "integer"},
+        "expires_at": {"type": "integer"},
+        "state": {"$ref": "#/definitions/ApprovalState"},
+        "decided_by": {"type": ["string", "null"]},
+        "decided_at": {"type": ["integer", "null"]},
+        "reason": {"type": ["string", "null"]}
+      }
+    },
+    "AuditRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ts", "session", "actor", "kind", "detail"],
+      "properties": {
+        "ts": {"type": "string"},
+        "session": {"type": ["string", "null"]},
+        "actor": {"type": "string"},
+        "kind": {"type": "string"},
+        "source": {"type": "string", "enum": ["daemon", "terminal"]},
+        "detail": {}
+      }
+    },
+    "Event": {
+      "description": "One event of one session; seq counts a session's events 1, 2, 3 without gaps.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "seq", "session", "at_ms", "text"],
+          "properties": {
+            "type": {"const": "user_message"},
+            "seq": {"type": "integer", "minimum": 1},
+            "session": {"type": "string"},
+            "at_ms": {"type": "integer"},
+            "text": {"type": "string"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "seq", "session", "at_ms", "text"],
+          "properties": {
+            "type": {"const": "chunk"},
+            "seq": {"type": "integer", "minimum": 1},
+            "session": {"type": "string"},
+            "at_ms": {"type": "integer"},
+            "text": {"type": "string"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "seq", "session", "at_ms", "message"],
+          "properties": {
+            "type": {"const": "error"},
+            "seq": {"type": "integer", "minimum": 1},
+            "session": {"type": "string"},
+            "at_ms": {"type": "integer"},
+            "message": {"type": "string"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "seq", "session", "at_ms"],
+          "properties": {
+            "type": {"const": "done"},
+            "seq": {"type": "integer", "minimum": 1},
+            "session": {"type": "string"},
+            "at_ms": {"type": "integer"}
+          }
+        }
+      ]
+    },
+    "EventsPage": {
+      "description": "The answer to events since N.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session", "events", "after", "last_seq", "gap"],
+      "properties": {
+        "session": {"type": "string"},
+        "events": {"type": "array", "items": {"$ref": "#/definitions/Event"}},
+        "after": {"type": "integer", "minimum": 0},
+        "last_seq": {"type": "integer", "minimum": 0},
+        "gap": {"type": "boolean"}
+      }
+    }
+  }
+}

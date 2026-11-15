@@ -4,6 +4,7 @@
 
 #include <QCoreApplication>
 #include <QGuiApplication>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QQmlApplicationEngine>
@@ -272,11 +273,56 @@ static int selfTestConnection(int argc, char *argv[])
     return app.exec();
 }
 
+// Headless check for the event log's client side (N-220): one turn through the daemon, then what the panel saw live and
+// what the daemon replays for it. Used by tests/e2e/panel_daemon.sh.
+static int selfTestEvents(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QTextStream out(stdout);
+    DaemonClient client;
+    const QString session = client.newSession();
+    if (session.isEmpty()) {
+        out << "error: no session" << Qt::endl;
+        return 3;
+    }
+    int chunks = 0;
+    int dones = 0;
+    QObject::connect(&client, &DaemonClient::chunk, &app, [&](const QString &, const QString &) { ++chunks; });
+    QObject::connect(&client, &DaemonClient::done, &app, [&](const QString &) {
+        ++dones;
+        app.quit();
+    });
+    QTimer::singleShot(15000, &app, [&] {
+        out << "error: timed out" << Qt::endl;
+        app.exit(2);
+    });
+    client.send(session, QStringLiteral("ping"));
+    const int rc = app.exec();
+    if (rc != 0)
+        return rc;
+    const auto types = [&client, &session](double after) {
+        QStringList names;
+        const QJsonArray events = QJsonDocument::fromJson(client.eventsSince(session, after).toUtf8()).object().value(QStringLiteral("events")).toArray();
+        for (const QJsonValue &e : events)
+            names << e.toObject().value(QStringLiteral("type")).toString();
+        return names.join(QLatin1Char(','));
+    };
+    out << "session: " << session << Qt::endl;
+    out << "live: " << chunks << " chunk, " << dones << " done" << Qt::endl;
+    out << "last seq: " << static_cast<int>(client.lastSeq(session)) << Qt::endl;
+    out << "all events: " << types(0) << Qt::endl;
+    out << "after 1: " << types(1) << Qt::endl;
+    out << "after 3: " << types(3) << Qt::endl;
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     for (int i = 1; i < argc; ++i) {
         if (QByteArray(argv[i]) == "--self-test")
             return selfTest(argc, argv);
+        if (QByteArray(argv[i]) == "--self-test-events")
+            return selfTestEvents(argc, argv);
         if (QByteArray(argv[i]) == "--self-test-connection")
             return selfTestConnection(argc, argv);
         if (QByteArray(argv[i]) == "--self-test-config")

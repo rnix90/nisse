@@ -5,22 +5,10 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AuditRecord {
-    pub ts: String,
-    pub session: Option<String>,
-    pub actor: String,
-    pub kind: String,
-    /// Where the record came from: `daemon` (a session the nisse daemon started) or `terminal` (a `claude` run the
-    /// user started themselves, recorded by the machine-wide hook). Absent on older records and on the daemon's own
-    /// lines, which all count as `daemon`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source: Option<String>,
-    pub detail: serde_json::Value,
-}
+/// One line of the log. The type is defined in the shared protocol crate (N-220) so every client reads it the same way.
+pub use nisse_proto::AuditRecord;
 
 pub struct AuditLog {
     path: PathBuf,

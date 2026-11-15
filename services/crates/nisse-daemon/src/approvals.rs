@@ -14,42 +14,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use nisse_audit::{now_rfc3339, AuditLog, AuditRecord};
-use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, watch, Mutex};
 use uuid::Uuid;
 
 /// How many decided approvals are kept (the newest). Pending ones are never pruned.
 pub const MAX_DECIDED: usize = 200;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ApprovalState {
-    Pending,
-    Approved,
-    Denied,
-    Expired,
-}
-
-impl ApprovalState {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ApprovalState::Pending => "pending",
-            ApprovalState::Approved => "approved",
-            ApprovalState::Denied => "denied",
-            ApprovalState::Expired => "expired",
-        }
-    }
-
-    pub fn parse(text: &str) -> Option<ApprovalState> {
-        match text {
-            "pending" => Some(ApprovalState::Pending),
-            "approved" => Some(ApprovalState::Approved),
-            "denied" => Some(ApprovalState::Denied),
-            "expired" => Some(ApprovalState::Expired),
-            _ => None,
-        }
-    }
-}
+pub use nisse_proto::{Approval, ApprovalState};
 
 /// What the asker supplies; the queue adds the id, the times and the state.
 #[derive(Debug, Clone)]
@@ -61,24 +32,6 @@ pub struct NewApproval {
     pub summary: String,
     /// The tool input, the CLI's description and suggested rules: whatever the decider needs to see.
     pub detail: serde_json::Value,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Approval {
-    pub id: String,
-    pub session: Option<String>,
-    pub asked_by: String,
-    pub tool: String,
-    pub summary: String,
-    pub detail: serde_json::Value,
-    /// Unix seconds.
-    pub asked_at: i64,
-    pub expires_at: i64,
-    pub state: ApprovalState,
-    /// The device that decided; "daemon" when it expired.
-    pub decided_by: Option<String>,
-    pub decided_at: Option<i64>,
-    pub reason: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

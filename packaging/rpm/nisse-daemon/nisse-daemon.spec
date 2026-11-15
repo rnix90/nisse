@@ -5,7 +5,7 @@
 
 Name:           nisse-daemon
 Version:        0.1
-Release:        17%{?dist}
+Release:        18%{?dist}
 Summary:        nisse daemon: AI sessions for the nisse panel
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
@@ -49,6 +49,7 @@ install -Dpm 0644 %{SOURCE1} %{buildroot}%{_userunitdir}/nisse-daemon.service
 install -Dpm 0644 %{SOURCE2} %{buildroot}%{_datadir}/dbus-1/services/org.nisse.Daemon1.service
 install -Dpm 0644 %{SOURCE3} %{buildroot}%{_datadir}/nisse/claude-settings.json
 install -Dpm 0644 %{SOURCE4} %{buildroot}%{_sysconfdir}/claude-code/managed-settings.json
+install -Dpm 0644 %{nisse_root}/services/crates/nisse-proto/schema/daemon-protocol.schema.json %{buildroot}%{_datadir}/nisse/daemon-protocol.schema.json
 
 %files
 %license licenses/LICENSE
@@ -58,10 +59,14 @@ install -Dpm 0644 %{SOURCE4} %{buildroot}%{_sysconfdir}/claude-code/managed-sett
 %{_userunitdir}/nisse-daemon.service
 %{_datadir}/dbus-1/services/org.nisse.Daemon1.service
 %{_datadir}/nisse/claude-settings.json
+%{_datadir}/nisse/daemon-protocol.schema.json
 %dir %{_sysconfdir}/claude-code
 %config(noreplace) %{_sysconfdir}/claude-code/managed-settings.json
 
 %changelog
+* Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-18
+- Event log per session (EventsSince, SessionEvent) and the shared protocol types; the contract schema is installed
+
 * Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-17
 - GetSetupStatus (first-boot Claude Code fetch state)
 

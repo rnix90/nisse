@@ -5,6 +5,8 @@
 #include <QDBusInterface>
 #include <QDBusMessage>
 #include <QDBusServiceWatcher>
+#include <QHash>
+#include <QStringList>
 #include <QTimer>
 #include <QObject>
 #include <QString>
@@ -74,6 +76,14 @@ public:
     Q_INVOKABLE QString searchAudit(const QString &queryJson);
     // Exports every matching record as JSON lines to a file in the Documents folder. Returns the file's path, or "error: ..." in words.
     Q_INVOKABLE QString exportAudit(const QString &queryJson);
+    // What happened in a session after event number `after` (the daemon's EventsSince, N-220), as the protocol's EventsPage
+    // JSON; empty if it cannot be had.
+    Q_INVOKABLE QString eventsSince(const QString &session, double after);
+    // The newest event number this panel has seen for the session (0 if none).
+    Q_INVOKABLE double lastSeq(const QString &session) const;
+    // Says that events up to `seq` were taken from a page (a replay or a catch-up), so the same events arriving live are not
+    // delivered a second time.
+    Q_INVOKABLE void markSeen(const QString &session, double seq);
     // The last n audit records, one JSON object per string.
     Q_INVOKABLE QStringList auditTail(int n);
     Q_INVOKABLE void refreshBackend();
@@ -103,6 +113,8 @@ public:
 
 signals:
     void chunk(const QString &session, const QString &text);
+    // A message another client sent into a session (the panel's own sends are not repeated here).
+    void userMessage(const QString &session, const QString &text);
     void done(const QString &session);
     void failed(const QString &session, const QString &message);
     void backendLabelChanged();
@@ -129,6 +141,7 @@ private slots:
     void onFailed(const QString &session, const QString &message);
     void onApprovalChanged(const QString &id, const QString &state);
     void onSessionsChanged();
+    void onSessionEvent(const QString &session, const QString &eventJson);
     void onUsageChanged(const QString &json);
     void onKillSwitchChanged(const QString &json);
     void onServiceOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
@@ -153,6 +166,11 @@ private:
     bool m_connected = false;
     bool m_everConnected = false;
     QString m_setupText;
+    // The newest event number seen per session. A session in here is followed by its events; the older per-kind signals are
+    // then repeats and are ignored.
+    QHash<QString, qulonglong> m_lastSeq;
+    // Texts this panel sent that their user_message events have not come back for yet.
+    QHash<QString, QStringList> m_pendingLocal;
 
     void setConnected(bool connected);
     void reload();

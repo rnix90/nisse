@@ -17,11 +17,13 @@ use zbus::{interface, object_server::SignalEmitter};
 
 use crate::approvals::{Approval, ApprovalQueue, ApprovalState, DecideError, NewApproval};
 use crate::backend::{HealthOptions, NetworkProber, Prober, Resolver};
+use crate::events::EventLog;
 use crate::killswitch::KillSwitch;
 use crate::remote::{RemoteAccess, RemoteOptions};
 use crate::runner::{AgentRunner, ApprovalHook, RunEvent, RunRequest};
 use crate::state::{Keep, SessionStore};
 use crate::usage::{parse_usage_text, UsageTracker};
+use nisse_proto::{EventKind, Session};
 
 /// What one session is doing right now (in memory only; only the started flag is persisted).
 #[derive(Default)]
@@ -55,6 +57,8 @@ struct Core {
     kill: Arc<KillSwitch>,
     /// What the first-boot fetch of Claude Code last said (N-218).
     fetch_status: PathBuf,
+    /// What happened in each session, numbered per session, so a client that dropped off can catch up (N-220).
+    events: Arc<EventLog>,
     runs: Arc<Mutex<HashMap<String, RunState>>>,
     /// The config error already audited, so a file that stays broken is reported once, not on every call.
     config_error: Arc<std::sync::Mutex<Option<String>>>,
@@ -73,6 +77,43 @@ impl Core {
         if let Ok(log) = AuditLog::open(&self.audit_path) {
             let _ = log.append(&record);
         }
+    }
+
+    fn events_dir(&self) -> Option<PathBuf> {
+        self.events.dir().map(PathBuf::from)
+    }
+
+    /// Records an event of a session and announces it (the `SessionEvent` signal carries the protocol `Event` as JSON).
+    async fn emit_event(&self, emitter: &SignalEmitter<'_>, session: &str, kind: EventKind) {
+        let event = self.events.append(session, kind, now_ms()).await;
+        if let Ok(json) = serde_json::to_string(&event) {
+            let _ = Daemon::session_event(emitter, session, &json).await;
+        }
+    }
+
+    // The event signal goes out before the older per-kind signal, so a client that follows events can tell the older one is
+    // a repeat of what it already has.
+    async fn emit_chunk(&self, emitter: &SignalEmitter<'_>, session: &str, text: &str) {
+        self.emit_event(emitter, session, EventKind::Chunk { text: text.to_string() })
+            .await;
+        let _ = Daemon::message_chunk(emitter, session, text).await;
+    }
+
+    async fn emit_error(&self, emitter: &SignalEmitter<'_>, session: &str, message: &str) {
+        self.emit_event(
+            emitter,
+            session,
+            EventKind::Error {
+                message: message.to_string(),
+            },
+        )
+        .await;
+        let _ = Daemon::session_error(emitter, session, message).await;
+    }
+
+    async fn emit_done(&self, emitter: &SignalEmitter<'_>, session: &str) {
+        self.emit_event(emitter, session, EventKind::Done).await;
+        let _ = Daemon::session_done(emitter, session).await;
     }
 
     /// The line a refused send gets while the kill switch is on.
@@ -170,6 +211,7 @@ impl Daemon {
                 usage: Arc::new(UsageTracker::in_memory()),
                 kill: Arc::new(KillSwitch::in_memory()),
                 fetch_status: crate::state::default_fetch_status_path(),
+                events: Arc::new(EventLog::in_memory()),
                 runs: Arc::new(Mutex::new(HashMap::new())),
                 config_error: Arc::new(std::sync::Mutex::new(None)),
             },
@@ -195,7 +237,7 @@ impl Daemon {
             return false;
         };
         abort.abort();
-        let _ = Self::session_done(emitter, session_id).await;
+        self.core.emit_done(emitter, session_id).await;
         true
     }
 
@@ -236,6 +278,27 @@ impl Daemon {
                 .audit(None, "daemon", "state-warning", serde_json::json!({ "error": warning }));
         }
         self
+    }
+
+    /// Keep each session's events in `dir` (one file per session) so they survive a daemon restart.
+    pub fn with_events_dir(mut self, dir: PathBuf) -> Daemon {
+        self.core.events = Arc::new(EventLog::open(dir));
+        self
+    }
+
+    /// Removes the event files of sessions the daemon no longer knows (dropped at a start, or closed while it was down).
+    pub async fn sweep_orphan_events(&self) {
+        let known: Vec<String> = self.core.sessions.list().await.into_iter().map(|s| s.id).collect();
+        let Some(dir) = self.core.events_dir() else { return };
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if let Some(id) = name.strip_suffix(".jsonl") {
+                if !known.iter().any(|k| k == id) {
+                    let _ = std::fs::remove_file(entry.path());
+                }
+            }
+        }
     }
 
     /// Where to read the first-boot fetch status from (tests point it at a scratch file).
@@ -431,6 +494,13 @@ impl UsageRefresher {
     }
 }
 
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
 fn now_secs() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -441,7 +511,7 @@ fn now_secs() -> i64 {
 /// One turn: run the agent for `text` and turn its events into D-Bus signals. `drive` sends the `SessionDone`.
 async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &str, text: String) {
     if core.kill.is_engaged() {
-        let _ = Daemon::session_error(emitter, session_id, &core.paused_message()).await;
+        core.emit_error(emitter, session_id, &core.paused_message()).await;
         return;
     }
     let started = core.sessions.get(session_id).await.unwrap_or(false);
@@ -464,7 +534,7 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
                     "This session is set to the backend {name:?}, which is not in the configuration any more. \
                      Pick another backend for it, or add {name:?} back."
                 );
-                let _ = Daemon::session_error(emitter, session_id, &message).await;
+                core.emit_error(emitter, session_id, &message).await;
                 return;
             }
         },
@@ -475,7 +545,7 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
     let resolved = match core.resolver.resolve(&config, requested).await {
         Ok(resolved) => resolved,
         Err(unreachable) => {
-            let _ = Daemon::session_error(emitter, session_id, &unreachable.to_string()).await;
+            core.emit_error(emitter, session_id, &unreachable.to_string()).await;
             return;
         }
     };
@@ -486,7 +556,7 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
             "backend-fallback",
             serde_json::json!({ "requested": resolved.requested, "used": resolved.backend.name }),
         );
-        let _ = Daemon::message_chunk(emitter, session_id, &format!("{note}\n\n")).await;
+        core.emit_chunk(emitter, session_id, &format!("{note}\n\n")).await;
     }
     let backend = &resolved.backend;
     let backend_name = backend.name.clone();
@@ -518,10 +588,10 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
                     core.remember(session_id, true).await;
                 }
                 RunEvent::Text(chunk) => {
-                    let _ = Daemon::message_chunk(emitter, session_id, &chunk).await;
+                    core.emit_chunk(emitter, session_id, &chunk).await;
                 }
                 RunEvent::Error(message) => {
-                    let _ = Daemon::session_error(emitter, session_id, &message).await;
+                    core.emit_error(emitter, session_id, &message).await;
                 }
                 RunEvent::Done => saw_done = true,
                 RunEvent::RateLimit(limits) => core.usage.record_rate_limit(limits, now_secs()),
@@ -529,7 +599,8 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
             }
         }
         if !saw_done {
-            let _ = Daemon::session_error(emitter, session_id, "the agent stopped unexpectedly").await;
+            core.emit_error(emitter, session_id, "the agent stopped unexpectedly")
+                .await;
         }
     };
     tokio::join!(produce, consume);
@@ -554,7 +625,7 @@ async fn drive(core: Core, emitter: SignalEmitter<'static>, session_id: String, 
         }
         // Done goes out while the lock is held, so a Cancel can never find a turn "running" whose Done is already
         // sent: every message ends with exactly one SessionDone, from the turn or from Cancel.
-        let _ = Daemon::session_done(&emitter, &session_id).await;
+        core.emit_done(&emitter, &session_id).await;
         match next {
             Some(next) => text = next,
             None => return,
@@ -580,22 +651,36 @@ impl Daemon {
         for info in self.core.sessions.list().await {
             let running = self.core.runs.lock().await.get(&info.id).is_some_and(|r| r.running);
             let pending = self.core.approvals.pending_count_for(&info.id).await;
-            out.push(
-                serde_json::json!({
-                    "id": info.id,
-                    "title": info.title,
-                    "created_at": info.created_ms,
-                    "started": info.started,
-                    "keep": info.keep.as_str(),
-                    "open": info.open,
-                    "backend": info.backend,
-                    "running": running,
-                    "pending_approvals": pending,
-                })
-                .to_string(),
-            );
+            let session = Session {
+                id: info.id,
+                title: info.title,
+                created_at: info.created_ms,
+                started: info.started,
+                keep: info.keep,
+                open: info.open,
+                backend: info.backend,
+                running,
+                pending_approvals: pending as u32,
+            };
+            if let Ok(json) = serde_json::to_string(&session) {
+                out.push(json);
+            }
         }
         out
+    }
+
+    /// What happened in a session after event number `after_seq`, as the protocol's `EventsPage` JSON: `events` (oldest
+    /// first, at most `limit`, 500 when 0 and never more than 1000), `after`, `last_seq` (the newest number) and `gap`
+    /// (events right after `after_seq` are gone because the log keeps a limited number). A client that remembers the last
+    /// number it saw asks from there and gets every event it missed exactly once, in order; the same events arrive live as
+    /// `SessionEvent` signals. An error for an unknown session.
+    async fn events_since(&self, session_id: String, after_seq: u64, limit: u32) -> zbus::fdo::Result<String> {
+        if self.core.sessions.get(&session_id).await.is_none() {
+            return Err(zbus::fdo::Error::Failed(format!("unknown session: {session_id}")));
+        }
+        let page = if limit == 0 { 500 } else { limit.min(1000) } as usize;
+        let events = self.core.events.since(&session_id, after_seq, page).await;
+        serde_json::to_string(&events).map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
     }
 
     /// Sets what the next daemon start does to a session: "always" (comes back as a tab), "library" (comes back in the
@@ -860,7 +945,7 @@ impl Daemon {
                 by.trim()
             );
             for id in running {
-                let _ = Self::session_error(&emitter, &id, &line).await;
+                self.core.emit_error(&emitter, &id, &line).await;
                 self.stop_run(&id, &emitter).await;
             }
             // What waits for an answer will never get one that matters.
@@ -949,6 +1034,7 @@ impl Daemon {
             .approvals
             .deny_pending_for(&session_id, "daemon", "the session was closed")
             .await;
+        self.core.events.forget(&session_id).await;
         let (_, problem) = self.core.sessions.remove(&session_id).await;
         if let Some(problem) = problem {
             self.core
@@ -970,9 +1056,14 @@ impl Daemon {
             let _ = Self::session_done(&emitter, &session_id).await; // every message ends with a Done: the panel unlocks
             return;
         }
+        self.core
+            .emit_event(&emitter, &session_id, EventKind::UserMessage { text: text.clone() })
+            .await;
         if self.core.kill.is_engaged() {
-            let _ = Self::session_error(&emitter, &session_id, &self.core.paused_message()).await;
-            let _ = Self::session_done(&emitter, &session_id).await;
+            self.core
+                .emit_error(&emitter, &session_id, &self.core.paused_message())
+                .await;
+            self.core.emit_done(&emitter, &session_id).await;
             return;
         }
         // Talking to a library session (from any client) brings it back as a tab.
@@ -1193,6 +1284,10 @@ impl Daemon {
     /// The session list changed (made, renamed or closed): clients call `ListSessions` again.
     #[zbus(signal)]
     async fn sessions_changed(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
+
+    /// One event of a session (the protocol's `Event` as JSON, with its number): the live form of `EventsSince`.
+    #[zbus(signal)]
+    async fn session_event(emitter: &SignalEmitter<'_>, session_id: &str, event_json: &str) -> zbus::Result<()>;
 
     /// The kill switch was turned on or off: the argument is the same JSON as `GetKillSwitch`.
     #[zbus(signal)]

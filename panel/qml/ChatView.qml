@@ -28,6 +28,76 @@ Item {
         forgetSessionOnDone = false
     }
 
+    // ---- events (N-220): the daemon numbers what happens in a session, so a transcript can be rebuilt and a gap closed
+
+    function applyEvent(ev) {
+        if (ev.type === "user_message") {
+            model.append({ role: "user", text: ev.text })
+            replyIndex = -1
+        } else if (ev.type === "chunk") {
+            if (replyIndex < 0) {
+                model.append({ role: "assistant", text: ev.text })
+                replyIndex = model.count - 1
+            } else {
+                model.setProperty(replyIndex, "text", model.get(replyIndex).text + ev.text)
+            }
+        } else if (ev.type === "error") {
+            model.append({ role: "error", text: ev.message })
+            replyIndex = -1
+        } else if (ev.type === "done") {
+            replyIndex = -1
+        }
+    }
+
+    function readPage(after) {
+        try {
+            var page = JSON.parse(client.eventsSince(session, after))
+            return page && page.events ? page : null
+        } catch (e) {
+            return null
+        }
+    }
+
+    // A session that was already there when the panel started: show what the daemon kept of it.
+    function replay() {
+        if (session === "" || !client || !client.eventsSince)
+            return
+        var page = readPage(0)
+        if (page === null) {
+            model.append({ role: "note", text: "Earlier messages could not be loaded." })
+            return
+        }
+        if (page.events.length === 0) {
+            model.append({ role: "note", text: "Earlier messages are not available." })
+            return
+        }
+        if (page.gap)
+            model.append({ role: "note", text: "Older messages are no longer kept." })
+        for (var i = 0; i < page.events.length; ++i)
+            applyEvent(page.events[i])
+        replyIndex = -1
+        client.markSeen(session, page.last_seq)
+    }
+
+    // The daemon was away and is back: add what happened meanwhile (each event once), and stop waiting for a reply that was
+    // cut off by a restart (`running` is what the daemon says about the session now).
+    function catchUp(running) {
+        if (session === "" || !client || !client.eventsSince)
+            return
+        var page = readPage(client.lastSeq(session))
+        if (page !== null) {
+            for (var i = 0; i < page.events.length; ++i)
+                applyEvent(page.events[i])
+            client.markSeen(session, page.last_seq)
+        }
+        if (busy && !running) {
+            busy = false
+            replyIndex = -1
+            stopRequested = false
+            model.append({ role: "note", text: "The daemon restarted while this was running, so the reply was cut off." })
+        }
+    }
+
     function submit(text) {
         if (text === "" || busy)
             return
@@ -58,6 +128,13 @@ Item {
             } else {
                 model.setProperty(root.replyIndex, "text", model.get(root.replyIndex).text + text)
             }
+        }
+
+        function onUserMessage(sid, text) {
+            if (sid !== root.session)
+                return
+            model.append({ role: "user", text: text })
+            root.replyIndex = -1
         }
 
         function onFailed(sid, message) {

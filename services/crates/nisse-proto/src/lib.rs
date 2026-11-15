@@ -1,0 +1,166 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+//! The nisse daemon contract (ledger N-220): the types every client of the daemon needs, whatever carries them.
+//!
+//! D-Bus is one binding of this contract (the daemon's session bus interface sends these as JSON strings); a phone client
+//! over some other path will send the same JSON. The checked-in JSON Schema (`schema/daemon-protocol.schema.json`) and
+//! `docs/daemon-protocol.md` describe it; the tests prove every type round-trips and matches the schema.
+//!
+//! Reading is lenient (unknown fields are ignored, so an old client survives a newer daemon); writing is exact (the schema
+//! forbids extra fields, so changing a type means changing the schema in the same commit).
+
+use serde::{Deserialize, Serialize};
+
+/// What a session does after a daemon start (N-208): comes back as an open tab, comes back in the library, or is forgotten.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Keep {
+    Always,
+    Library,
+    Drop,
+}
+
+impl Keep {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Keep::Always => "always",
+            Keep::Library => "library",
+            Keep::Drop => "drop",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Keep> {
+        match text {
+            "always" => Some(Keep::Always),
+            "library" => Some(Keep::Library),
+            "drop" => Some(Keep::Drop),
+            _ => None,
+        }
+    }
+}
+
+/// One session as the daemon lists it (`ListSessions`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Session {
+    pub id: String,
+    /// What the person called it; `None` until renamed (clients show the date and time).
+    pub title: Option<String>,
+    /// Unix milliseconds. Sessions are listed oldest first.
+    pub created_at: i64,
+    pub started: bool,
+    pub keep: Keep,
+    /// A tab shows it. A library session is not open until reopened.
+    pub open: bool,
+    /// The backend this session was pointed at; `None` uses the default for chat.
+    pub backend: Option<String>,
+    /// A turn is in progress.
+    pub running: bool,
+    pub pending_approvals: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ApprovalState {
+    Pending,
+    Approved,
+    Denied,
+    Expired,
+}
+
+impl ApprovalState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ApprovalState::Pending => "pending",
+            ApprovalState::Approved => "approved",
+            ApprovalState::Denied => "denied",
+            ApprovalState::Expired => "expired",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<ApprovalState> {
+        match text {
+            "pending" => Some(ApprovalState::Pending),
+            "approved" => Some(ApprovalState::Approved),
+            "denied" => Some(ApprovalState::Denied),
+            "expired" => Some(ApprovalState::Expired),
+            _ => None,
+        }
+    }
+}
+
+/// Something the AI wants to do that needs a person's yes (N-203).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Approval {
+    pub id: String,
+    pub session: Option<String>,
+    /// The device that asked ("desktop", "guardrail", a phone's name).
+    pub asked_by: String,
+    pub tool: String,
+    pub summary: String,
+    /// The tool input, the CLI's description and suggested rules: whatever the decider needs to see.
+    pub detail: serde_json::Value,
+    /// Unix seconds.
+    pub asked_at: i64,
+    pub expires_at: i64,
+    pub state: ApprovalState,
+    /// The device that decided; "daemon" when it expired.
+    pub decided_by: Option<String>,
+    pub decided_at: Option<i64>,
+    pub reason: Option<String>,
+}
+
+/// One line of the append-only audit log (N-217, N-226).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AuditRecord {
+    /// RFC 3339.
+    pub ts: String,
+    pub session: Option<String>,
+    pub actor: String,
+    pub kind: String,
+    /// Where the record came from: `daemon` (a session the nisse daemon started) or `terminal` (a `claude` run the user
+    /// started themselves, recorded by the machine-wide hook). Absent on older records and on the daemon's own lines,
+    /// which all count as `daemon`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub detail: serde_json::Value,
+}
+
+/// What happened in a session, in the order it happened.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum EventKind {
+    /// The person (any client) sent a message.
+    UserMessage { text: String },
+    /// A piece of the AI's reply.
+    Chunk { text: String },
+    /// Something went wrong or was refused, in words.
+    Error { message: String },
+    /// The turn is over (every message ends with exactly one).
+    Done,
+}
+
+/// One event of one session. `seq` counts a session's events 1, 2, 3 ... without gaps, so a client that remembers the last
+/// one it saw can ask for everything after it (`EventsSince`) and get each missed event exactly once, in order.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Event {
+    pub seq: u64,
+    pub session: String,
+    /// Unix milliseconds.
+    pub at_ms: i64,
+    #[serde(flatten)]
+    pub kind: EventKind,
+}
+
+/// The answer to "events since N".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventsPage {
+    pub session: String,
+    /// The events after `after`, oldest first (at most one page; ask again from the last `seq` for more).
+    pub events: Vec<Event>,
+    /// What was asked: events with a `seq` above this.
+    pub after: u64,
+    /// The newest `seq` that exists for the session (0 when it has no events).
+    pub last_seq: u64,
+    /// True when events right after `after` are gone (the log keeps a limited number): the client missed some and should
+    /// treat what it holds as incomplete.
+    pub gap: bool,
+}

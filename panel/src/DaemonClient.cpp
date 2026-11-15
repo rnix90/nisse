@@ -34,6 +34,8 @@ DaemonClient::DaemonClient(QObject *parent)
     bus.connect(kService, kPath, kInterface, QStringLiteral("MessageChunk"), this, SLOT(onChunk(QString, QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionDone"), this, SLOT(onDone(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionError"), this, SLOT(onFailed(QString, QString)));
+    bus.connect(kService, kPath, kInterface, QStringLiteral("SessionEvent"), this,
+                SLOT(onSessionEvent(QString, QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionsChanged"), this, SLOT(onSessionsChanged()));
     bus.connect(kService, kPath, kInterface, QStringLiteral("UsageChanged"), this, SLOT(onUsageChanged(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("KillSwitchChanged"), this,
@@ -170,6 +172,7 @@ QString DaemonClient::newSession()
 
 void DaemonClient::send(const QString &session, const QString &text)
 {
+    m_pendingLocal[session].append(text);
     auto *watcher = new QDBusPendingCallWatcher(m_iface.asyncCall(QStringLiteral("SendMessage"), session, text), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, session](QDBusPendingCallWatcher *w) {
         if (w->isError()) {
@@ -322,20 +325,75 @@ QString DaemonClient::labelFor(const QString &kind, const QString &baseUrl)
     return QStringLiteral("ollama @ ") + (host.isEmpty() ? baseUrl : host);
 }
 
+// The older per-kind signals are only used for a session the panel is not following through its events (for example a
+// send to a session the daemon does not know, which has no events).
 void DaemonClient::onChunk(const QString &session, const QString &text)
 {
+    if (m_lastSeq.contains(session))
+        return;
     emit chunk(session, text);
 }
 
 void DaemonClient::onDone(const QString &session)
 {
+    if (m_lastSeq.contains(session))
+        return;
     refreshBackend();
     emit done(session);
 }
 
 void DaemonClient::onFailed(const QString &session, const QString &message)
 {
+    if (m_lastSeq.contains(session))
+        return;
     emit failed(session, message);
+}
+
+QString DaemonClient::eventsSince(const QString &session, double after)
+{
+    QDBusReply<QString> reply = invoke(QStringLiteral("EventsSince"), session, static_cast<qulonglong>(qMax(0.0, after)), 0u);
+    return reply.isValid() ? reply.value() : QString();
+}
+
+double DaemonClient::lastSeq(const QString &session) const
+{
+    return static_cast<double>(m_lastSeq.value(session, 0));
+}
+
+void DaemonClient::markSeen(const QString &session, double seq)
+{
+    const qulonglong value = static_cast<qulonglong>(qMax(0.0, seq));
+    if (!m_lastSeq.contains(session) || m_lastSeq.value(session) < value)
+        m_lastSeq[session] = value;
+}
+
+// One event of a session, in order. An event at or below the newest number seen is a repeat (it was already delivered, or
+// came in a page that was just read) and is dropped, so every event reaches the panel exactly once.
+void DaemonClient::onSessionEvent(const QString &session, const QString &eventJson)
+{
+    const QJsonObject event = QJsonDocument::fromJson(eventJson.toUtf8()).object();
+    const qulonglong seq = static_cast<qulonglong>(event.value(QStringLiteral("seq")).toDouble());
+    if (seq == 0)
+        return;
+    if (m_lastSeq.contains(session) && seq <= m_lastSeq.value(session))
+        return;
+    m_lastSeq[session] = seq;
+    const QString type = event.value(QStringLiteral("type")).toString();
+    if (type == QLatin1String("chunk")) {
+        emit chunk(session, event.value(QStringLiteral("text")).toString());
+    } else if (type == QLatin1String("error")) {
+        emit failed(session, event.value(QStringLiteral("message")).toString());
+    } else if (type == QLatin1String("done")) {
+        refreshBackend();
+        emit done(session);
+    } else if (type == QLatin1String("user_message")) {
+        const QString text = event.value(QStringLiteral("text")).toString();
+        QStringList &pending = m_pendingLocal[session];
+        if (!pending.isEmpty() && pending.first() == text)
+            pending.removeFirst(); // this panel's own message: its bubble is already there
+        else
+            emit userMessage(session, text);
+    }
 }
 
 QStringList DaemonClient::approvals(const QString &state)

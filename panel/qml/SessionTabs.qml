@@ -320,7 +320,14 @@ Item {
         target: root.client
         function onSessionsChanged() { root.refresh() }
         function onApprovalChanged() { root.refresh() }
-        function onReconnected() { root.refresh() }
+        function onReconnected() {
+            root.refresh()
+            for (var i = 0; i < root.tabs.length; ++i) {
+                var chat = root.chatFor(root.tabs[i].id)
+                if (chat)
+                    chat.catchUp(root.tabs[i].running === true)
+            }
+        }
         function onChunk(sid, text) {
             if (root.workingMap[sid] !== true) {
                 var w = Object.assign({}, root.workingMap)
@@ -544,7 +551,7 @@ Item {
                     visible: sid === root.selectedId
                     Component.onCompleted: {
                         if (restored)
-                            messages.append({ role: "note", text: "Earlier messages are not shown yet." })
+                            replay()
                     }
                 }
             }
