@@ -134,6 +134,11 @@ def main():
                "NISSE_CONFIG=$HOME/g2/ui/none.toml && rm -f * && (nohup /usr/bin/nisse-daemon >daemon.log 2>&1 &); sleep 3; true", 60)
         text, _ = sh(vm, "bash ~/g2/gate2_seed.sh 2>&1 | tail -3", 120)
         check("a session, two held approvals and a paired device on the image", re.search(r"SEED sid=\S+ paired=1", text) is not None, text[-400:])
+        # A session counts as restored (its transcript is replayed when the panel starts) once Claude Code has started it, and
+        # the fake agent never does that; mark it the way a real first turn would, then restart the daemon on the same state.
+        sh(vm, "sid=$(cat ~/g2/ui/sid); busctl --user call org.nisse.Daemon1 /org/nisse/Daemon1 org.nisse.Daemon1 SetKeepMode ss $sid always; "
+               "pkill -x nisse-daemon; sleep 1; sed -i 's/\"started\":false/\"started\":true/' ~/g2/ui/sessions.json; "
+               "(nohup /usr/bin/nisse-daemon >>~/g2/ui/daemon.log 2>&1 &); sleep 3; bash ~/g2/gate2_seed.sh approvals 2>&1 | tail -1", 90)
         pages = {"chat": 0, "approvals": 1, "audit": 2, "settings": 3}
         for name, n in pages.items():
             sh(vm, "pkill -x nisse-panel; sleep 1; true", 30)

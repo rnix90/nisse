@@ -117,3 +117,10 @@ Qt at the release version:
 
 Re-run it after any `dnf upgrade` in the VM, and rebuild `nisse-panel`. When the ISO starts using the updates
 repository, remove this section. `build/build-all.sh` rebuilds every package and the ISO in one go.
+
+## GATE 2 checks inside the live image
+
+`python tools/vm/gate2.py --iso D:/nisse-build-vm/out/nisse-live.iso --tools out/gate2/tools --out out/gate2` boots the ISO under
+QEMU, serves the test binaries to the guest over its network (build them in the VM first: the `schema` and `dbus` test binaries and
+the `device_probe` example from `services/`, stripped, plus `tests/e2e/devices_inner.sh`), and runs the AI core checks on the image
+itself, with screenshots of each panel page in `out/gate2/shots`. It cannot run a real `claude` (needs a sign-in).

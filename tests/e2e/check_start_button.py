@@ -17,8 +17,10 @@ import sys
 from PIL import Image
 
 PAPER = (0xF6, 0xF2, 0xE9)
+# The live session turns Night Light on at 4500 K (N-111), which warms the whole screen: the Paper mark is drawn as this.
+PAPER_WARM = (245, 210, 171)
 HOTDOG_MAX = 0.03  # fraction of the region that may be hot dog coloured
-PAPER_MIN = 0.05   # fraction of the region that must be Paper (the disc of the nisse mark)
+PAPER_MIN = 0.05   # fraction of the region that must be Paper, plain or Night Light warmed (the disc of the nisse mark)
 
 
 def analyse(img):
@@ -28,7 +30,7 @@ def analyse(img):
         h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
         if s > 0.45 and v > 0.30 and 10 <= h * 360 <= 65:
             hot += 1
-        if abs(r - PAPER[0]) + abs(g - PAPER[1]) + abs(b - PAPER[2]) < 40:
+        if any(abs(r - c[0]) + abs(g - c[1]) + abs(b - c[2]) < 40 for c in (PAPER, PAPER_WARM)):
             paper += 1
     n = len(pixels)
     return hot / n, paper / n

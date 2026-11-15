@@ -45,6 +45,9 @@ PYEOF
 [ "$rc" -eq 1 ] && grep -q "no nisse mark" "$tmp/o2" && ok "an empty start button is rejected" || bad "an empty start button was not rejected (exit $rc): $(cat "$tmp/o2")"
 "$py" tests/e2e/check_start_button.py "$tmp/nisse.png" >"$tmp/o3" 2>&1; rc=$?
 [ "$rc" -eq 0 ] && ok "the nisse mark passes" || bad "the nisse mark was rejected (exit $rc): $(cat "$tmp/o3")"
+# the real desktop, as the live session draws it (Night Light on at 4500 K warms the Paper mark): the accepted golden screenshot
+"$py" tests/e2e/check_start_button.py tests/golden/desktop.png >"$tmp/o4" 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "the golden desktop (Night Light warmed mark) passes" || bad "the golden desktop was rejected (exit $rc): $(cat "$tmp/o4")"
 echo "hot dog: $(head -1 "$tmp/o1"); nisse: $(head -1 "$tmp/o3")"
 
 if [ "$fail" -eq 0 ]; then echo "PASS: start button check"; else echo "$fail failure(s)"; exit 1; fi
