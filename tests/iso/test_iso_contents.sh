@@ -41,10 +41,25 @@ grep -qx 'ID=nisse' "$root/usr/lib/os-release" || fail "root filesystem os-relea
 for scheme in NisseEmber NisseEmberLight; do
     [ -f "$root/usr/share/color-schemes/$scheme.colors" ] || fail "Plasma color scheme $scheme is missing (nisse-theme)"
 done
-for prog in nisse-hwroute nisse-daemon nisse-audit-hook nisse-panel nisse-fetch-claude; do
+for prog in nisse-hwroute nisse-daemon nisse-audit-hook nisse-guard-hook nisse-panel nisse-fetch-claude pw-dump; do
     # a here-string, not a pipe: under pipefail, grep -q exits early and printf dies of SIGPIPE on a long listing
     grep -qE "(^|/)usr/bin/$prog$" <<< "$listing" || fail "/usr/bin/$prog is missing from the ISO"
 done
+# GATE 2 (N-219): what the AI core installs. The daemon's hooks and settings, the machine-wide audit hook (terminal sessions,
+# N-226), the protocol schema (N-220) and the pieces the panel needs (pw-dump for the microphone check, N-205).
+for f in /usr/share/nisse/claude-settings.json /usr/share/nisse/daemon-protocol.schema.json /etc/claude-code/managed-settings.json          /usr/lib/systemd/user/nisse-daemon.service /usr/share/dbus-1/services/org.nisse.Daemon1.service; do
+    [ -f "$root$f" ] || fail "$f is missing from the ISO (the AI core)"
+done
+python3 - "$root/etc/claude-code/managed-settings.json" "$root/usr/share/nisse/claude-settings.json" "$root/usr/share/nisse/daemon-protocol.schema.json" <<'PY' || fail "the AI core settings in the ISO are not what N-204, N-226 and N-220 say"
+import json, sys
+managed, daemon, schema = (json.load(open(p)) for p in sys.argv[1:4])
+assert set(managed) == {"hooks"}, "managed settings hold only hooks"
+for e in ("PreToolUse", "PostToolUse"):
+    assert [h["command"] for g in managed["hooks"][e] for h in g["hooks"]] == ["/usr/bin/nisse-audit-hook --managed"]
+pre = [h for g in daemon["hooks"]["PreToolUse"] for h in g["hooks"]]
+assert any(h["command"] == "/usr/bin/nisse-guard-hook" and h["timeout"] >= 1200 for h in pre), "the guardrail hold is in the daemon settings"
+assert {"Session", "Approval", "AuditRecord", "Event", "EventsPage", "Device", "SignedRequest"} <= set(schema["definitions"])
+PY
 if grep -E '(^|/)claude$' <<< "$listing"; then
     fail "a file named claude is inside the ISO (Claude Code must not be bundled)"
 fi
@@ -100,6 +115,7 @@ done
 
 # Package database checks: the release-repo-only decision (Qt 6.10) and Fedora's KDE release package is gone.
 rpmq() { rpm --dbpath "$root/usr/lib/sysimage/rpm" "$@"; }
+case "$(rpmq -qf /usr/bin/pw-dump 2>/dev/null)" in pipewire-utils-*) ;; *) fail "pw-dump is not from pipewire-utils" ;; esac
 qt="$(rpmq -q --qf '%{version}' qt6-qtbase 2>/dev/null)" || fail "qt6-qtbase is not installed in the image"
 case "$qt" in 6.10*) ;; *) fail "qt6-qtbase is $qt, expected 6.10.x (release repo only, no updates)";; esac
 if rpmq -q fedora-release-kde >/dev/null 2>&1; then fail "fedora-release-kde is installed (nisse must use nisse-release)"; fi

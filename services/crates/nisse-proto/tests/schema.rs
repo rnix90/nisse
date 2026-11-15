@@ -13,9 +13,16 @@ use nisse_proto::{
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 
+// NISSE_SCHEMA points the tests at another copy: the gate runs them in the live image against the schema it ships
+// (/usr/share/nisse/daemon-protocol.schema.json).
+fn schema_path() -> PathBuf {
+    std::env::var_os("NISSE_SCHEMA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("schema/daemon-protocol.schema.json"))
+}
+
 fn schema() -> Value {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("schema/daemon-protocol.schema.json");
-    serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap()
+    serde_json::from_str(&fs::read_to_string(schema_path()).unwrap()).unwrap()
 }
 
 // ---- a validator for the keywords the schema uses
@@ -400,8 +407,7 @@ fn the_schema_describes_exactly_the_types_the_crate_exports() {
 
 #[test]
 fn the_schema_file_is_ascii_and_ends_with_a_newline() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("schema/daemon-protocol.schema.json");
-    let text = fs::read_to_string(path).unwrap();
+    let text = fs::read_to_string(schema_path()).unwrap();
     assert!(text.is_ascii());
     assert!(text.ends_with('\n'));
 }

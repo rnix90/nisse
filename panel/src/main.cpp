@@ -352,8 +352,15 @@ int main(int argc, char *argv[])
         if (QByteArray(argv[i]) == "--demo-badge")
             badge.update(QByteArray(argv[i + 1]).toInt());
     }
+    // --page N opens on that page (0 chat, 1 approvals, 2 audit log, 3 settings), for the screenshots in the live image (N-219).
+    int startPage = 0;
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (QByteArray(argv[i]) == "--page")
+            startPage = qBound(0, QByteArray(argv[i + 1]).toInt(), 3);
+    }
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("daemon"), &client);
+    engine.rootContext()->setContextProperty(QStringLiteral("startPage"), startPage);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
                      Qt::QueuedConnection);
     engine.loadFromModule("Nisse.Panel", "Main");

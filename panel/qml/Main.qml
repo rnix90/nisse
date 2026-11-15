@@ -11,7 +11,7 @@ ApplicationWindow {
     title: "nisse"
 
     // 0 chat, 1 approvals, 2 audit log, 3 settings
-    property int page: 0
+    property int page: startPage
 
     Connections {
         target: daemon
