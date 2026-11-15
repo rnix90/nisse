@@ -7,7 +7,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-use nisse_proto::{Approval, ApprovalState, AuditRecord, Event, EventKind, EventsPage, Keep, Session};
+use nisse_proto::{
+    Approval, ApprovalState, AuditRecord, Device, Event, EventKind, EventsPage, Keep, Role, Session, SignedRequest,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 
@@ -213,6 +215,51 @@ fn audit_records_round_trip_with_and_without_a_source() {
     round_trip("AuditRecord", audit(None));
 }
 
+fn device(revoked: bool) -> Device {
+    Device {
+        id: "0123456789abcdef0123456789abcdef".into(),
+        name: "Bert's phone".into(),
+        role: if revoked { Role::Approver } else { Role::Full },
+        public_key_hex: "ab".repeat(32),
+        created_at: 1_794_700_000,
+        last_seen: (!revoked).then_some(1_794_700_100),
+        revoked_at: revoked.then_some(1_794_700_200),
+    }
+}
+
+#[test]
+fn devices_and_signed_requests_round_trip_and_validate() {
+    round_trip("Device", device(true));
+    round_trip("Device", device(false));
+    round_trip(
+        "SignedRequest",
+        SignedRequest {
+            device_id: "0123456789abcdef0123456789abcdef".into(),
+            ts_ms: 1_794_700_000_000,
+            nonce: "00112233445566778899aabbccddeeff".into(),
+            method: "Approve".into(),
+            args_json: "[\"a1\"]".into(),
+            signature_hex: "cd".repeat(64),
+        },
+    );
+    assert_eq!(serde_json::to_value(Role::Full).unwrap(), json!("full"));
+    assert_eq!(Role::parse("approver"), Some(Role::Approver));
+    assert_eq!(Role::parse("root"), None);
+}
+
+#[test]
+fn the_signed_message_names_the_version_and_every_field() {
+    let req = SignedRequest {
+        device_id: "d".into(),
+        ts_ms: 5,
+        nonce: "n".into(),
+        method: "Approve".into(),
+        args_json: "[\"a\"]".into(),
+        signature_hex: String::new(),
+    };
+    assert_eq!(req.message(), b"nisse-v1\nd\n5\nn\nApprove\n[\"a\"]".to_vec());
+}
+
 #[test]
 fn every_kind_of_event_round_trips_and_validates() {
     for event in events() {
@@ -338,10 +385,13 @@ fn the_schema_describes_exactly_the_types_the_crate_exports() {
             "Approval",
             "ApprovalState",
             "AuditRecord",
+            "Device",
             "Event",
             "EventsPage",
             "Keep",
-            "Session"
+            "Role",
+            "Session",
+            "SignedRequest"
         ]
     );
     assert!(root["$schema"].as_str().unwrap().contains("json-schema.org"));

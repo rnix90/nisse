@@ -20,7 +20,7 @@ missing = [n for n in names if "`" + n not in doc]
 assert not missing, "not described in docs/daemon-protocol.md: %s" % missing
 assert len(names) >= 30, "found only %d methods: the check itself is broken" % len(names)
 defs = set(json.loads(schema)["definitions"])
-for t in ("Session", "Approval", "AuditRecord", "Event", "EventsPage"):
+for t in ("Session", "Approval", "AuditRecord", "Event", "EventsPage", "Device", "SignedRequest"):
     assert t in defs, "type %s is not in the schema" % t
     assert "`%s`" % t in doc, "type %s is not described in the document" % t
 print("ok: %d methods and signals documented" % len(names))

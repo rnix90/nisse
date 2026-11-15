@@ -5,7 +5,7 @@
 
 Name:           nisse-daemon
 Version:        0.1
-Release:        18%{?dist}
+Release:        19%{?dist}
 Summary:        nisse daemon: AI sessions for the nisse panel
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
@@ -64,6 +64,9 @@ install -Dpm 0644 %{nisse_root}/services/crates/nisse-proto/schema/daemon-protoc
 %config(noreplace) %{_sysconfdir}/claude-code/managed-settings.json
 
 %changelog
+* Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-19
+- Device pairing: StartPairing, CompletePairing, ListDevices, RevokeDevice and signed DeviceCall (Ed25519), kept in devices.json
+
 * Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-18
 - Event log per session (EventsSince, SessionEvent) and the shared protocol types; the contract schema is installed
 

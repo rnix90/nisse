@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
 # End to end: the real daemon (fake agent) and the real panel on a private session bus. Run in the Fedora
-# build VM after: (cd services && cargo build) && (cd panel && cmake -S . -B build -G Ninja && cmake --build build)
+# build VM after: (cd services && cargo build && cargo build --example device_probe) && (cd panel && cmake -S . -B build -G Ninja && cmake --build build)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 daemon=services/target/debug/nisse-daemon
 panel=panel/build/nisse-panel
+probe=services/target/debug/examples/device_probe
 [ -x "$daemon" ] || fail "build the daemon first: (cd services && cargo build)"
+[ -x "$probe" ] || fail "build the loopback device first: (cd services && cargo build --example device_probe)"
 [ -x "$panel" ] || fail "build the panel first: (cd panel && cmake -S . -B build -G Ninja && cmake --build build)"
 
 work="$(mktemp -d)"
@@ -59,5 +61,8 @@ dbus-run-session -- bash tests/e2e/connection_inner.sh "$daemon" "$panel" "$work
 
 # N-220: the event log through the real daemon and panel client, across a daemon restart.
 dbus-run-session -- bash tests/e2e/events_inner.sh "$daemon" "$panel" "$work"
+
+# N-221: device pairing through the real daemon with a loopback device that signs its calls.
+dbus-run-session -- bash tests/e2e/devices_inner.sh "$daemon" "$panel" "$work" "$probe"
 
 echo "PASS: panel and daemon end to end"

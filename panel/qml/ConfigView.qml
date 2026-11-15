@@ -406,6 +406,11 @@ Item {
                 Layout.fillWidth: true
                 client: root.client
             }
+            Label { text: "Paired devices"; font.bold: true }
+            DevicesView {
+                Layout.fillWidth: true
+                client: root.client
+            }
             Label { text: "Kill switch"; font.bold: true }
             KillSwitchBar {
                 Layout.fillWidth: true

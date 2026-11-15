@@ -34,7 +34,8 @@ async fn main() -> zbus::Result<()> {
     .with_remote_access(remote_options(&sessions_file))
     .with_usage_file(sessions_file.with_file_name("usage.json"))
     .with_killswitch_file(sessions_file.with_file_name("killswitch.json"))
-    .with_events_dir(sessions_file.with_file_name("events"));
+    .with_events_dir(sessions_file.with_file_name("events"))
+    .with_devices_file(nisse_daemon::devices::devices_path_beside(&sessions_file));
     daemon.sweep_orphan_events().await;
     let approvals = daemon.approvals();
     let usage = daemon.usage();

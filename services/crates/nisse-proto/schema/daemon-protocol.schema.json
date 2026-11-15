@@ -4,6 +4,39 @@
   "title": "nisse daemon protocol",
   "description": "The types every client of the nisse daemon needs. D-Bus carries them as JSON strings; any other transport carries the same JSON. See docs/daemon-protocol.md.",
   "definitions": {
+    "Role": {
+      "description": "What a paired device may do.",
+      "type": "string",
+      "enum": ["approver", "full"]
+    },
+    "Device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role", "public_key_hex", "created_at", "last_seen", "revoked_at"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "role": {"$ref": "#/definitions/Role"},
+        "public_key_hex": {"type": "string"},
+        "created_at": {"type": "integer"},
+        "last_seen": {"type": ["integer", "null"]},
+        "revoked_at": {"type": ["integer", "null"]}
+      }
+    },
+    "SignedRequest": {
+      "description": "A call from a paired device. signature_hex signs the bytes: nisse-v1, then device_id, ts_ms, nonce, method and args_json, one per line, joined by newlines.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_id", "ts_ms", "nonce", "method", "args_json", "signature_hex"],
+      "properties": {
+        "device_id": {"type": "string"},
+        "ts_ms": {"type": "integer"},
+        "nonce": {"type": "string"},
+        "method": {"type": "string"},
+        "args_json": {"type": "string"},
+        "signature_hex": {"type": "string"}
+      }
+    },
     "Keep": {
       "description": "What a session does after a daemon start.",
       "type": "string",

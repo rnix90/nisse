@@ -38,6 +38,7 @@ DaemonClient::DaemonClient(QObject *parent)
                 SLOT(onSessionEvent(QString, QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("SessionsChanged"), this, SLOT(onSessionsChanged()));
     bus.connect(kService, kPath, kInterface, QStringLiteral("UsageChanged"), this, SLOT(onUsageChanged(QString)));
+    bus.connect(kService, kPath, kInterface, QStringLiteral("DevicesChanged"), this, SLOT(onDevicesChanged()));
     bus.connect(kService, kPath, kInterface, QStringLiteral("KillSwitchChanged"), this,
                 SLOT(onKillSwitchChanged(QString)));
     bus.connect(kService, kPath, kInterface, QStringLiteral("RemoteAccessChanged"), this,
@@ -436,6 +437,37 @@ void DaemonClient::enableNotifications(std::function<bool()> windowActive)
 void DaemonClient::onRemoteAccessChanged(const QString &json)
 {
     emit remoteAccessChanged(json);
+}
+
+QString DaemonClient::startPairing(const QString &name, bool approverOnly)
+{
+    const QDBusMessage reply = invoke(QStringLiteral("StartPairing"), name,
+                                      approverOnly ? QStringLiteral("approver") : QStringLiteral("full"));
+    if (reply.type() != QDBusMessage::ReplyMessage)
+        return QStringLiteral("error: ") + reply.errorMessage();
+    return reply.arguments().value(0).toString();
+}
+
+void DaemonClient::cancelPairing()
+{
+    invoke(QStringLiteral("CancelPairing"));
+}
+
+QStringList DaemonClient::devices()
+{
+    QDBusReply<QStringList> reply = invoke(QStringLiteral("ListDevices"));
+    return reply.isValid() ? reply.value() : QStringList();
+}
+
+QString DaemonClient::revokeDevice(const QString &id)
+{
+    const QDBusMessage reply = invoke(QStringLiteral("RevokeDevice"), id, QStringLiteral("desktop"));
+    return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
+}
+
+void DaemonClient::onDevicesChanged()
+{
+    emit devicesChanged();
 }
 
 QString DaemonClient::engageKillSwitch(const QString &reason)

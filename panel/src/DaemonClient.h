@@ -84,6 +84,12 @@ public:
     // Says that events up to `seq` were taken from a page (a replay or a catch-up), so the same events arriving live are not
     // delivered a second time.
     Q_INVOKABLE void markSeen(const QString &session, double seq);
+    // Paired devices (N-221). `startPairing` returns the daemon's JSON ({code, expires_at, name, role}) or "error: ..." in
+    // words; `devices` is one JSON object per string; `revokeDevice` returns an error text or an empty string.
+    Q_INVOKABLE QString startPairing(const QString &name, bool approverOnly);
+    Q_INVOKABLE void cancelPairing();
+    Q_INVOKABLE QStringList devices();
+    Q_INVOKABLE QString revokeDevice(const QString &id);
     // The last n audit records, one JSON object per string.
     Q_INVOKABLE QStringList auditTail(int n);
     Q_INVOKABLE void refreshBackend();
@@ -125,6 +131,8 @@ signals:
     void usageChanged();
     void killSwitchChanged();
     void connectionChanged();
+    // A device was paired or revoked.
+    void devicesChanged();
     // The daemon is back after being away: views read their data again.
     void reconnected();
     void setupChanged();
@@ -144,6 +152,7 @@ private slots:
     void onSessionEvent(const QString &session, const QString &eventJson);
     void onUsageChanged(const QString &json);
     void onKillSwitchChanged(const QString &json);
+    void onDevicesChanged();
     void onServiceOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
     void tryConnect();
     void refreshSetup();

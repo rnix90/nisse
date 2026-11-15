@@ -5,7 +5,7 @@
 
 Name:           nisse-panel
 Version:        0.1
-Release:        13%{?dist}
+Release:        14%{?dist}
 Summary:        nisse panel: chat with the AI that looks after this computer
 License:        GPL-2.0-or-later
 BuildRequires:  cmake
@@ -49,6 +49,9 @@ install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/kglobalaccel/nisse-panel.de
 %{_datadir}/kglobalaccel/nisse-panel.desktop
 
 %changelog
+* Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-14
+- Paired devices in the settings tab
+
 * Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-13
 - A restored tab shows its earlier messages; a reconnect catches up on missed events; a cut-off reply no longer leaves the tab waiting
 

@@ -207,3 +207,16 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
   that was running when the daemon restarted was cut off (its process died with the daemon): the tab stops waiting for it and
   says so, instead of staying locked.
 - The contract itself is in `docs/daemon-protocol.md`.
+
+## Paired devices (N-221)
+
+- The Settings tab has a Paired devices section: type a name, optionally tick "Approving only", press Pair a device, and a
+  one-time code appears in groups of four ("1234 5678") with how long it has left (5 minutes). Enter it on the device; the
+  code works once and five wrong tries cancel it. When the device completes the pairing the code goes away and the device
+  appears in the list with its access in words (full access or approving only), when it was paired and last used; Revoke
+  stops it at once.
+- Decision (Bert, 2026-11-14): a new device gets Full by default (everything the desktop panel can do except pairing and
+  revoking devices, which stay on this computer); "Approving only" is the limited alternative chosen at pairing time. A lost
+  phone with Full access could change the settings, including the authority switch: revoke it here, and know that the
+  daemon only checks that a call comes from a paired key, not what it asks for.
+- The daemon side and the signed-call rules are in `docs/daemon-protocol.md`. No network listener exists yet (N-D08).

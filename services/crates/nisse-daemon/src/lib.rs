@@ -4,6 +4,7 @@
 pub mod approvals;
 pub mod backend;
 pub mod dbus;
+pub mod devices;
 pub mod events;
 pub mod killswitch;
 pub mod remote;

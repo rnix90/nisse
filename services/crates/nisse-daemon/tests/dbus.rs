@@ -2627,3 +2627,447 @@ mod protocol {
         assert!(!records.is_empty());
     }
 }
+
+// ---- paired devices over D-Bus (ledger N-221): a loopback test client that signs its calls like a phone would
+
+mod device_calls {
+    use super::*;
+    use ed25519_dalek::{Signer, SigningKey};
+    use nisse_daemon::devices::SignedRequest;
+
+    fn key(seed: u8) -> SigningKey {
+        SigningKey::from_bytes(&[seed; 32])
+    }
+
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    fn now_ms() -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
+    }
+
+    fn nonce() -> String {
+        static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        format!(
+            "{:032x}",
+            N.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + (now_ms() as u64) * 1000
+        )
+    }
+
+    fn sign(k: &SigningKey, device_id: &str, ts_ms: i64, nonce: &str, method: &str, args_json: &str) -> SignedRequest {
+        let mut req = SignedRequest {
+            device_id: device_id.into(),
+            ts_ms,
+            nonce: nonce.into(),
+            method: method.into(),
+            args_json: args_json.into(),
+            signature_hex: String::new(),
+        };
+        req.signature_hex = hex(&k.sign(&req.message()).to_bytes());
+        req
+    }
+
+    /// Pairs a device the way the panel and a phone would: the panel starts it, the device completes it with its key.
+    async fn pair(s: &Setup, name: &str, role: &str, k: &SigningKey) -> String {
+        let offer: String = s.proxy.call("StartPairing", &(name, role)).await.unwrap();
+        let code = serde_json::from_str::<serde_json::Value>(&offer).unwrap()["code"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let device: String = s
+            .proxy
+            .call("CompletePairing", &(code.as_str(), hex(k.verifying_key().as_bytes())))
+            .await
+            .unwrap();
+        serde_json::from_str::<serde_json::Value>(&device).unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    async fn send(s: &Setup, req: &SignedRequest) -> Result<serde_json::Value, zbus::Error> {
+        let text: String = s
+            .proxy
+            .call("DeviceCall", &(serde_json::to_string(req).unwrap(),))
+            .await?;
+        Ok(serde_json::from_str(&text).unwrap())
+    }
+
+    async fn call(
+        s: &Setup,
+        k: &SigningKey,
+        id: &str,
+        method: &str,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, zbus::Error> {
+        send(s, &sign(k, id, now_ms(), &nonce(), method, &args.to_string())).await
+    }
+
+    fn refused(r: &Result<serde_json::Value, zbus::Error>, words: &str) -> bool {
+        match r {
+            Err(e) => format!("{e:?}").contains(words),
+            Ok(_) => false,
+        }
+    }
+
+    #[tokio::test]
+    async fn pairing_over_the_bus_lists_the_device_and_the_code_works_once() {
+        let s = setup("dev-pair", Arc::new(FakeRunner)).await;
+        let k = key(1);
+        let offer: String = s.proxy.call("StartPairing", &("phone", "full")).await.unwrap();
+        let offer: serde_json::Value = serde_json::from_str(&offer).unwrap();
+        assert_eq!(offer["code"].as_str().unwrap().len(), 8);
+        assert_eq!(offer["role"], "full");
+        let code = offer["code"].as_str().unwrap().to_string();
+        let public = hex(k.verifying_key().as_bytes());
+        let device: String = s
+            .proxy
+            .call("CompletePairing", &(code.as_str(), public.as_str()))
+            .await
+            .unwrap();
+        let device: serde_json::Value = serde_json::from_str(&device).unwrap();
+        assert_eq!(device["name"], "phone");
+        let again: Result<String, _> = s
+            .proxy
+            .call(
+                "CompletePairing",
+                &(code.as_str(), hex(key(2).verifying_key().as_bytes())),
+            )
+            .await;
+        assert!(again.is_err(), "the code was used");
+        let lines: Vec<String> = s.proxy.call("ListDevices", &()).await.unwrap();
+        let listed = parse_all(&lines);
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0]["id"], device["id"]);
+        assert!(!lines[0].contains("secret"));
+    }
+
+    #[tokio::test]
+    async fn pairing_is_audited_without_the_code() {
+        let s = setup("dev-audit-pair", Arc::new(FakeRunner)).await;
+        let offer: String = s.proxy.call("StartPairing", &("phone", "full")).await.unwrap();
+        let code = serde_json::from_str::<serde_json::Value>(&offer).unwrap()["code"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let _: String = s
+            .proxy
+            .call(
+                "CompletePairing",
+                &(code.as_str(), hex(key(1).verifying_key().as_bytes())),
+            )
+            .await
+            .unwrap();
+        let audit = audit_lines(&s).await.join("\n");
+        assert!(
+            audit.contains("device-pairing-started") && audit.contains("device-paired"),
+            "{audit}"
+        );
+        assert!(!audit.contains(&code), "the one-time code is never written down");
+    }
+
+    #[tokio::test]
+    async fn an_unpaired_client_is_refused() {
+        let s = setup("dev-unpaired", Arc::new(FakeRunner)).await;
+        let r = call(&s, &key(9), &"0".repeat(32), "GetKillSwitch", serde_json::json!([])).await;
+        assert!(refused(&r, "not paired"), "{r:?}");
+        let audit = audit_lines(&s).await.join("\n");
+        assert!(audit.contains("device-refused"), "{audit}");
+    }
+
+    #[tokio::test]
+    async fn a_paired_device_approves_a_held_call_and_the_record_names_it() {
+        let s = setup("dev-approve", Arc::new(FakeRunner)).await;
+        let k = key(1);
+        let id = pair(&s, "Bert's phone", "full", &k).await;
+        let held = s.approvals.request(ask("Bash"), 900).await;
+        let r = call(&s, &k, &id, "Approve", serde_json::json!([held.id]))
+            .await
+            .unwrap();
+        assert_eq!(r["ok"]["state"], "approved");
+        assert_eq!(r["ok"]["decided_by"], "Bert's phone");
+        let a = s.approvals.get(&held.id).await.unwrap();
+        assert_eq!(format!("{:?}", a.state), "Approved");
+        let audit = audit_lines(&s).await.join("\n");
+        assert!(
+            audit.contains("approval-approved") && audit.contains("Bert's phone"),
+            "{audit}"
+        );
+        assert!(
+            audit.contains("device-call") && audit.contains(&id),
+            "the device id is in the audit log: {audit}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_paired_device_can_deny_with_a_reason() {
+        let s = setup("dev-deny", Arc::new(FakeRunner)).await;
+        let k = key(1);
+        let id = pair(&s, "phone", "full", &k).await;
+        let held = s.approvals.request(ask("Bash"), 900).await;
+        let r = call(&s, &k, &id, "Deny", serde_json::json!([held.id, "not today"]))
+            .await
+            .unwrap();
+        assert_eq!(r["ok"]["state"], "denied");
+        assert_eq!(r["ok"]["reason"], "not today");
+    }
+
+    #[tokio::test]
+    async fn a_paired_device_triggers_the_kill_switch_and_the_record_names_it() {
+        let s = setup("dev-kill", Arc::new(FakeRunner)).await;
+        let k = key(1);
+        let id = pair(&s, "phone", "full", &k).await;
+        let r = call(
+            &s,
+            &k,
+            &id,
+            "EngageKillSwitch",
+            serde_json::json!(["it is deleting my photos"]),
+        )
+        .await
+        .unwrap();
+        assert_eq!(r["ok"]["engaged"], true);
+        assert_eq!(r["ok"]["by"], "phone");
+        let status: String = s.proxy.call("GetKillSwitch", &()).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&status).unwrap()["by"],
+            "phone"
+        );
+        let audit = audit_lines(&s).await.join("\n");
+        assert!(audit.contains("kill-switch") && audit.contains(&id), "{audit}");
+        let released = call(&s, &k, &id, "ReleaseKillSwitch", serde_json::json!([]))
+            .await
+            .unwrap();
+        assert_eq!(released["ok"]["engaged"], false, "a full device may release it too");
+    }
+
+    #[tokio::test]
+    async fn an_approver_can_approve_and_engage_the_kill_switch_but_not_release_it_or_change_things() {
+        let s = setup("dev-approver", Arc::new(FakeRunner)).await;
+        let k = key(2);
+        let id = pair(&s, "watch", "approver", &k).await;
+        let held = s.approvals.request(ask("Bash"), 900).await;
+        assert!(call(&s, &k, &id, "Approve", serde_json::json!([held.id])).await.is_ok());
+        assert!(call(&s, &k, &id, "EngageKillSwitch", serde_json::json!(["stop"]))
+            .await
+            .is_ok());
+        for (method, args) in [
+            ("ReleaseKillSwitch", serde_json::json!([])),
+            ("SendMessage", serde_json::json!(["x", "hello"])),
+            ("SetConfig", serde_json::json!(["{}"])),
+            ("SetRemoteAccess", serde_json::json!([true])),
+            ("NewSession", serde_json::json!([])),
+        ] {
+            let r = call(&s, &k, &id, method, args).await;
+            assert!(refused(&r, "may not"), "{method}: {r:?}");
+        }
+        let kill: String = s.proxy.call("GetKillSwitch", &()).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&kill).unwrap()["engaged"],
+            true,
+            "it stayed on"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_full_device_can_send_messages_and_read_the_events_but_cannot_pair_or_revoke_devices() {
+        let s = setup("dev-full", Arc::new(FakeRunner)).await;
+        let k = key(1);
+        let id = pair(&s, "phone", "full", &k).await;
+        let session = call(&s, &k, &id, "NewSession", serde_json::json!([])).await.unwrap()["ok"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let mut done = s.proxy.receive_signal("SessionDone").await.unwrap();
+        call(
+            &s,
+            &k,
+            &id,
+            "SendMessage",
+            serde_json::json!([session, "hello from the phone"]),
+        )
+        .await
+        .unwrap();
+        next_signal(&mut done).await;
+        let page = call(&s, &k, &id, "EventsSince", serde_json::json!([session, 0]))
+            .await
+            .unwrap();
+        let kinds: Vec<&str> = page["ok"]["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["type"].as_str().unwrap())
+            .collect();
+        assert_eq!(kinds, ["user_message", "chunk", "done"]);
+        for method in [
+            "StartPairing",
+            "CompletePairing",
+            "RevokeDevice",
+            "ListDevices",
+            "CancelPairing",
+            "WaitApproval",
+            "RequestApproval",
+            "Nonsense",
+        ] {
+            let r = call(&s, &k, &id, method, serde_json::json!([])).await;
+            assert!(r.is_err(), "{method} must not be reachable over a device call");
+        }
+        assert!(
+            refused(
+                &call(&s, &k, &id, "StartPairing", serde_json::json!(["x", "full"])).await,
+                "this computer"
+            ),
+            "pairing stays on the computer"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_revoked_device_is_refused_at_once() {
+        let s = setup("dev-revoke", Arc::new(FakeRunner)).await;
+        let k = key(1);
+        let id = pair(&s, "phone", "full", &k).await;
+        assert!(call(&s, &k, &id, "GetKillSwitch", serde_json::json!([])).await.is_ok());
+        let revoked: String = s.proxy.call("RevokeDevice", &(id.as_str(), "desktop")).await.unwrap();
+        assert!(serde_json::from_str::<serde_json::Value>(&revoked).unwrap()["revoked_at"].is_i64());
+        let r = call(&s, &k, &id, "GetKillSwitch", serde_json::json!([])).await;
+        assert!(refused(&r, "revoked"), "{r:?}");
+        let held = s.approvals.request(ask("Bash"), 900).await;
+        assert!(call(&s, &k, &id, "Approve", serde_json::json!([held.id]))
+            .await
+            .is_err());
+        assert_eq!(
+            format!("{:?}", s.approvals.get(&held.id).await.unwrap().state),
+            "Pending"
+        );
+        let audit = audit_lines(&s).await.join("\n");
+        assert!(
+            audit.contains("device-revoked") && audit.contains("device-refused"),
+            "{audit}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_tampered_a_replayed_and_a_stale_call_are_refused() {
+        let s = setup("dev-bad-calls", Arc::new(FakeRunner)).await;
+        let k = key(1);
+        let id = pair(&s, "phone", "full", &k).await;
+        let held = s.approvals.request(ask("Bash"), 900).await;
+
+        // signed to approve one approval, changed in flight to another
+        let mut tampered = sign(
+            &k,
+            &id,
+            now_ms(),
+            &nonce(),
+            "Approve",
+            &serde_json::json!(["other"]).to_string(),
+        );
+        tampered.args_json = serde_json::json!([held.id]).to_string();
+        assert!(refused(&send(&s, &tampered).await, "signature"), "tampered");
+        assert_eq!(
+            format!("{:?}", s.approvals.get(&held.id).await.unwrap().state),
+            "Pending"
+        );
+
+        // a stale time
+        let stale = sign(&k, &id, now_ms() - 120_000, &nonce(), "GetKillSwitch", "[]");
+        assert!(refused(&send(&s, &stale).await, "clock"), "stale");
+
+        // a call made twice
+        let once = sign(&k, &id, now_ms(), &nonce(), "GetKillSwitch", "[]");
+        assert!(send(&s, &once).await.is_ok());
+        assert!(refused(&send(&s, &once).await, "already made"), "replayed");
+    }
+
+    #[tokio::test]
+    async fn another_key_cannot_use_a_paired_devices_id() {
+        let s = setup("dev-impostor", Arc::new(FakeRunner)).await;
+        let id = pair(&s, "phone", "full", &key(1)).await;
+        let r = call(&s, &key(7), &id, "EngageKillSwitch", serde_json::json!(["x"])).await;
+        assert!(refused(&r, "signature"), "{r:?}");
+        let kill: String = s.proxy.call("GetKillSwitch", &()).await.unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&kill).unwrap()["engaged"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn devices_and_revocations_survive_a_daemon_restart() {
+        let dir = scratch("dev-restart");
+        let make = |dir: PathBuf| {
+            Daemon::new(Arc::new(FakeRunner), dir.join("backends.toml"), dir.join("audit.jsonl"))
+                .with_approvals_file(dir.join("approvals.json"))
+                .with_devices_file(dir.join("devices.json"))
+        };
+        let (k1, k2) = (key(1), key(2));
+        let (id1, id2) = {
+            let (a, b) = tokio::net::UnixStream::pair().unwrap();
+            let server = zbus::connection::Builder::unix_stream(a)
+                .server(zbus::Guid::generate())
+                .unwrap()
+                .p2p()
+                .serve_at(PATH, make(dir.clone()))
+                .unwrap()
+                .build();
+            let client = zbus::connection::Builder::unix_stream(b).p2p().build();
+            let (server, client) = tokio::try_join!(server, client).unwrap();
+            let proxy = Proxy::new(&client, NAME, PATH, NAME).await.unwrap();
+            let s = Setup {
+                _server: server,
+                proxy,
+                config: dir.join("backends.toml"),
+                approvals: Arc::new(nisse_daemon::approvals::ApprovalQueue::in_memory()),
+            };
+            let id1 = pair(&s, "phone", "full", &k1).await;
+            let id2 = pair(&s, "old tablet", "full", &k2).await;
+            let _: String = s.proxy.call("RevokeDevice", &(id2.as_str(), "desktop")).await.unwrap();
+            (id1, id2)
+        };
+        let (a, b) = tokio::net::UnixStream::pair().unwrap();
+        let server = zbus::connection::Builder::unix_stream(a)
+            .server(zbus::Guid::generate())
+            .unwrap()
+            .p2p()
+            .serve_at(PATH, make(dir.clone()))
+            .unwrap()
+            .build();
+        let client = zbus::connection::Builder::unix_stream(b).p2p().build();
+        let (server, client) = tokio::try_join!(server, client).unwrap();
+        let proxy = Proxy::new(&client, NAME, PATH, NAME).await.unwrap();
+        let s = Setup {
+            _server: server,
+            proxy,
+            config: dir.join("backends.toml"),
+            approvals: Arc::new(nisse_daemon::approvals::ApprovalQueue::in_memory()),
+        };
+        assert!(
+            call(&s, &k1, &id1, "GetKillSwitch", serde_json::json!([]))
+                .await
+                .is_ok(),
+            "the phone is still paired"
+        );
+        assert!(
+            refused(
+                &call(&s, &k2, &id2, "GetKillSwitch", serde_json::json!([])).await,
+                "revoked"
+            ),
+            "and the revoked one still is"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_desktop_methods_without_a_device_still_work_as_before() {
+        let s = setup("dev-desktop", Arc::new(FakeRunner)).await;
+        let held = s.approvals.request(ask("Bash"), 900).await;
+        let _: String = s.proxy.call("Approve", &(held.id.as_str(), "desktop")).await.unwrap();
+        assert_eq!(
+            format!("{:?}", s.approvals.get(&held.id).await.unwrap().state),
+            "Approved"
+        );
+    }
+}

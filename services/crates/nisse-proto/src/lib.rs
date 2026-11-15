@@ -164,3 +164,72 @@ pub struct EventsPage {
     /// treat what it holds as incomplete.
     pub gap: bool,
 }
+
+/// What a paired device may do (N-221).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Role {
+    /// See sessions, approvals and what the AI is doing; approve or deny held actions; turn the kill switch ON.
+    Approver,
+    /// Everything the desktop panel can do except pairing and revoking devices (those stay on the computer).
+    Full,
+}
+
+impl Role {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Role::Approver => "approver",
+            Role::Full => "full",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Role> {
+        match text {
+            "approver" => Some(Role::Approver),
+            "full" => Some(Role::Full),
+            _ => None,
+        }
+    }
+}
+
+/// A paired device as the daemon lists it (`ListDevices`). Only the public key is kept.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Device {
+    /// 32 hex characters, made by the daemon; what the device puts in every signed call.
+    pub id: String,
+    pub name: String,
+    pub role: Role,
+    /// The device's Ed25519 public key, 64 hex characters.
+    pub public_key_hex: String,
+    /// Unix seconds.
+    pub created_at: i64,
+    pub last_seen: Option<i64>,
+    pub revoked_at: Option<i64>,
+}
+
+/// A call from a paired device: what it wants, signed with its private key (`DeviceCall`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SignedRequest {
+    pub device_id: String,
+    /// Unix milliseconds on the device's clock.
+    pub ts_ms: i64,
+    /// 16 to 64 hex characters, never used twice.
+    pub nonce: String,
+    /// The daemon method (`Approve`, `EngageKillSwitch` ...).
+    pub method: String,
+    /// The arguments as a JSON array, exactly as signed (the daemon never re-writes it).
+    pub args_json: String,
+    /// The Ed25519 signature of `message()`, 128 hex characters.
+    pub signature_hex: String,
+}
+
+impl SignedRequest {
+    /// The bytes that are signed: the protocol version and every field but the signature, one per line.
+    pub fn message(&self) -> Vec<u8> {
+        format!(
+            "nisse-v1\n{}\n{}\n{}\n{}\n{}",
+            self.device_id, self.ts_ms, self.nonce, self.method, self.args_json
+        )
+        .into_bytes()
+    }
+}

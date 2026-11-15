@@ -42,6 +42,8 @@ TestCase {
         function setRemoteAccess(on) { return "" }
         signal remoteAccessChanged(string json)
         signal configChanged()
+        signal devicesChanged()
+        function devices() { return [] }
         signal reconnected()
         function engageKillSwitch(r) { return "" }
         function releaseKillSwitch() { return "" }

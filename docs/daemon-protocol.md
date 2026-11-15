@@ -22,6 +22,8 @@ that carries it; another transport carries the same JSON.
 | `AuditRecord` | one line of the append-only audit log: `ts`, `session`, `actor`, `kind`, `source` (`daemon` or `terminal`, absent means `daemon`), `detail` | `SearchAudit`, `ExportAudit`, `AuditTail` |
 | `Event` | one thing that happened in a session, with a per-session number `seq` (see below): `type` is `user_message` or `chunk` (with `text`), `error` (with `message`) or `done` | `EventsSince`, the `SessionEvent` signal |
 | `EventsPage` | the answer to "events since N": `session`, `events`, `after`, `last_seq`, `gap` | `EventsSince` |
+| `Device` | a paired device: `id`, `name`, `role` (`full` or `approver`), `public_key_hex`, `created_at`, `last_seen`, `revoked_at` | `ListDevices`, `CompletePairing` |
+| `SignedRequest` | a call from a paired device: `device_id`, `ts_ms`, `nonce`, `method`, `args_json`, `signature_hex` | `DeviceCall` |
 
 ## Events, and catching up
 
@@ -42,6 +44,39 @@ message). Any client can send a message, so a phone sees what the desktop sent a
 - **Keeping**: events are saved per session (`<state>/events/<session id>.jsonl`, one `Event` per line, appended as they
   happen), survive a daemon restart and the numbers go on after it; closing a session removes its events, and event files of
   sessions the daemon no longer knows are removed at its start.
+
+## Paired devices (N-221)
+
+The desktop panel talks to the daemon over the user's own session bus, which only that user can reach, so it is trusted as
+"desktop". Any other client (a phone, later) is a **paired device**, and the daemon decides who may call it.
+
+- **Pairing**: on the computer the person starts a pairing (`StartPairing(name, role)`); the daemon makes a one-time 8-digit
+  code (works once, for five minutes; five wrong tries cancel it; kept in memory only, never in the audit log) and the panel
+  shows it. The device sends the code and its own Ed25519 **public key** (`CompletePairing`); the daemon records the key and
+  gives the device an id. Roles: `full` (the default: everything the desktop panel can do except pairing and revoking
+  devices, which stay on the computer) and `approver` (see sessions, approvals and events; approve or deny; turn the kill
+  switch ON, but not off). `ListDevices` lists them, `RevokeDevice(id, by)` revokes one at once (the record stays), and the
+  signal `DevicesChanged` follows both.
+- **Calls**: every call a device makes is a `SignedRequest` sent to `DeviceCall(request_json)`. The device signs, with its
+  private key (which never leaves it), the bytes `nisse-v1`, `device_id`, `ts_ms`, `nonce`, `method` and `args_json`, one per
+  line, joined by newlines; `args_json` is a JSON array and is signed exactly as sent. The daemon refuses the call unless the
+  device is paired and not revoked, `ts_ms` is within a minute of the computer's clock, the signature verifies against the
+  stored public key, the nonce (16 to 64 hex characters) has not been used, and the role allows the method. Nonces are
+  remembered for two minutes, which is longer than a call could still look fresh. The daemon keeps only public keys, so a
+  stolen state file cannot sign anything.
+- **What it can call**: `ListSessions`, `EventsSince`, `ListApprovals`, `GetKillSwitch`, `GetUsage`, `GetBackend`,
+  `GetAuthority`, `SearchAudit`, `Approve`, `Deny` and `EngageKillSwitch` (any device); and, for `full` devices, `NewSession`,
+  `SendMessage`, `Cancel`, `RenameSession`, `CloseSession`, `ReleaseKillSwitch`, `RefreshUsage`, `GetConfig`, `SetConfig`,
+  `GetRemoteAccess`, `SetRemoteAccess`, `ExportAudit`, `ListBackends`, `ResolveBackend`, `SetSessionBackend`, `SetKeepMode` and
+  `OpenSession`. The answer is `{"ok": <what the method returns>}`. Pairing and revoking devices are never reachable this way.
+- **Who did it**: an approval a device decides records the device's name as `decided_by`, the kill switch records it as `by`,
+  and every call that changes something adds a `device-call` audit record with the device id and name. A refused call is a
+  `device-refused` record with the reason; pairing and revoking are `device-pairing-started`, `device-paired` and
+  `device-revoked`.
+- **Not here**: no network listener exists. The way a phone reaches the daemon (and how it is told apart from anyone else on
+  that path) is the transport choice of N-D08; this is the part that decides who may call once a transport carries the JSON.
+  The mechanism was checked by building the signature crate in the build VM and by a loopback test client that signs and sends
+  real calls over the bus (`services/crates/nisse-daemon/examples/device_probe.rs`).
 
 ## The D-Bus binding
 
@@ -83,6 +118,12 @@ arguments name the client device (required where listed); the pairing in N-221 w
 | `SearchAudit(query_json)` | searches the audit log: `AuditRecord`s newest first, with `total` |
 | `ExportAudit(query_json)` | every match as JSON lines (up to 50,000) |
 | `AuditTail(n)` | the last `n` audit records |
+| `StartPairing(name, role)` | on the computer: offers a pairing, returns the code and when it runs out |
+| `CancelPairing` | cancels the pairing that is waiting |
+| `CompletePairing(code, public_key_hex)` | a device presents the code and its public key; returns the `Device` |
+| `ListDevices` | the paired devices (`Device` per string), revoked ones included |
+| `RevokeDevice(id, by)` | revokes a device at once |
+| `DeviceCall(request_json)` | a signed call from a paired device (see above) |
 
 | Signal | When |
 |---|---|
@@ -92,6 +133,7 @@ arguments name the client device (required where listed); the pairing in N-221 w
 | `KillSwitchChanged(status_json)` | the kill switch was turned on or off |
 | `UsageChanged(usage_json)` | usage numbers changed |
 | `RemoteAccessChanged(status_json)` | the remote access status changed |
+| `DevicesChanged` | a device was paired or revoked |
 | `MessageChunk(session, text)`, `SessionDone(session)`, `SessionError(session, message)` | the older per-kind signals; repeats of the events |
 
 ## Checking it

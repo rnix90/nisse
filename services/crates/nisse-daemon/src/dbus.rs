@@ -17,6 +17,7 @@ use zbus::{interface, object_server::SignalEmitter};
 
 use crate::approvals::{Approval, ApprovalQueue, ApprovalState, DecideError, NewApproval};
 use crate::backend::{HealthOptions, NetworkProber, Prober, Resolver};
+use crate::devices::{Device, DeviceRegistry, PairError, Role, SignedRequest};
 use crate::events::EventLog;
 use crate::killswitch::KillSwitch;
 use crate::remote::{RemoteAccess, RemoteOptions};
@@ -59,6 +60,8 @@ struct Core {
     fetch_status: PathBuf,
     /// What happened in each session, numbered per session, so a client that dropped off can catch up (N-220).
     events: Arc<EventLog>,
+    /// The paired devices (N-221): who may call the daemon from outside this computer, and with what.
+    devices: Arc<DeviceRegistry>,
     runs: Arc<Mutex<HashMap<String, RunState>>>,
     /// The config error already audited, so a file that stays broken is reported once, not on every call.
     config_error: Arc<std::sync::Mutex<Option<String>>>,
@@ -212,6 +215,7 @@ impl Daemon {
                 kill: Arc::new(KillSwitch::in_memory()),
                 fetch_status: crate::state::default_fetch_status_path(),
                 events: Arc::new(EventLog::in_memory()),
+                devices: Arc::new(DeviceRegistry::in_memory()),
                 runs: Arc::new(Mutex::new(HashMap::new())),
                 config_error: Arc::new(std::sync::Mutex::new(None)),
             },
@@ -273,6 +277,17 @@ impl Daemon {
     pub fn with_approvals_file(mut self, path: PathBuf) -> Daemon {
         let (queue, warning) = ApprovalQueue::open(path, Some(self.core.audit_path.clone()));
         self.core.approvals = Arc::new(queue);
+        if let Some(warning) = warning {
+            self.core
+                .audit(None, "daemon", "state-warning", serde_json::json!({ "error": warning }));
+        }
+        self
+    }
+
+    /// Keep the paired devices in `path` (their public keys, roles and revocations; never a private key or a pairing code).
+    pub fn with_devices_file(mut self, path: PathBuf) -> Daemon {
+        let (registry, warning) = DeviceRegistry::open(path);
+        self.core.devices = Arc::new(registry);
         if let Some(warning) = warning {
             self.core
                 .audit(None, "daemon", "state-warning", serde_json::json!({ "error": warning }));
@@ -372,6 +387,148 @@ impl Daemon {
     /// The queue, for code inside the daemon that asks for approvals (the hook, the runner).
     pub fn approvals(&self) -> Arc<ApprovalQueue> {
         Arc::clone(&self.core.approvals)
+    }
+}
+
+/// The role a device needs to call a method over `DeviceCall`; `None` for a method that is not offered that way.
+fn device_method_role(method: &str) -> Option<Role> {
+    match method {
+        "ListSessions" | "EventsSince" | "ListApprovals" | "GetKillSwitch" | "GetUsage" | "GetBackend"
+        | "GetAuthority" | "SearchAudit" | "Approve" | "Deny" | "EngageKillSwitch" => Some(Role::Approver),
+        "NewSession" | "SendMessage" | "Cancel" | "RenameSession" | "CloseSession" | "ReleaseKillSwitch"
+        | "RefreshUsage" | "GetConfig" | "SetConfig" | "GetRemoteAccess" | "SetRemoteAccess" | "ExportAudit"
+        | "ListBackends" | "ResolveBackend" | "SetSessionBackend" | "SetKeepMode" | "OpenSession" => Some(Role::Full),
+        _ => None,
+    }
+}
+
+/// Methods that are never offered to a device, whatever its role: they are for the person at the computer.
+fn device_never(method: &str) -> bool {
+    matches!(
+        method,
+        "StartPairing" | "CancelPairing" | "CompletePairing" | "ListDevices" | "RevokeDevice" | "DeviceCall"
+    )
+}
+
+/// Calls that change something, which the audit log records with the device that made them.
+fn device_method_writes(method: &str) -> bool {
+    !matches!(
+        method,
+        "ListSessions"
+            | "EventsSince"
+            | "ListApprovals"
+            | "GetKillSwitch"
+            | "GetUsage"
+            | "GetBackend"
+            | "GetAuthority"
+            | "SearchAudit"
+            | "GetConfig"
+            | "GetRemoteAccess"
+            | "ListBackends"
+            | "ResolveBackend"
+            | "RefreshUsage"
+    )
+}
+
+fn arg_text(args: &[serde_json::Value], i: usize, name: &str) -> zbus::fdo::Result<String> {
+    args.get(i)
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .ok_or_else(|| zbus::fdo::Error::InvalidArgs(format!("argument {} ({name}) must be text", i + 1)))
+}
+
+fn parsed(text: &str) -> serde_json::Value {
+    serde_json::from_str(text).unwrap_or_else(|_| serde_json::Value::String(text.to_string()))
+}
+
+impl Daemon {
+    /// Runs one method for a device that has been authenticated and allowed, as that device: its name is what the approval,
+    /// the kill switch and the audit log record.
+    async fn run_device_method(
+        &self,
+        device: &Device,
+        method: &str,
+        args: &[serde_json::Value],
+        emitter: &SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<serde_json::Value> {
+        use serde_json::Value;
+        let name = device.name.clone();
+        let text = |i: usize, what: &str| arg_text(args, i, what);
+        Ok(match method {
+            "ListSessions" => Value::Array(self.list_sessions().await.iter().map(|l| parsed(l)).collect()),
+            "EventsSince" => {
+                let session = text(0, "session")?;
+                let after = args.get(1).and_then(Value::as_u64).unwrap_or(0);
+                let limit = args.get(2).and_then(Value::as_u64).unwrap_or(0) as u32;
+                parsed(&self.events_since(session, after, limit).await?)
+            }
+            "ListApprovals" => {
+                let state = args.first().and_then(Value::as_str).unwrap_or("").to_string();
+                Value::Array(self.list_approvals(state).await?.iter().map(|l| parsed(l)).collect())
+            }
+            "GetKillSwitch" => parsed(&self.get_kill_switch().await),
+            "GetUsage" => parsed(&self.get_usage().await),
+            "GetBackend" => {
+                let (name, kind, base_url, model) = self.get_backend().await;
+                serde_json::json!({ "name": name, "kind": kind, "base_url": base_url, "model": model })
+            }
+            "GetAuthority" => Value::String(self.get_authority().await),
+            "SearchAudit" => parsed(&self.search_audit(text(0, "query_json")?).await?),
+            "Approve" => parsed(&self.approve(text(0, "id")?, name).await?),
+            "Deny" => {
+                let reason = args.get(1).and_then(Value::as_str).unwrap_or("").to_string();
+                parsed(&self.deny(text(0, "id")?, name, reason).await?)
+            }
+            "EngageKillSwitch" => {
+                let reason = args.first().and_then(Value::as_str).unwrap_or("").to_string();
+                parsed(&self.engage_kill_switch(name, reason, emitter.clone()).await?)
+            }
+            "ReleaseKillSwitch" => parsed(&self.release_kill_switch(name).await?),
+            "NewSession" => Value::String(self.new_session(emitter.clone()).await),
+            "SendMessage" => {
+                self.send_message(text(0, "session")?, text(1, "text")?, emitter.clone())
+                    .await;
+                Value::Null
+            }
+            "Cancel" => Value::Bool(self.cancel(text(0, "session")?, emitter.clone()).await),
+            "RenameSession" => {
+                self.rename_session(text(0, "session")?, text(1, "title")?, emitter.clone())
+                    .await?;
+                Value::Null
+            }
+            "CloseSession" => {
+                self.close_session(text(0, "session")?, emitter.clone()).await?;
+                Value::Null
+            }
+            "RefreshUsage" => parsed(&self.refresh_usage().await),
+            "GetConfig" => parsed(&self.get_config().await),
+            "SetConfig" => parsed(&self.set_config(text(0, "config_json")?, name).await?),
+            "GetRemoteAccess" => parsed(&self.get_remote_access().await?),
+            "SetRemoteAccess" => {
+                let on = args.first().and_then(Value::as_bool).ok_or_else(|| {
+                    zbus::fdo::Error::InvalidArgs("argument 1 (enabled) must be true or false".into())
+                })?;
+                parsed(&self.set_remote_access(on).await?)
+            }
+            "ExportAudit" => Value::String(self.export_audit(text(0, "query_json")?).await?),
+            "ListBackends" => Value::Array(self.list_backends().await.iter().map(|l| parsed(l)).collect()),
+            "ResolveBackend" => parsed(&self.resolve_backend(text(0, "category")?).await?),
+            "SetSessionBackend" => {
+                self.set_session_backend(text(0, "session")?, text(1, "backend")?, emitter.clone())
+                    .await?;
+                Value::Null
+            }
+            "SetKeepMode" => {
+                self.set_keep_mode(text(0, "session")?, text(1, "mode")?, emitter.clone())
+                    .await?;
+                Value::Null
+            }
+            "OpenSession" => {
+                self.open_session(text(0, "session")?, emitter.clone()).await?;
+                Value::Null
+            }
+            other => return Err(zbus::fdo::Error::InvalidArgs(format!("unknown method: {other}"))),
+        })
     }
 }
 
@@ -890,6 +1047,168 @@ impl Daemon {
         Ok(self.get_config().await)
     }
 
+    /// Starts pairing a device (from the computer: the panel shows the code). Returns JSON: `code` (8 digits, works once, for
+    /// five minutes; five wrong tries cancel it), `expires_at` (unix seconds), `name` and `role`. `role` is `full`
+    /// (everything the desktop panel can do except pairing and revoking devices) or `approver` (see, approve or deny, turn
+    /// the kill switch ON).
+    async fn start_pairing(&self, name: String, role: String) -> zbus::fdo::Result<String> {
+        let role = Role::parse(&role)
+            .ok_or_else(|| zbus::fdo::Error::InvalidArgs("role is \"full\" or \"approver\"".into()))?;
+        let offer = self
+            .core
+            .devices
+            .start_pairing(&name, role)
+            .map_err(|e| zbus::fdo::Error::InvalidArgs(e.to_string()))?;
+        self.core.audit(
+            None,
+            "desktop",
+            "device-pairing-started",
+            serde_json::json!({ "name": name.trim(), "role": role.as_str() }),
+        );
+        Ok(serde_json::json!({
+            "code": offer.code,
+            "expires_at": offer.expires_at,
+            "name": name.trim(),
+            "role": role.as_str(),
+        })
+        .to_string())
+    }
+
+    /// Cancels the pairing that is waiting, if any.
+    async fn cancel_pairing(&self) {
+        self.core.devices.cancel_pairing();
+    }
+
+    /// A device presents the one-time code and its own Ed25519 public key (64 hex characters). Returns the paired device as
+    /// JSON (its `id` is what it puts in every signed call). Refused for a wrong or used or expired code.
+    async fn complete_pairing(
+        &self,
+        code: String,
+        public_key_hex: String,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<String> {
+        match self.core.devices.complete_pairing(&code, &public_key_hex) {
+            Ok(device) => {
+                let _ = Self::devices_changed(&emitter).await;
+                self.core.audit(
+                    None,
+                    "daemon",
+                    "device-paired",
+                    serde_json::json!({ "device_id": device.id, "name": device.name, "role": device.role.as_str() }),
+                );
+                serde_json::to_string(&device).map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
+            }
+            Err(e) => {
+                let kind = match &e {
+                    PairError::BadKey | PairError::BadName(_) => "bad request",
+                    _ => "pairing refused",
+                };
+                self.core.audit(
+                    None,
+                    "daemon",
+                    "device-pairing-refused",
+                    serde_json::json!({ "why": e.to_string(), "kind": kind }),
+                );
+                Err(zbus::fdo::Error::AccessDenied(e.to_string()))
+            }
+        }
+    }
+
+    /// The paired devices, one JSON object per string (`id`, `name`, `role`, `public_key_hex`, `created_at`, `last_seen`,
+    /// `revoked_at`). Revoked ones stay in the list.
+    async fn list_devices(&self) -> Vec<String> {
+        self.core
+            .devices
+            .list()
+            .iter()
+            .filter_map(|d| serde_json::to_string(d).ok())
+            .collect()
+    }
+
+    /// Revokes a device: its calls are refused from now on. `by` names who did it (required).
+    async fn revoke_device(
+        &self,
+        id: String,
+        by: String,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<String> {
+        if by.trim().is_empty() {
+            return Err(zbus::fdo::Error::InvalidArgs("by must name the device".into()));
+        }
+        let device = self.core.devices.revoke(&id).map_err(zbus::fdo::Error::InvalidArgs)?;
+        self.core.audit(
+            None,
+            by.trim(),
+            "device-revoked",
+            serde_json::json!({ "device_id": device.id, "name": device.name }),
+        );
+        let _ = Self::devices_changed(&emitter).await;
+        serde_json::to_string(&device).map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
+    }
+
+    /// A call from a paired device: `request_json` is the protocol's `SignedRequest`. The device signs `"nisse-v1\n<device_id>\n
+    /// <ts_ms>\n<nonce>\n<method>\n<args_json>"` (one line each, joined by newlines) with its private key; `args_json` is a JSON
+    /// array and is signed exactly as sent. Refused (access denied, with the reason) unless the device is paired and not
+    /// revoked, `ts_ms` is within a minute of this computer's clock, the signature is valid, the nonce is new, and the
+    /// device's role allows the method. Returns `{"ok": <result>}` as JSON. Pairing and revoking devices are never
+    /// reachable this way: they happen on the computer.
+    async fn device_call(
+        &self,
+        request_json: String,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<String> {
+        let request: SignedRequest = serde_json::from_str(&request_json)
+            .map_err(|e| zbus::fdo::Error::InvalidArgs(format!("the request is not a signed call: {e}")))?;
+        let (method, args_json) = (request.method.clone(), request.args_json.clone());
+        let device = match self.core.devices.authenticate(&request) {
+            Ok(device) => device,
+            Err(e) => {
+                self.core.audit(
+                    None,
+                    "daemon",
+                    "device-refused",
+                    serde_json::json!({ "device_id": request.device_id, "method": method, "why": e.to_string() }),
+                );
+                return Err(zbus::fdo::Error::AccessDenied(e.to_string()));
+            }
+        };
+        let refuse = |why: String| {
+            self.core.audit(
+                None,
+                &device.name,
+                "device-refused",
+                serde_json::json!({ "device_id": device.id, "method": method, "why": why }),
+            );
+            zbus::fdo::Error::AccessDenied(why)
+        };
+        let Some(needs) = device_method_role(&method) else {
+            return Err(refuse(if device_never(&method) {
+                format!("{method} happens on this computer and cannot be called from a device")
+            } else {
+                format!("unknown method over a device call: {method}")
+            }));
+        };
+        if needs == Role::Full && device.role != Role::Full {
+            return Err(refuse(format!(
+                "this device may not call {method}: it is paired as an approver"
+            )));
+        }
+        let args: Vec<serde_json::Value> = match serde_json::from_str(&args_json) {
+            Ok(serde_json::Value::Array(a)) => a,
+            _ => return Err(zbus::fdo::Error::InvalidArgs("args_json must be a JSON array".into())),
+        };
+        let value = self.run_device_method(&device, &method, &args, &emitter).await?;
+        if device_method_writes(&method) {
+            self.core.audit(
+                None,
+                &device.name,
+                "device-call",
+                serde_json::json!({ "device_id": device.id, "name": device.name, "method": method }),
+            );
+        }
+        Ok(serde_json::json!({ "ok": value }).to_string())
+    }
+
     /// How the first-boot setup stands, as JSON: `claude` is "installed", "waiting-for-network" (the fetch of Claude Code
     /// tries again every two minutes), "failed" (it tries again too), "not-started" (no status yet) or "unknown". Read from
     /// the file `nisse-fetch-claude` writes, every time.
@@ -1284,6 +1603,10 @@ impl Daemon {
     /// The session list changed (made, renamed or closed): clients call `ListSessions` again.
     #[zbus(signal)]
     async fn sessions_changed(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
+
+    /// A device was paired or revoked: clients call `ListDevices` again.
+    #[zbus(signal)]
+    async fn devices_changed(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
 
     /// One event of a session (the protocol's `Event` as JSON, with its number): the live form of `EventsSince`.
     #[zbus(signal)]
