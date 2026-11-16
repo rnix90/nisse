@@ -44,3 +44,9 @@ Four minimalist tomte built to rules that become the style guide: one width per 
 beard), the head touches the body (no neck gap), flat shapes only (the logo's hooked cap, circles, rounded rectangles),
 no brows, cheeks, belts, hems, shading or goggles, and at most six palette colors in any drawing. Tests enforce the
 width, the touching head and the color budget.
+
+## Round 4 verdict (Bert)
+
+"Gumdrop with the face of robe. Create 4 different tool/hand options with that body." Round 5 is that master (cap over one
+round Paper beard-body, the robe's skin band with two eyes and a nose on the skin and beard line) with four tool and hand
+options: pickaxe leaning, pickaxe carried in two hands, hammer raised, lantern hanging.
