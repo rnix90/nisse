@@ -68,6 +68,14 @@ fi
 [ -f "$root/usr/share/anaconda/post-scripts/90-nisse-hwroute.ks" ] \
     || fail "Anaconda post-script 90-nisse-hwroute.ks is missing"
 
+# The Anaconda profile for ID=nisse (N-304). Anaconda matches profiles on the os-release ID only; without this file the
+# installer fell back to LVM and an EFI directory called "default", and the boot loader step failed (N-303 finding).
+prof="$root/etc/anaconda/profile.d/nisse.conf"
+[ -f "$prof" ] || fail "the Anaconda profile /etc/anaconda/profile.d/nisse.conf is missing (N-304)"
+grep -qx 'os_id = nisse' "$prof" || fail "the nisse profile must detect os_id = nisse"
+grep -qx 'default_scheme = BTRFS' "$prof" || fail "the nisse profile must select BTRFS"
+grep -qx 'ID=nisse' "$root/etc/os-release" || fail "os-release ID is not nisse (the profile is matched on it)"
+
 # The live session itself: livesys creates the live user and sets up autologin; without these units the ISO boots to
 # a login prompt instead of the desktop (Fedora enables them through its own preset file, which nisse-release replaced).
 for u in livesys.service livesys-late.service; do

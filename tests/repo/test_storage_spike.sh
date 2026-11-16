@@ -16,7 +16,7 @@ for want in "profile.d" "os_id" "default_scheme" "default_partitioning" "ID_LIKE
 done
 
 # ASCII only, lowercase name (the repo-wide test also checks the second)
-if LC_ALL=C grep -nP '[^\x00-\x7F]' "$doc" tools/spike/autopart_dryrun.py tools/spike/nisse-candidate.conf >/dev/null; then
+if LC_ALL=C grep -nP '[^\x00-\x7F]' "$doc" tools/spike/autopart_dryrun.py packaging/rpm/nisse-installer/nisse.conf >/dev/null; then
     bad "non-ASCII characters"
 else ok "ascii only"; fi
 
@@ -24,7 +24,7 @@ else ok "ascii only"; fi
 python3 - <<'EOF' || fail=$((fail + 1))
 import configparser, sys
 p = configparser.ConfigParser(interpolation=None)
-p.read("tools/spike/nisse-candidate.conf")
+p.read("packaging/rpm/nisse-installer/nisse.conf")
 checks = [
     (p["Profile"]["profile_id"] == "nisse", "profile_id is nisse"),
     (p["Profile Detection"]["os_id"] == "nisse", "detects os_id nisse"),

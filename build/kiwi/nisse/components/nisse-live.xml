@@ -34,6 +34,7 @@
     <package name="nisse-lookandfeel"/>
     <package name="nisse-defaults"/>
     <package name="nisse-hw"/>
+    <package name="nisse-installer"/>
     <package name="nisse-firstboot"/>
     <package name="nisse-daemon"/>
     <package name="nisse-panel"/>

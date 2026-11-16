@@ -93,14 +93,20 @@ class Check:
     retry: int = 0       # seconds to keep trying (a service may still be starting when the login prompt appears)
 
 
+LAYOUT = [("/", "root"), ("/home", "home"), ("/var/log", "var_log"), ("/var/cache", "var_cache")]
+
 CHECKS = [
     Check("os-release", "grep -E '^(ID|NAME|VERSION_ID)=' /etc/os-release", r'(?m)^ID=nisse$', "the installed system is nisse"),
-    Check("root-filesystem", "findmnt -n -o FSTYPE,SOURCE /", r"\S+\s+\S+", "/ is a real mounted filesystem (the layout is asserted in N-304)"),
+    Check("root-filesystem", "findmnt -n -o FSTYPE,SOURCE /", r"\S+\s+\S+", "/ is a real mounted filesystem (the layout checks follow)"),
     Check("bootloader", "{sudo} ls /boot/efi/EFI", r"(?i)fedora", "the boot loader was written to the EFI system partition"),
     Check("login-target", "systemctl get-default; for u in display-manager sddm plasmalogin; do echo $u=$(systemctl is-active $u); done; "
           "systemctl --failed --no-legend | head -8", r"(?m)^(display-manager|sddm|plasmalogin)=active$",
           "the graphical login is up", retry=180),
     Check("user", "id -nG {user}", r"wheel", "the answer file's user exists and is an administrator"),
+    # the layout decided in N-302 and set by the nisse profile (N-304): one btrfs volume, a subvolume per mount point
+    Check("compression", "findmnt -n -o OPTIONS /", r"compress=zstd:1", "the root filesystem is compressed with zstd:1"),
+    *[Check(f"subvolume-{sub}", f"findmnt -n -o FSTYPE,SOURCE {mp}", rf"(?m)^btrfs\s+\S+\[/{sub}\]\s*$",
+            f"{mp} is the btrfs subvolume {sub}") for mp, sub in LAYOUT],
 ]
 
 

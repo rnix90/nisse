@@ -124,3 +124,16 @@ def test_the_answer_file_asks_for_a_graphical_login_because_the_installer_left_t
     # N-303 run: the image's default target is graphical.target, but after a kickstart liveimg install the installed system
     # came up in multi-user.target (display manager never started) until the answer file said xconfig --startxonboot.
     assert "xconfig --startxonboot" in install_disk.kickstart("tester", "pw12345678901234").splitlines()
+
+
+def test_the_checks_assert_the_n302_subvolumes_and_compression_on_the_installed_disk():
+    names = [c.name for c in install_disk.CHECKS]
+    for sub in ("root", "home", "var_log", "var_cache"):
+        assert f"subvolume-{sub}" in names
+    assert "compression" in names
+    root = next(c for c in install_disk.CHECKS if c.name == "subvolume-root")
+    import re
+    assert re.search(root.expect, "btrfs /dev/vda3[/root]\n")
+    assert not re.search(root.expect, "btrfs /dev/vda3[/home]\n")
+    comp = next(c for c in install_disk.CHECKS if c.name == "compression")
+    assert re.search(comp.expect, "rw,relatime,compress=zstd:1,ssd,discard=async,space_cache=v2,subvolid=256,subvol=/root")

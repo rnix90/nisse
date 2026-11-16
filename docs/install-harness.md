@@ -31,7 +31,8 @@ fails, `fail-*.log` copies of the installer's logs.
    install is done (the answer file says `poweroff`).
 6. Boot the disk alone, keeping the firmware boot entries the installer wrote (`OVMF_VARS.fd` is reused), wait for the serial
    `login:` prompt, log in, and run the checks: os-release says nisse, `/` is a mounted filesystem, `/boot/efi/EFI/fedora`
-   exists, the graphical login (display manager) is active, the user is an administrator. Prints PASS or the failed checks.
+   exists, the graphical login (display manager) is active, the user is an administrator, and the N-302 layout (zstd:1; `/`, `/home`,
+   `/var/log` and `/var/cache` each a btrfs subvolume: root, home, var_log, var_cache). Prints PASS or the failed checks.
 
 ## What the harness found about the image (N-303 findings)
 
@@ -39,10 +40,9 @@ fails, `fail-*.log` copies of the installer's logs.
    so Anaconda's EFI directory is its default `EFI/default`, while the boot packages put the files in `EFI/fedora`. The boot
    loader step runs `gen_grub_cfgstub /boot/grub2 /boot/efi/EFI/default`, which fails with "No such file or directory", and the
    installer stops: "gen_grub_cfgstub script failed". (Seen in `storage.log` of the first run.) The interactive installer
-   goes through the same step, so a real person installing from the current ISO would hit it too. **N-304's nisse profile
-   (`base_profile = fedora`, which sets `efi_dir = fedora`) fixes it.** Until then the harness forces Fedora's profile with
-   `--profile fedora` (a stand-in; `INSTALL_PROFILE= bash tests/e2e/test_install_to_disk.sh` runs without it, which today fails
-   at that step). When N-304 lands, the wrapper's default drops the flag so the harness tests the real thing.
+   goes through the same step, so a real person installing from the current ISO would hit it too. **Fixed in N-304:** the `nisse-installer` package ships the nisse profile (`base_profile = fedora`, which sets
+   `efi_dir = fedora`), and the wrapper no longer forces a profile. While the profile did not exist the harness passed
+   `--profile fedora` as a stand-in; `INSTALL_PROFILE=fedora bash tests/e2e/test_install_to_disk.sh` still forces one.
 2. **After a kickstart install the default target was multi-user, not graphical,** although the image's own default is
    `graphical.target` and `plasma-login-manager` provides `service(graphical-login)`. The answer file's `xconfig --startxonboot`
    fixes it for the harness. Whether the interactive installer sets the graphical target for a nisse install is not tested

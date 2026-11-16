@@ -7,4 +7,4 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 iso="${1:-out/install/nisse-live.iso}"
 [ -f "$iso" ] || { echo "FAIL: ISO not found: $iso (bash tools/build/vm.sh pull out/nisse-live.iso out/install/nisse-live.iso)" >&2; exit 2; }
-python -u tools/vm/install_disk.py "$iso" --out out/install/run --profile "${INSTALL_PROFILE-fedora}"   # fedora until N-304 ships the nisse profile (see docs/install-harness.md)
+python -u tools/vm/install_disk.py "$iso" --out out/install/run ${INSTALL_PROFILE:+--profile "$INSTALL_PROFILE"}   # unset: the real nisse profile (N-304); set it to force another

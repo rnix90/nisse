@@ -49,7 +49,7 @@ What the planner produces (`autopart_dryrun.py`, UEFI, 60 GiB disk):
         partition 2  ext4  /boot      2 GiB
         partition 3  btrfs            57.41 GiB  -> volume "anaconda": subvolume root (/), subvolume home (/home)
 
-    --id nisse with the candidate /etc/anaconda/profile.d/nisse.conf (tools/spike/nisse-candidate.conf)
+    --id nisse with the candidate /etc/anaconda/profile.d/nisse.conf (packaging/rpm/nisse-installer/nisse.conf)
         default_scheme 1 (BTRFS), zstd:1
         partition 1  efi   /boot/efi  600 MiB
         partition 2  ext4  /boot      2 GiB
@@ -68,7 +68,7 @@ has none of them. Final names are confirmed on an installed disk in N-304.
 ## Mechanism
 
 `/etc/anaconda/profile.d/nisse.conf`, one small file, shipped in an RPM (a new `nisse-installer` package, or inside
-`nisse-release`; N-304 decides). The candidate (`tools/spike/nisse-candidate.conf`, verified above):
+`nisse-release`; N-304 chose a new `nisse-installer` package). The candidate (`packaging/rpm/nisse-installer/nisse.conf`, verified above):
 
     [Profile]
     profile_id = nisse
@@ -156,5 +156,5 @@ Recorded through three questions, each answered as the first recommended option 
     bash tools/build/vm.sh sync
     bash tools/build/vm.sh ssh 'sudo dnf install -y --setopt=install_weak_deps=False anaconda-core libblockdev-btrfs libblockdev-lvm libblockdev-dm'
     bash tools/build/vm.sh ssh 'cd ~/nisse && sudo python3 tools/spike/autopart_dryrun.py --id nisse'
-    bash tools/build/vm.sh ssh 'cd ~/nisse && sudo cp tools/spike/nisse-candidate.conf /etc/anaconda/profile.d/nisse.conf &&
+    bash tools/build/vm.sh ssh 'cd ~/nisse && sudo cp packaging/rpm/nisse-installer/nisse.conf /etc/anaconda/profile.d/nisse.conf &&
         sudo python3 tools/spike/autopart_dryrun.py --id nisse; sudo rm /etc/anaconda/profile.d/nisse.conf'
