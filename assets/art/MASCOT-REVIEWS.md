@@ -32,3 +32,15 @@ Ranking: tomte, tinker, sleepy, bean, cheeky, peeker, miner, block.
 
 Four variants of the round-2 tomte (tomte, wee tomte, digger, elder) plus a waving pose: beard to chest length, brows or a
 smile, no elf ears, grey and white robes with edges on the dark one, a rebuilt pickaxe, and the hill-and-stars badge crop.
+
+## Round 3 verdict (Bert)
+
+"The heads are too far from the bodies and the beards don't match the head widths. I think we need to simplify and keep
+minimalist like the logo." Round 3 stays as a record; it was not chosen.
+
+## What round 4 does with it
+
+Four minimalist tomte built to rules that become the style guide: one width per gnome (cap base = face = top of the
+beard), the head touches the body (no neck gap), flat shapes only (the logo's hooked cap, circles, rounded rectangles),
+no brows, cheeks, belts, hems, shading or goggles, and at most six palette colors in any drawing. Tests enforce the
+width, the touching head and the color budget.
