@@ -101,3 +101,62 @@ def test_the_mark_is_legible_at_the_small_sizes():
             assert max(abs(v - tile_bg) for v in top) > 60, (px, "no hat ink in the upper half")
             assert max(abs(v - tile_bg) for v in low) > 60, (px, "no letter ink in the lower half")
         b.close()
+
+
+# ---------------------------------------------------------------- variants (Bert: "hat placement or letter read")
+VARIANT_NAMES = ["stem", "centered", "right", "tipped", "tipped-centered"]
+
+
+def test_the_variants_exist_and_are_all_different():
+    forms = build_n.build_variants()
+    assert sorted(forms) == sorted(VARIANT_NAMES)
+    assert len(set(forms.values())) == len(forms)
+
+
+def test_every_variant_uses_the_logos_exact_hat_and_fits_the_square():
+    spec = importlib.util.spec_from_file_location("nisse_logo_build", ROOT / "tools" / "logo" / "build.py")
+    logo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(logo)
+    for name, svg in build_n.build_variants().items():
+        svg.encode("ascii")
+        assert logo.HAT in svg, name
+        g = build_n.geometry(name)
+        assert g["fit_left"] >= 40 and g["fit_top"] >= 40, (name, g)
+        assert g["fit_right"] <= 512 - 40 and g["fit_bottom"] <= 512 - 40, (name, g)
+        assert abs((g["fit_left"] + g["fit_right"]) / 2 - 256) < 1.0, (name, g)
+
+
+def test_the_hat_anchors_are_where_the_names_say():
+    left = build_n.geometry("stem")
+    assert abs(left["hat_cx"] - left["stem_cx"]) < 0.5
+    center = build_n.geometry("centered")
+    assert abs(center["hat_cx"] - center["n_cx"]) < 0.5
+    right = build_n.geometry("right")
+    assert abs(right["hat_cx"] - right["right_stem_cx"]) < 0.5
+    assert build_n.geometry("tipped")["tilt"] != 0 and build_n.geometry("tipped-centered")["tilt"] != 0
+    assert build_n.geometry("stem")["tilt"] == 0 and build_n.geometry("centered")["tilt"] == 0
+
+
+def test_every_variant_is_legible_at_the_small_sizes():
+    from playwright.sync_api import sync_playwright
+    import base64
+    import io
+
+    from PIL import Image
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        pg = b.new_page()
+        for name in VARIANT_NAMES:
+            svg = build_n.build_variants(tiles=True)[name]
+            uri = "data:image/svg+xml;base64," + base64.b64encode(svg.encode("ascii")).decode()
+            for px in (16, 22):
+                pg.set_viewport_size({"width": px, "height": px})
+                pg.set_content(f'<html><body style="margin:0"><img src="{uri}" width="{px}" height="{px}" style="display:block"></body></html>')
+                pg.wait_for_function("document.images[0].complete")
+                im = Image.open(io.BytesIO(pg.screenshot(clip={"x": 0, "y": 0, "width": px, "height": px}))).convert("L")
+                bg = im.getpixel((px // 2, 0))
+                top = [im.getpixel((x, y)) for y in range(px // 5, px // 2) for x in range(px)]
+                low = [im.getpixel((x, y)) for y in range(px // 2, px - px // 5) for x in range(px)]
+                assert max(abs(v - bg) for v in top) > 60, (name, px, "no ink in the upper half")
+                assert max(abs(v - bg) for v in low) > 60, (name, px, "no ink in the lower half")
+        b.close()

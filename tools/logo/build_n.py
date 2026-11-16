@@ -2,17 +2,18 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """N-403: the nisse "n" with a hat, a small monogram for wherever a full logo does not fit.
 
-The mark is the wordmark's own letterform (Nunito's n, outlined by tools/logo/build.py) with the logo's HAT standing
-upright on its left stem, the same recipe as the hat on the dotless i of the wordmark: centered on the stem, a small
-gap above the x-height, scaled 1.1 times the x-height. The hat is the logo's own `HAT` markup, imported from build.py,
-so it cannot drift from the mark.
+The mark is the wordmark's own letterform (Nunito's n, outlined by tools/logo/build.py) with the logo's HAT. The hat is
+the logo's own `HAT` markup, imported from build.py, so it cannot drift from the mark. The hat can sit in different
+places (the VARIANTS); the first, "stem", is the wordmark's recipe for the dotless i: upright, centered on the left
+stem, a small gap above the x-height, scaled 1.1 times the x-height.
 
-    python tools/logo/build_n.py           writes assets/logo/n/{svg,png}/ and sheet.png
+    python tools/logo/build_n.py           writes assets/logo/n/{svg,png}/, sheet.png and variants/sheet.png
 
 It writes to its own folder: tools/logo/build.py clears and rebuilds the other logo folders.
 """
 import base64
 import importlib.util
+import math
 import sys
 from pathlib import Path
 
@@ -32,48 +33,65 @@ MARGIN = 56.0        # room kept around the mark in its 512 square
 HAT_RISE = 112.5     # how far the logo hat's hook rises above its cuff bottom, in the logo's own units
 EMBER = "#e0623f"
 
+# the hat's outline points in its own units (cuff bottom center at 0,0), used to find its box when it is tipped
+HAT_POINTS = [(-34, 0), (34, 0), (34, -18), (-34, -18), (-28, -10), (28, -10), (0, -102), (38, -102), (19, -HAT_RISE), (18, -88)]
+
+# name -> where the hat stands: anchor (stem | center | right), tilt in degrees (negative leans left), gap and size
+VARIANTS = {
+    "stem": dict(anchor="stem", tilt=0.0, gap=0.04, k=1.0),
+    "centered": dict(anchor="center", tilt=0.0, gap=0.04, k=1.0),
+    "right": dict(anchor="right", tilt=0.0, gap=0.04, k=1.0),
+    "tipped": dict(anchor="stem", tilt=-14.0, gap=0.04, k=1.0),
+    "tipped-centered": dict(anchor="center", tilt=12.0, gap=0.04, k=1.0),
+}
+
 
 def doc(label, body):
     return (HEADER + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" '
             f'role="img" aria-label="{label}">\n  <title>{label}</title>\n  {body}\n</svg>\n')
 
 
-def geometry():
+def geometry(variant="stem"):
     """Where everything sits, in the drawing's own units before the fit, and the fit into the 512 square."""
+    v = VARIANTS[variant]
     s = H / B.XH
     _, _, _, gn = B.layout("n", s, 0, 0)
     nl, nt, nr, nb = gn[0][2]
-    _, _, _, gi = B.layout(chr(0x131), s, 0, 0)       # the dotless i: a plain stem, the width of the n's stem
+    _, _, _, gi = B.layout(chr(0x131), s, 0, 0)       # the dotless i: a plain stem, the width of the n's stems
     stem_w = gi[0][2][2] - gi[0][2][0]
-    stem_cx = nl + stem_w / 2
+    stem_cx, right_stem_cx, n_cx = nl + stem_w / 2, nr - stem_w / 2, (nl + nr) / 2
+    hat_cx = {"stem": stem_cx, "center": n_cx, "right": right_stem_cx}[v["anchor"]]
     x_top = -B.XH * s
-    k = B.HAT_SCALE * H / B.HAT_H
-    gap = 0.04 * H
-    hat_ty = x_top - gap                              # the hat's cuff bottom
-    hat_left, hat_right = stem_cx - 34 * k, stem_cx + 38 * k
-    hat_top = hat_ty - HAT_RISE * k
-    left, right = min(nl, hat_left), max(nr, hat_right)
-    top, bottom = min(nt, hat_top), max(nb, 0.0)
+    k = B.HAT_SCALE * H / B.HAT_H * v["k"]
+    hat_ty = x_top - v["gap"] * H                     # the hat's cuff bottom
+    a = math.radians(v["tilt"])
+    pts = [(hat_cx + k * (px * math.cos(a) - py * math.sin(a)), hat_ty + k * (px * math.sin(a) + py * math.cos(a)))
+           for px, py in HAT_POINTS]
+    left, right = min(nl, min(p[0] for p in pts)), max(nr, max(p[0] for p in pts))
+    top, bottom = min(nt, min(p[1] for p in pts)), max(nb, 0.0)
     sc = min((512 - 2 * MARGIN) / (right - left), (512 - 2 * MARGIN) / (bottom - top))
     tx, ty = 256 - sc * (left + right) / 2, 256 - sc * (top + bottom) / 2
-    return dict(scale=s, hat_scale=k, stem_cx=stem_cx, hat_cx=stem_cx, hat_ty=hat_ty, hat_bottom=hat_ty,
-                x_height_top=x_top, x_height=H, fit_scale=sc, fit_tx=tx, fit_ty=ty,
-                fit_left=sc * left + tx, fit_right=sc * right + tx, fit_top=sc * top + ty, fit_bottom=sc * bottom + ty)
+    return dict(scale=s, hat_scale=k, tilt=v["tilt"], stem_cx=stem_cx, right_stem_cx=right_stem_cx, n_cx=n_cx,
+                hat_cx=hat_cx, hat_ty=hat_ty, hat_bottom=hat_ty, x_height_top=x_top, x_height=H,
+                fit_scale=sc, fit_tx=tx, fit_ty=ty, fit_left=sc * left + tx, fit_right=sc * right + tx,
+                fit_top=sc * top + ty, fit_bottom=sc * bottom + ty)
 
 
-def mark(n_fill, hat_fill=None):
+def mark(n_fill, hat_fill=None, variant="stem"):
     """The n and its hat as a group fitted into the 512 square."""
-    g = geometry()
+    g = geometry(variant)
     nd, _, _, _ = B.layout("n", g["scale"], 0, 0)
     hat_fill = hat_fill or n_fill
+    rot = f" rotate({B.num(g['tilt'])})" if g["tilt"] else ""
     return (f'<g transform="translate({B.num(g["fit_tx"])} {B.num(g["fit_ty"])}) scale({B.num(g["fit_scale"])})">'
             f'<path d="{nd}" fill="{n_fill}"/>'
-            f'<g transform="translate({B.num(g["hat_cx"])} {B.num(g["hat_ty"])}) scale({B.num(g["hat_scale"])})" fill="{hat_fill}">{B.HAT}</g></g>')
+            f'<g transform="translate({B.num(g["hat_cx"])} {B.num(g["hat_ty"])}){rot} scale({B.num(g["hat_scale"])})" '
+            f'fill="{hat_fill}">{B.HAT}</g></g>')
 
 
-def tile(n_fill, hat_fill):
+def tile(n_fill, hat_fill, variant="stem"):
     return (f'<rect width="512" height="512" rx="112" fill="{B.INK}"/>'
-            f'<g transform="translate(256 256) scale(.9) translate(-256 -256)">{mark(n_fill, hat_fill)}</g>')
+            f'<g transform="translate(256 256) scale(.9) translate(-256 -256)">{mark(n_fill, hat_fill, variant)}</g>')
 
 
 def build_forms():
@@ -86,8 +104,50 @@ def build_forms():
     return out
 
 
+def build_variants(tiles=False):
+    """Every hat placement as a mark (Ink on a transparent ground), or as a tile when tiles=True."""
+    if tiles:
+        return {name: doc(f"nisse n tile, hat variant {name}", tile(B.PAPER, B.PAPER, name)) for name in VARIANTS}
+    return {name: doc(f"nisse n, hat variant {name}", mark(B.INK, None, name)) for name in VARIANTS}
+
+
 def _data_uri(svg):
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("ascii")).decode()
+
+
+def _svg_sheet(w, h, parts, label):
+    return (HEADER + f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
+            f'aria-label="{label}">\n  <title>{label}</title>\n  {"".join(parts)}\n</svg>\n')
+
+
+def _img(svg, x, y, wd, ht):
+    return f'<image href="{_data_uri(svg)}" x="{x}" y="{y}" width="{wd}" height="{ht}"/>'
+
+
+def _label(x, y, text, size=26, fill=B.PAPER):
+    return f'<text x="{x}" y="{y}" font-family="Nunito, sans-serif" font-size="{size}" fill="{fill}">{text}</text>'
+
+
+def build_variant_sheet():
+    """The five hat placements: big as a tile, then at the sizes where they have to read, on dark and on Paper."""
+    tiles = build_variants(tiles=True)
+    w, h = 1840, 1180
+    p = [f'<rect width="{w}" height="{h}" fill="{B.INK}"/>']
+    col = 360
+    for i, name in enumerate(VARIANTS):
+        x = 40 + i * col
+        p.append(_label(x, 56, f"{i + 1}  {name}", 30))
+        p.append(f'<rect x="{x}" y="80" width="320" height="320" fill="{B.PAPER}"/>' + _img(tiles[name], x + 20, 100, 280, 280))
+    p.append(_label(40, 470, "each at 16, 22, 24, 32, 48 and 64 px: the test is whether it still reads as an n under a hat, not as an h", 26))
+    for bg, y in (("#222c3b", 500), (B.PAPER, 700)):
+        p.append(f'<rect x="40" y="{y}" width="1760" height="180" fill="{bg}"/>')
+        for i, name in enumerate(VARIANTS):
+            x = 60 + i * col
+            for px in (16, 22, 24, 32, 48, 64):
+                p.append(_img(tiles[name], x, y + 20 + (64 - px) / 2, px, px))
+                x += px + 12
+    p.append(_label(40, 940, "1 stem is the version Bert said nope to (it can read as an h at small sizes)", 22, "#aab1bd"))
+    return _svg_sheet(w, h, p, "nisse n, hat placement variants"), w, h
 
 
 def build_sheet():
@@ -97,57 +157,47 @@ def build_sheet():
     wordmark = (ROOT / "assets" / "logo" / "svg" / "nisse-wordmark-reverse.svg").read_text(encoding="ascii")
     w, h = 1840, 1180
     p = [f'<rect width="{w}" height="{h}" fill="{B.INK}"/>']
-
-    def img(svg, x, y, wd, ht):
-        return f'<image href="{_data_uri(svg)}" x="{x}" y="{y}" width="{wd}" height="{ht}"/>'
-
-    def label(x, y, text, size=26, fill=B.PAPER):
-        return f'<text x="{x}" y="{y}" font-family="Nunito, sans-serif" font-size="{size}" fill="{fill}">{text}</text>'
-
-    # row 1: the mark on dark and on Paper, then the two tiles
-    p.append(label(40, 56, "the mark", 34))
-    p.append(f'<rect x="40" y="80" width="400" height="400" fill="{B.PAPER}"/>' + img(forms["nisse-n"], 40, 80, 400, 400))
-    p.append(f'<rect x="470" y="80" width="400" height="400" fill="#222c3b"/>'
-             + img(forms["nisse-n-reverse"], 470, 80, 400, 400))
-    p.append(label(900, 56, "tile: Paper n and hat", 26) + f'<rect x="900" y="80" width="400" height="400" fill="{B.PAPER}"/>'
-             + img(tile_svg, 920, 100, 360, 360))
-    p.append(label(1340, 56, "tile: Ember hat", 26) + f'<rect x="1340" y="80" width="400" height="400" fill="{B.PAPER}"/>'
-             + img(ember_svg, 1360, 100, 360, 360))
-    # row 2: small sizes of the tile
-    p.append(label(40, 560, "the tile at 16, 22, 24, 32, 48, 64, 96 and 128 px, on dark and on Paper", 26))
+    p.append(_label(40, 56, "the mark", 34))
+    p.append(f'<rect x="40" y="80" width="400" height="400" fill="{B.PAPER}"/>' + _img(forms["nisse-n"], 40, 80, 400, 400))
+    p.append(f'<rect x="470" y="80" width="400" height="400" fill="#222c3b"/>' + _img(forms["nisse-n-reverse"], 470, 80, 400, 400))
+    p.append(_label(900, 56, "tile: Paper n and hat", 26) + f'<rect x="900" y="80" width="400" height="400" fill="{B.PAPER}"/>'
+             + _img(tile_svg, 920, 100, 360, 360))
+    p.append(_label(1340, 56, "tile: Ember hat", 26) + f'<rect x="1340" y="80" width="400" height="400" fill="{B.PAPER}"/>'
+             + _img(ember_svg, 1360, 100, 360, 360))
+    p.append(_label(40, 560, "the tile at 16, 22, 24, 32, 48, 64, 96 and 128 px, on dark and on Paper", 26))
     for bg, y in (("#222c3b", 590), (B.PAPER, 760)):
         p.append(f'<rect x="40" y="{y}" width="1760" height="150" fill="{bg}"/>')
         x = 70
         for px in (16, 22, 24, 32, 48, 64, 96, 128):
-            p.append(img(tile_svg, x, y + 10 + (128 - px) / 2, px, px))
+            p.append(_img(tile_svg, x, y + 10 + (128 - px) / 2, px, px))
             x += px + 40
         x += 40
         for px in (16, 22, 24, 32, 48, 64, 96, 128):
-            p.append(img(ember_svg, x, y + 10 + (128 - px) / 2, px, px))
+            p.append(_img(ember_svg, x, y + 10 + (128 - px) / 2, px, px))
             x += px + 30
-    # row 3: next to the start button and the wordmark, where it has to be told apart and to agree
-    p.append(label(40, 960, "told apart from the start button (left of each pair) and in agreement with the wordmark's hat", 26))
+    p.append(_label(40, 960, "told apart from the start button (left of each pair) and in agreement with the wordmark's hat", 26))
     x = 70
     for px in (96, 48, 24):
-        p.append(img(start, x, 990, px, px) + img(tile_svg, x + px + 14, 990, px, px))
+        p.append(_img(start, x, 990, px, px) + _img(tile_svg, x + px + 14, 990, px, px))
         x += 2 * px + 70
-    p.append(img(wordmark, 760, 990, 520, 150))
-    return (HEADER + f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
-            f'aria-label="nisse n, review sheet">\n  <title>nisse n, review sheet</title>\n  {"".join(p)}\n</svg>\n'), w, h
+    p.append(_img(wordmark, 760, 990, 520, 150))
+    return _svg_sheet(w, h, p, "nisse n, review sheet"), w, h
 
 
 def main():
-    from playwright.sync_api import sync_playwright
-    for name, svg in build_forms().items():
+    forms = build_forms()
+    for name, svg in forms.items():
         B.write(OUT / "svg" / f"{name}.svg", svg)
     sheet, w, h = build_sheet()
+    vsheet, vw, vh = build_variant_sheet()
     B.write(OUT / "sheet.svg", sheet)
-    forms = build_forms()
+    B.write(OUT / "variants" / "sheet.svg", vsheet)
     with B.Raster() as R:
         for px in (16, 22, 24, 32, 48, 64, 96, 128, 192, 256, 512):
             B.write(OUT / "png" / f"nisse-n-tile-{px}.png", R.png(forms["nisse-n-tile"], px, px))
         B.write(OUT / "sheet.png", R.png(sheet, w, h))
-    print(f"wrote {len(forms)} svgs, the tile pngs and sheet.png to {OUT}")
+        B.write(OUT / "variants" / "sheet.png", R.png(vsheet, vw, vh))
+    print(f"wrote {len(forms)} svgs, the tile pngs, sheet.png and variants/sheet.png to {OUT}")
 
 
 if __name__ == "__main__":
