@@ -335,6 +335,9 @@ def main():
     for name, svg in build_all().items():
         (OUT / "svg" / f"nisse-avatar-{name}.svg").write_text(svg, encoding="ascii", newline="\n")
         (OUT / "png" / f"nisse-avatar-{name}.png").write_bytes(_png(svg, PX, PX))
+    manifest = ["# source (under assets/art/avatars)" + chr(9) + "install name in /usr/share/plasma/avatars (written by tools/art/avatars.py)"]
+    manifest += [f"png/nisse-avatar-{name}.png" + chr(9) + dest for name, dest in FILE_NAMES.items()]
+    (OUT / "install-manifest.txt").write_text(LF.join(manifest) + LF, encoding="ascii", newline=LF)
     loves, pair = build_loves(), build_pair()
     (OUT / "svg" / "nisse-loves-kde.svg").write_text(loves, encoding="ascii", newline=LF)
     (OUT / "svg" / "nisse-pair.svg").write_text(pair, encoding="ascii", newline=LF)

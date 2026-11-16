@@ -1,0 +1,31 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Run by the nisse-avatars file trigger (N-406a, docs/avatar-wiring-spike.md) with the paths of files that were just installed
+# under the watched folders on stdin, one per line. It makes the Konqi pictures of other packages gnome pictures:
+#  - removes the Konqi and Katie pictures from the user picture folder (the gnome pictures are installed under other names),
+#  - copies a stored replacement over an installed file of the same name (the "loves" sticker, the two phone pictures).
+# NISSE_ROOT is a path prefix for tests; it is empty on a real system. Running it again changes nothing.
+root="${NISSE_ROOT:-}"
+repl="$root/usr/share/nisse/art-replacements"
+while IFS= read -r f; do
+    base="${f##*/}"
+    case "$f" in
+    */plasma/avatars/*)
+        case "$base" in
+        Konqi.png|Katie.png|*" Konqi.png") rm -f -- "$root$f" ;;
+        esac
+        ;;
+    *)
+        case "$base" in
+        fedora-loves-kde.svg|mascot_konqi_3rdparty.svg|konqi-calling.png)
+            if [ -f "$repl/$base" ] && [ -e "$root$f" ]; then
+                install -pm 0644 "$repl/$base" "$root$f"
+                # the licence file that sat beside the old picture described the old picture
+                if [ "$base" = "konqi-calling.png" ]; then rm -f -- "$root$f.license"; fi
+            fi
+            ;;
+        esac
+        ;;
+    esac
+done
+exit 0

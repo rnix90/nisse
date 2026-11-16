@@ -1,0 +1,11 @@
+nisse-avatars
+
+The gnome pictures, the picture of two gnomes on the phone and the nisse logo are nisse's own art, GPL-2.0-or-later (see
+the LICENSE of the nisse repository).
+
+nisse-loves-kde.svg (installed over fedora-loves-kde.svg) is a derived work of fedora-loves-kde.svg from plasma-welcome-fedora
+6.3.4-3 (https://pagure.io/fedora-kde/plasma-welcome-fedora). In the derived picture the left logo is the nisse logo in the
+shape of the original's left logo, and the heart and the KDE logo are the original's shapes recoloured to one color. The package
+licence of plasma-welcome-fedora is (GPL-2.0-only OR GPL-3.0-only) AND CC-BY-SA-4.0; which of them covers this picture is not
+recorded in the package, so the derived picture is distributed under CC-BY-SA-4.0 (text in CC-BY-SA-4.0), the cautious choice,
+until upstream confirms. The KDE logo is KDE's.

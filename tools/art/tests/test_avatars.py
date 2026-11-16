@@ -151,3 +151,12 @@ def test_the_pair_picture_has_two_gnomes_and_two_phones_on_one_panel():
     low = svg.lower()
     for word in BANNED:
         assert word not in low, word
+
+
+def test_the_install_manifest_lists_every_avatar_with_its_install_name_and_the_files_exist():
+    manifest = (ROOT / "assets" / "art" / "avatars" / "install-manifest.txt").read_text(encoding="ascii").splitlines()
+    rows = [line.split("\t") for line in manifest if line and not line.startswith("#")]
+    assert {dest for _, dest in rows} == set(avatars.FILE_NAMES.values())
+    assert len(rows) == 17
+    for src, dest in rows:
+        assert (ROOT / "assets" / "art" / "avatars" / src).is_file(), src

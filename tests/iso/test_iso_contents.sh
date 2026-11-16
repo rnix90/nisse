@@ -76,6 +76,23 @@ grep -qx 'os_id = nisse' "$prof" || fail "the nisse profile must detect os_id = 
 grep -qx 'default_scheme = BTRFS' "$prof" || fail "the nisse profile must select BTRFS"
 grep -qx 'ID=nisse' "$root/etc/os-release" || fail "os-release ID is not nisse (the profile is matched on it)"
 
+# The Konqi pictures of other packages are gnome pictures (N-406a). The nisse-avatars file trigger removes the Konqi and Katie
+# user pictures and replaces three pictures that keep their names; it must have fired when the image was built.
+av="$root/usr/share/plasma/avatars"
+ls "$av" | grep -qiE 'konqi|katie' && fail "a Konqi or Katie user picture is still in the image: $(ls "$av" | grep -iE 'konqi|katie' | head -3 | tr '\n' ',')"
+gnomes="$(ls "$av" | grep -c ' gnome\.png$' || true)"
+[ "$gnomes" -ge 16 ] || fail "expected the 16 activity gnome pictures in $av, found $gnomes"
+[ -f "$av/nisse.png" ] || fail "the plain gnome user picture nisse.png is missing"
+[ -d "$av/photos" ] || fail "the photo avatars were removed"
+rep="$root/usr/share/nisse/art-replacements"
+for pair in "usr/share/icons/hicolor/scalable/apps/fedora-loves-kde.svg:fedora-loves-kde.svg" \
+            "usr/share/icons/hicolor/scalable/apps/mascot_konqi_3rdparty.svg:mascot_konqi_3rdparty.svg" \
+            "usr/share/plasma/packages/org.kde.plasmasetup.finished/contents/ui/konqi-calling.png:konqi-calling.png"; do
+    cmp -s "$root/${pair%%:*}" "$rep/${pair##*:}" || fail "${pair%%:*} is not the nisse replacement (the nisse-avatars trigger did not run)"
+done
+[ ! -e "$root/usr/share/plasma/packages/org.kde.plasmasetup.finished/contents/ui/konqi-calling.png.license" ] \
+    || fail "the old konqi-calling.png licence file is still beside the new picture"
+
 # The live session itself: livesys creates the live user and sets up autologin; without these units the ISO boots to
 # a login prompt instead of the desktop (Fedora enables them through its own preset file, which nisse-release replaced).
 for u in livesys.service livesys-late.service; do

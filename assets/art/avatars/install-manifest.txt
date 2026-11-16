@@ -1,0 +1,18 @@
+# source (under assets/art/avatars)	install name in /usr/share/plasma/avatars (written by tools/art/avatars.py)
+png/nisse-avatar-nisse.png	nisse.png
+png/nisse-avatar-artist.png	Artist gnome.png
+png/nisse-avatar-bookworm.png	Bookworm gnome.png
+png/nisse-avatar-boss.png	Boss gnome.png
+png/nisse-avatar-bugcatcher.png	Bug Catcher gnome.png
+png/nisse-avatar-cardshark.png	Card Shark gnome.png
+png/nisse-avatar-hacker.png	Hacker gnome.png
+png/nisse-avatar-journalist.png	Journalist gnome.png
+png/nisse-avatar-mechanic.png	Mechanic gnome.png
+png/nisse-avatar-messenger.png	Messenger gnome.png
+png/nisse-avatar-musician.png	Musician gnome.png
+png/nisse-avatar-officeworker.png	Office Worker gnome.png
+png/nisse-avatar-pcbuilder.png	PC Builder gnome.png
+png/nisse-avatar-scientist.png	Scientist gnome.png
+png/nisse-avatar-teacher.png	Teacher gnome.png
+png/nisse-avatar-vr.png	Virtual Reality gnome.png
+png/nisse-avatar-laptop.png	Laptop gnome.png
