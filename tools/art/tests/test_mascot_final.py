@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """N-402 final set: the master gnome as a head badge, standing, waving and working with the pickaxe, plus the style guide."""
+import ast
 import json
 import re
 import sys
@@ -13,6 +14,7 @@ import mascot_final  # noqa: E402
 ROOT = HERE.parents[2]
 PALETTE = json.loads((ROOT / "assets" / "palette" / "ember.json").read_text(encoding="ascii"))
 STYLE = ROOT / "assets" / "art" / "STYLE.md"
+LOGO_BUILD = ROOT / "tools" / "logo" / "build.py"
 NAMES = ["nisse-gnome-head", "nisse-gnome-standing", "nisse-gnome-waving", "nisse-gnome-working"]
 
 
@@ -76,3 +78,40 @@ def test_the_style_guide_exists_names_the_rules_and_uses_only_palette_colors():
     assert "Nisse" not in re.sub(r"`[^`]*`", "", text), "the name is lowercase"
     used = {h.lower() for h in re.findall(r"#[0-9a-fA-F]{6}\b", text)}
     assert used <= palette_hexes(), sorted(used - palette_hexes())
+
+
+def logo_hat_markup():
+    """The logo's HAT as written in tools/logo/build.py (read from the source, not imported)."""
+    tree = ast.parse(LOGO_BUILD.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "HAT" for t in node.targets):
+            return ast.literal_eval(node.value)
+    raise AssertionError("HAT not found in tools/logo/build.py")
+
+
+def test_the_cap_is_the_logos_hat_exactly_the_same_path_and_cuff():
+    markup = logo_hat_markup()
+    d = re.search(r'<path d="([^"]+)"', markup).group(1)
+    rect = re.search(r'<rect x="(-?[\d.]+)" y="(-?[\d.]+)" width="([\d.]+)" height="([\d.]+)" rx="([\d.]+)"', markup)
+    assert d and rect
+    for name, svg in mascot_final.build_all().items():
+        assert f'd="{d}"' in svg, (name, "the logo hat path is not in this drawing")
+        x, y, w, h, rx = rect.groups()
+        assert f'x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}"' in svg, (name, "the logo cuff is not in this drawing")
+
+
+def test_the_cuff_is_the_one_width_and_the_head_touches_the_body():
+    spec = mascot_final.spec()
+    assert spec["cap_w"] == spec["face_w"] == spec["beard_w"], spec
+    assert spec["body_top"] <= spec["head_bottom"], spec
+
+
+def test_in_the_wave_the_arm_is_behind_the_beard_and_the_hand_is_in_front():
+    svg = mascot_final.build_all()["nisse-gnome-waving"]
+    arm, face, hand = svg.index('id="wave-arm"'), svg.index('id="face"'), svg.index('id="wave-hand"')
+    assert arm < face < hand, (arm, face, hand)
+
+
+def test_the_standing_hands_are_in_front_of_the_body():
+    svg = mascot_final.build_all()["nisse-gnome-standing"]
+    assert svg.rindex('id="face"') < svg.index('id="hand"'), "hands must be drawn after the body"

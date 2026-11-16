@@ -50,3 +50,12 @@ width, the touching head and the color budget.
 "Gumdrop with the face of robe. Create 4 different tool/hand options with that body." Round 5 is that master (cap over one
 round Paper beard-body, the robe's skin band with two eyes and a nose on the skin and beard line) with four tool and hand
 options: pickaxe leaning, pickaxe carried in two hands, hammer raised, lantern hanging.
+
+## Final sheet gate (Bert): one change, one verification
+
+- Change: in the waving pose the arm must come from behind the beard, with the circle hands in front as when standing.
+  Done: the arm is drawn before the body, the hands after; a test checks the order.
+- Verification: the hat must match the logo perfectly. It did NOT: the cap the rounds had used was this project's own
+  drawing, only inspired by the logo (a 170-wide base, a thick band, a different hook). Fixed: the final set now reads the
+  logo's `HAT` path and cuff out of `tools/logo/build.py` and scales them, and a test compares them. The gnome was
+  re-laid out around the taller, slimmer logo hat (cuff 170 wide, hat about 281 tall).
