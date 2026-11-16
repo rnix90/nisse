@@ -46,12 +46,16 @@ VARIANTS = {
 }
 
 
+# Bert chose the tipped hat on the left stem (2026-11-15, after "nope" to the upright stem and a look at five placements)
+DEFAULT_VARIANT = "tipped"
+
+
 def doc(label, body):
     return (HEADER + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" '
             f'role="img" aria-label="{label}">\n  <title>{label}</title>\n  {body}\n</svg>\n')
 
 
-def geometry(variant="stem"):
+def geometry(variant=DEFAULT_VARIANT):
     """Where everything sits, in the drawing's own units before the fit, and the fit into the 512 square."""
     v = VARIANTS[variant]
     s = H / B.XH
@@ -77,7 +81,7 @@ def geometry(variant="stem"):
                 fit_top=sc * top + ty, fit_bottom=sc * bottom + ty)
 
 
-def mark(n_fill, hat_fill=None, variant="stem"):
+def mark(n_fill, hat_fill=None, variant=DEFAULT_VARIANT):
     """The n and its hat as a group fitted into the 512 square."""
     g = geometry(variant)
     nd, _, _, _ = B.layout("n", g["scale"], 0, 0)
@@ -89,7 +93,7 @@ def mark(n_fill, hat_fill=None, variant="stem"):
             f'fill="{hat_fill}">{B.HAT}</g></g>')
 
 
-def tile(n_fill, hat_fill, variant="stem"):
+def tile(n_fill, hat_fill, variant=DEFAULT_VARIANT):
     return (f'<rect width="512" height="512" rx="112" fill="{B.INK}"/>'
             f'<g transform="translate(256 256) scale(.9) translate(-256 -256)">{mark(n_fill, hat_fill, variant)}</g>')
 

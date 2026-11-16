@@ -160,3 +160,13 @@ def test_every_variant_is_legible_at_the_small_sizes():
                 assert max(abs(v - bg) for v in top) > 60, (name, px, "no ink in the upper half")
                 assert max(abs(v - bg) for v in low) > 60, (name, px, "no ink in the lower half")
         b.close()
+
+
+def test_the_chosen_placement_is_the_tipped_hat_on_the_left_stem_and_the_forms_use_it():
+    assert build_n.DEFAULT_VARIANT == "tipped"
+    g = build_n.geometry()
+    assert g["tilt"] == build_n.geometry("tipped")["tilt"] != 0
+    assert abs(g["hat_cx"] - g["stem_cx"]) < 0.5
+    forms = build_n.build_forms()
+    for name, svg in forms.items():
+        assert f"rotate({build_n.B.num(g['tilt'])})" in svg, (name, "the shipped forms must carry the tipped hat")
