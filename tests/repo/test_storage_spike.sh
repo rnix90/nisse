@@ -11,7 +11,7 @@ doc=docs/storage-spike.md
 
 for want in "profile.d" "os_id" "default_scheme" "default_partitioning" "ID_LIKE" "LVM" "BTRFS" "zstd:1" \
             "root" "home" "var_log" "/boot" "snapper" "Proposed layout" "Evidence" "Mechanism" "Open risks" \
-            "autopart_dryrun.py" "inst.profile" "N-302" "N-303" "N-304"; do
+            "autopart_dryrun.py" "inst.profile" "N-302" "N-303" "N-304" "Decision (N-302" "events only" "20 pairs, 14 days, 5 GiB"; do
     if grep -qF -- "$want" "$doc"; then ok "doc mentions: $want"; else bad "doc does not mention: $want"; fi
 done
 

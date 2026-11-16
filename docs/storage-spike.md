@@ -58,7 +58,8 @@ What the planner produces (`autopart_dryrun.py`, UEFI, 60 GiB disk):
             home       /home                  opts=subvol=home
             var_log    /var/log               opts=subvol=var_log
             var_cache  /var/cache             opts=subvol=var_cache
-            var_lib_nisse-models  /var/lib/nisse-models   opts=subvol=var_lib_nisse-models
+        (the first run also had a placeholder /var/lib/nisse-models subvolume; N-302 dropped it and the run was repeated: exactly
+        the four above)
 
 A note on the dry run: the build VM is itself btrfs (its own subvolumes are root, home, var, boot), and blivet counts those
 names as taken, so the script forgets them; without that the names came out as `root00` and `home00`. A real target disk
@@ -106,7 +107,6 @@ What each part does, from the code (`modules/storage/partitioning/automatic/util
         home       /home             excluded: user data and projects
         var_log    /var/log          excluded: logs must survive a rollback (the audit trail and the journal)
         var_cache  /var/cache        excluded: rebuildable, large, churns
-        (model store)                excluded: path to be decided, see below
 
 Subvolumes are siblings at the top of the volume, not nested in `root`, so a snapshot of `root` does not contain them (a btrfs
 snapshot does not recurse into other subvolumes). That is what "snapshots cover the system only" in the design needs.
@@ -115,6 +115,21 @@ snapshot does not recurse into other subvolumes). That is what "snapshots cover 
 The model store: the design says model stores live in an excluded subvolume, but no backend in the image defines a store path
 yet (nothing in the repo names one). `/var/lib/nisse-models` above is a placeholder that proves the mechanism handles any
 path; N-302 should either pick the real path or leave the model store inside `/home` until one exists.
+
+## Decision (N-302, Bert, 2026-11-16)
+
+Recorded through three questions, each answered as the first recommended option except the third.
+
+1. **Subvolumes:** `root` (snapshotted), `home`, `var_log`, `var_cache` (all three excluded from snapshots, so they survive a
+   rollback). No model-store subvolume yet: the model store lives in `home` until a backend defines a path, then a new
+   decision adds one. The `default_partitioning` of the shipped profile is exactly: `/`, `/home`, `/var/log (btrfs)`,
+   `/var/cache (btrfs)`.
+2. **Frequency: events only.** Snapshots are taken before and after each AI action batch (N-306) and each package update or
+   safe-apply (N-305, N-308), and no timed (hourly or daily) snapshots. Snapper's timeline is switched off.
+3. **Retention: 20 pairs, 14 days, 5 GiB cap.** Keep at most 20 pre/post pairs, delete anything older than 14 days, and clean
+   up early when snapshots use more than 5 GiB. To verify in N-305, not assumed here: snapper's own space limit is a
+   fraction of the filesystem (`SPACE_LIMIT`) and needs btrfs quotas, so how a fixed 5 GiB is expressed (or whether a
+   fraction of a typical disk stands in for it) is that task's spike. The open risks above stay open.
 
 ## Open risks (carried to N-302 and N-304, nothing here is solved)
 
