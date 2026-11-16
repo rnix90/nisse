@@ -15,7 +15,7 @@ for f in build/FEDORA_RELEASE build/build-iso.sh build/build-all.sh build/render
          tools/vm/livevm.py tools/vm/imgdiff.py tools/vm/regress.py tools/vm/tests/test_imgdiff.py tools/vm/tests/test_regress.py \
          tools/claude-probe/probe_cli.py tools/claude-probe/probe_host.py tools/claude-probe/tests/test_probe.py \
          tools/repo/lowercase_name.py tools/repo/tests/test_lowercase_name.py tests/repo/test_lowercase_name.sh \
-         docs/storage-spike.md tests/repo/test_storage_spike.sh tools/spike/autopart_dryrun.py tools/spike/nisse-candidate.conf tests/golden/desktop.png tests/golden/panel.png tests/golden/launcher.png tests/golden/settings.png tests/golden/terminal.png; do
+         docs/storage-spike.md tests/repo/test_storage_spike.sh tools/spike/autopart_dryrun.py tools/vm/install_disk.py tools/vm/tests/test_install_disk.py tests/e2e/test_install_to_disk.sh docs/install-harness.md tools/spike/nisse-candidate.conf tests/golden/desktop.png tests/golden/panel.png tests/golden/launcher.png tests/golden/settings.png tests/golden/terminal.png; do
     if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
         echo "ok   tracked: $f"
     else

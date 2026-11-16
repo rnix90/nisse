@@ -74,13 +74,17 @@ def clean(t):
 RTC_BASE = "2026-11-14T03:00:00"
 
 
-def qemu_command(iso, vars_file, mon_port, serial_port, mem, rtc_base=RTC_BASE):
+def qemu_command(iso, vars_file, mon_port, serial_port, mem, rtc_base=RTC_BASE, disks=()):
+    """The QEMU command line. `disks` are qcow2 files attached as virtio drives (an install target); with no `iso` the
+    machine boots from the first disk (N-303: the installed system)."""
+    media = ["-cdrom", str(iso), "-boot", "d"] if iso else ["-boot", "c"]
     return [
         str(QEMU_DIR / "qemu-system-x86_64.exe"), "-machine", "q35", "-accel", "whpx,kernel-irqchip=off", "-cpu", "max",
         "-smp", "4", "-m", str(mem), "-rtc", f"base={rtc_base},clock=vm",
         "-drive", f"if=pflash,format=raw,unit=0,readonly=on,file={(QEMU_DIR / 'share' / 'edk2-x86_64-code.fd').as_posix()}",
         "-drive", f"if=pflash,format=raw,unit=1,file={Path(vars_file).as_posix()}",
-        "-cdrom", str(iso), "-boot", "d",
+        *media,
+        *[a for d in disks for a in ("-drive", f"file={Path(d).as_posix()},if=virtio,format=qcow2")],
         "-netdev", "user,id=n0", "-device", "virtio-net-pci,netdev=n0",
         "-monitor", f"tcp:127.0.0.1:{mon_port},server,nowait",
         "-serial", f"tcp:127.0.0.1:{serial_port},server,nowait",
@@ -89,7 +93,7 @@ def qemu_command(iso, vars_file, mon_port, serial_port, mem, rtc_base=RTC_BASE):
 
 
 class Vm:
-    def __init__(self, iso, out, mem=6144, rtc_base=RTC_BASE):
+    def __init__(self, iso, out, mem=6144, rtc_base=RTC_BASE, disks=(), fresh_vars=True):
         self.out = Path(out)
         self.out.mkdir(parents=True, exist_ok=True)
         self.buf = ""
@@ -97,8 +101,9 @@ class Vm:
         self.serial_port = random.randint(20000, 30000)
         self.mon_port = self.serial_port + 1
         vars_file = self.out / "OVMF_VARS.fd"
-        vars_file.write_bytes((QEMU_DIR / "share" / "edk2-i386-vars.fd").read_bytes())
-        cmd = qemu_command(iso, vars_file, self.mon_port, self.serial_port, mem, rtc_base)
+        if fresh_vars or not vars_file.exists():   # an installed disk keeps the firmware boot entries its installer wrote
+            vars_file.write_bytes((QEMU_DIR / "share" / "edk2-i386-vars.fd").read_bytes())
+        cmd = qemu_command(iso, vars_file, self.mon_port, self.serial_port, mem, rtc_base, disks)
         self.proc = subprocess.Popen(cmd, creationflags=0x08000000)
         self.sock = self._connect(self.serial_port)
         threading.Thread(target=self._reader, daemon=True).start()

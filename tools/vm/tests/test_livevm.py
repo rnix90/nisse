@@ -58,3 +58,24 @@ def test_a_different_start_time_can_be_given():
 
 def test_the_fallback_environment_still_exists_for_a_session_that_has_no_plasmashell_yet():
     assert "XDG_RUNTIME_DIR" in livevm.SESSION_ENV and "WAYLAND_DISPLAY" in livevm.SESSION_ENV
+
+
+def test_a_target_disk_is_attached_as_a_virtio_drive_after_the_firmware_and_the_iso():
+    cmd = livevm.qemu_command("x.iso", "vars.fd", 1, 2, 4096, disks=["D:/t/target.qcow2"])
+    drives = [cmd[i + 1] for i, a in enumerate(cmd) if a == "-drive"]
+    disk = [d for d in drives if "target.qcow2" in d]
+    assert len(disk) == 1 and "if=virtio" in disk[0] and "format=qcow2" in disk[0]
+    assert cmd.index("-cdrom") < cmd.index("-drive", cmd.index("-cdrom"))
+    assert "-cdrom" in cmd and cmd[cmd.index("-boot") + 1] == "d"
+
+
+def test_with_no_iso_the_machine_boots_from_its_disk_alone():
+    cmd = livevm.qemu_command(None, "vars.fd", 1, 2, 4096, disks=["D:/t/target.qcow2"])
+    assert "-cdrom" not in cmd
+    assert cmd[cmd.index("-boot") + 1] == "c"
+    assert any("target.qcow2" in a for a in cmd)
+
+
+def test_no_disks_keeps_the_old_command_line():
+    old = livevm.qemu_command("x.iso", "vars.fd", 1, 2, 4096)
+    assert not any("qcow2" in a for a in old)
