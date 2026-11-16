@@ -14,6 +14,7 @@ tokens, flat shapes, no gradients, no hill (the disc is the only background).
     python tools/art/avatars.py            writes assets/art/avatars/{svg,png}/*, sheet.png
 """
 import base64
+import re
 import sys
 from pathlib import Path
 
@@ -256,18 +257,26 @@ LEFT_LOGO = '<g style="stroke-width:.675354">'   # the original's left logo grou
 
 
 def build_loves():
-    """The sticker with only its left side changed: the Fedora logo becomes the nisse tile; the heart, the KDE logo and the
-    white outline are the original's, byte for byte. The tile is placed where the Fedora bubble was (30..122, 30..124)."""
+    """The sticker as Bert gated it: the nisse logo takes the shape of the Fedora bubble (the white outline already follows
+    it), the Fedora f becomes the logo's Paper disc with the hat and hill knocked out, and all three marks (the nisse
+    logo, the heart and the KDE logo) are the nisse Ink. The white outline and every shape are the original's."""
     src = SOURCE_LOVES.read_text(encoding="utf-8")
     i = src.index(LEFT_LOGO)
     j = src.index("</g>", i) + len("</g>")
+    left = src[i:j]
+    bubble = re.search(r'<path d="[^"]+" style="fill:#51a2da[^"]*" transform="[^"]+"/>', left).group(0)
+    bubble = bubble.replace("#51a2da", INK)
     tile = TILE_SVG.read_text(encoding="utf-8")
-    inner = tile[tile.index("<defs>"):tile.rindex("</svg>")]
-    nisse = f'<svg x="30" y="31" width="92" height="92" viewBox="0 0 512 512" id="nisse-logo">{inner}</svg>'
-    note = ("<!-- Derived from fedora-loves-kde.svg (plasma-welcome-fedora 6.3.4-3, see assets/art/avatars/source): only the left logo "
-            "is replaced, by the nisse tile; the heart, the KDE logo and the outline are the original's. Licence of the original "
-            "to be confirmed when this is packaged (ledger N-406a). -->")
-    out = src[:i] + nisse + src[j:]
+    defs = tile[tile.index("<defs>"):tile.index("</defs>") + len("</defs>")]
+    disc = (f'<circle cx="256" cy="256" r="236" fill="{PAPER}" mask="url(#knockout)"/>')
+    # the logo's disc sits where the f was (its centre is the bubble centre, about 76, 77) and about 57 units across
+    nisse = (f'<g id="nisse-logo">{bubble}'
+             f'<svg x="45" y="46" width="62" height="62" viewBox="0 0 512 512">{defs}{disc}</svg></g>')
+    rest = src[j:].replace("#db3279", INK).replace("#1d99f3", INK)
+    note = ("<!-- Derived from fedora-loves-kde.svg (plasma-welcome-fedora 6.3.4-3, see assets/art/avatars/source): the left logo is "
+            "the nisse logo in the bubble's shape, and the heart and the KDE logo are recoloured to the nisse Ink; every shape and the "
+            "outline are the original's. Licence of the original to be confirmed when this is packaged (ledger N-406a). -->")
+    out = src[:i] + nisse + rest
     k = out.index(">") + 1        # right after the opening svg tag
     return out[:k] + note + out[k:]
 

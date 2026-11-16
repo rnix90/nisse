@@ -107,18 +107,33 @@ def test_the_sheet_names_every_avatar_and_shows_the_small_sizes():
 
 
 # ---- the other Konqi pictures
-def test_the_loves_sticker_changes_only_its_left_side():
+def _paths(svg):
+    return re.findall(r' d="([^"]+)"', svg)
+
+
+def test_the_loves_sticker_nisse_logo_takes_the_shape_the_white_outline_already_follows():
+    # Bert's gate: the nisse logo matches the shape of the white outer area, so it uses the Fedora bubble's own outline
     original = (ROOT / "assets" / "art" / "avatars" / "source" / "fedora-loves-kde.svg").read_text(encoding="utf-8")
     new = avatars.build_loves()
     new.encode("ascii")
-    # the heart, the KDE logo and the white outline are untouched, character for character
-    left_start = original.index(avatars.LEFT_LOGO)
-    left_end = original.index("</g>", left_start) + len("</g>")
-    assert original[:left_start].split(">", 1)[1] in new          # the white outline path and what comes before the left logo
-    assert original[left_end:] in new                             # the heart and the KDE logo
-    assert "M48.86 106.878" not in new and "M53.428 116.152" not in new     # the Fedora bubble and its f are gone
-    assert 'id="nisse-logo"' in new and "#1b2330" in new           # the nisse tile is in
-    assert "fedora" not in new.lower().replace("fedora-loves-kde.svg (plasma-welcome-fedora", "")
+    o_paths = _paths(original)             # [outline, bubble, f, heart, K and gear]
+    assert o_paths[0] in new               # the white outline is the original's
+    assert o_paths[1] in new               # the nisse shape IS the bubble's outline
+    assert o_paths[2] not in new           # the Fedora f is gone
+    assert 'id="nisse-logo"' in new and 'rx="112"' not in new     # no rounded square tile: the bubble is the shape
+
+
+def test_the_loves_sticker_heart_and_kde_logo_keep_their_shapes_and_all_three_marks_are_one_color():
+    original = (ROOT / "assets" / "art" / "avatars" / "source" / "fedora-loves-kde.svg").read_text(encoding="utf-8")
+    new = avatars.build_loves()
+    for d in _paths(original)[3:]:
+        assert d in new                    # the heart and the KDE logo are the same shapes
+    low = new.lower()
+    for old in ("#51a2da", "#fafafa", "#db3279", "#1d99f3"):
+        assert old not in low, old         # no Fedora blue, heart pink or KDE blue left
+    used = {h.lower() for h in re.findall(r"#[0-9a-fA-F]{3,6}", new)}
+    assert used == {"#fff", "#000", "#1b2330", "#f6f2e9"}, used     # outline white, Ink, Paper; #000 and #fff also drive the logo's own knockout mask
+    assert low.count('fill="#1b2330"') + low.count("fill:#1b2330") >= 3     # bubble, heart and K, all Ink
 
 
 def test_the_loves_sticker_keeps_the_original_size_and_view_box():
