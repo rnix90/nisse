@@ -198,7 +198,11 @@ def main():
     B.write(OUT / "variants" / "sheet.svg", vsheet)
     with B.Raster() as R:
         for px in (16, 22, 24, 32, 48, 64, 96, 128, 192, 256, 512):
-            B.write(OUT / "png" / f"nisse-n-tile-{px}.png", R.png(forms["nisse-n-tile"], px, px))
+            data = R.png(forms["nisse-n-tile"], px, px)
+            B.write(OUT / "png" / f"nisse-n-tile-{px}.png", data)
+            B.write(OUT / "hicolor" / f"{px}x{px}" / "apps" / "nisse-n.png", data)   # the panel app's icon (nisse-panel.desktop)
+        B.write(OUT / "hicolor" / "scalable" / "apps" / "nisse-n.svg", forms["nisse-n-tile"])
+        B.write(OUT / "hicolor" / "symbolic" / "apps" / "nisse-n-symbolic.svg", forms["nisse-n-symbolic"])
         B.write(OUT / "sheet.png", R.png(sheet, w, h))
         B.write(OUT / "variants" / "sheet.png", R.png(vsheet, vw, vh))
     print(f"wrote {len(forms)} svgs, the tile pngs, sheet.png and variants/sheet.png to {OUT}")

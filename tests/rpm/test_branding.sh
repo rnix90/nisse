@@ -20,6 +20,13 @@ for f in /usr/share/icons/hicolor/48x48/apps/distributor-logo-nisse.png \
          /usr/share/icons/hicolor/symbolic/apps/distributor-logo-nisse-symbolic.svg; do
     printf '%s\n' "$bl" | grep -qxF "$f" || fail "branding RPM lacks $f"
 done
+# N-403: the nisse n, the panel app's own icon (nisse-panel.desktop says Icon=nisse-n)
+for f in /usr/share/icons/hicolor/48x48/apps/nisse-n.png \
+         /usr/share/icons/hicolor/16x16/apps/nisse-n.png \
+         /usr/share/icons/hicolor/scalable/apps/nisse-n.svg \
+         /usr/share/icons/hicolor/symbolic/apps/nisse-n-symbolic.svg; do
+    printf '%s\n' "$bl" | grep -qxF "$f" || fail "branding RPM lacks $f"
+done
 
 # ---- Fedora's placeholder art (generic-logos, the hot dog) is replaced by nisse's, not shipped alongside it.
 rpm -qp --provides "$brand" | grep -qE '^system-logos = ' || fail "nisse-branding must provide system-logos (anaconda, plymouth, breeze and kde-settings require it)"

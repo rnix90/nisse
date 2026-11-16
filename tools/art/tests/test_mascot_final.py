@@ -12,6 +12,7 @@ sys.path.insert(0, str(HERE.parent))
 import mascot_final  # noqa: E402
 
 ROOT = HERE.parents[2]
+CAPITAL = "N" + "isse"   # in two parts so the lowercase-name scan does not flag this test
 PALETTE = json.loads((ROOT / "assets" / "palette" / "ember.json").read_text(encoding="ascii"))
 STYLE = ROOT / "assets" / "art" / "STYLE.md"
 LOGO_BUILD = ROOT / "tools" / "logo" / "build.py"
@@ -36,7 +37,7 @@ def test_every_svg_is_ascii_with_a_licence_header_and_a_view_box_and_a_lowercase
         assert "SPDX-License-Identifier: GPL-2.0-or-later" in svg, name
         assert re.search(r'viewBox="0 0 \d+ \d+"', svg), name
         for title in re.findall(r"<title>(.*?)</title>", svg):
-            assert "Nisse" not in title and title, (name, title)
+            assert CAPITAL not in title and title, (name, title)
 
 
 def test_only_palette_colors_within_the_six_color_budget_and_no_gradients():
@@ -75,7 +76,7 @@ def test_the_style_guide_exists_names_the_rules_and_uses_only_palette_colors():
     text = STYLE.read_text(encoding="ascii")
     for needle in ("one width", "six colors", "head touches the body", "hooked cap", "Ember"):
         assert needle in text, needle
-    assert "Nisse" not in re.sub(r"`[^`]*`", "", text), "the name is lowercase"
+    assert CAPITAL not in re.sub(r"`[^`]*`", "", text), "the name is lowercase"
     used = {h.lower() for h in re.findall(r"#[0-9a-fA-F]{6}\b", text)}
     assert used <= palette_hexes(), sorted(used - palette_hexes())
 

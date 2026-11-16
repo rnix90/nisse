@@ -5,7 +5,7 @@
 
 Name:           nisse-panel
 Version:        0.1
-Release:        15%{?dist}
+Release:        16%{?dist}
 Summary:        nisse panel: chat with the AI that looks after this computer
 License:        GPL-2.0-or-later
 BuildRequires:  cmake
@@ -49,6 +49,9 @@ install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/kglobalaccel/nisse-panel.de
 %{_datadir}/kglobalaccel/nisse-panel.desktop
 
 %changelog
+* Sun Nov 15 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-16
+- The panel's own icon is the nisse n (a tipped hat on the wordmark's n), no longer the start button's hat
+
 * Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-15
 - --page N opens the panel on a page (for the screenshots in the live image)
 

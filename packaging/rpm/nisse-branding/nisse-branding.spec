@@ -3,7 +3,7 @@
 
 Name:           nisse-branding
 Version:        0.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        nisse logo, icons and system artwork
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -30,6 +30,8 @@ mkdir -p licenses
 install -pm 0644 %{nisse_root}/LICENSE licenses/LICENSE
 install -d %{buildroot}%{_datadir}/icons
 cp -a %{nisse_root}/assets/logo/linux/hicolor %{buildroot}%{_datadir}/icons/
+# the nisse n (a small monogram, the nisse panel app's own icon): its own tree, merged into the same icon theme
+cp -a %{nisse_root}/assets/logo/n/hicolor/. %{buildroot}%{_datadir}/icons/hicolor/
 # the replacement artwork: assets/logo/system mirrors the file system (see tools/logo/build_system.py)
 cp -a %{nisse_root}/assets/logo/system/usr %{buildroot}/
 mkdir -p %{buildroot}/usr/share/icons/hicolor/scalable/places
@@ -38,6 +40,7 @@ ln -s ../apps/start-here.svg %{buildroot}/usr/share/icons/hicolor/scalable/place
 %files
 %license licenses/LICENSE
 %{_datadir}/icons/hicolor/*/apps/distributor-logo-nisse*
+%{_datadir}/icons/hicolor/*/apps/nisse-n*
 # directories that only generic-logos used to own
 %dir /usr/share/icons/oxygen
 %dir /usr/share/icons/oxygen/48x48
@@ -67,6 +70,9 @@ ln -s ../apps/start-here.svg %{buildroot}/usr/share/icons/hicolor/scalable/place
 /usr/share/icons/hicolor/scalable/places/start-here.svg
 
 %changelog
+* Sun Nov 15 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-2
+- Add the nisse n (a tipped hat on the wordmark's n) as the icon nisse-n, at every size, scalable and symbolic
+
 * Wed Nov 04 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-1
 - Replace Fedora's generic-logos placeholder art with nisse artwork (start button, About page, installer, boot media); provide system-logos and conflict with generic-logos and fedora-logos
 
