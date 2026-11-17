@@ -93,6 +93,16 @@ done
 [ ! -e "$root/usr/share/plasma/packages/org.kde.plasmasetup.finished/contents/ui/konqi-calling.png.license" ] \
     || fail "the old konqi-calling.png licence file is still beside the new picture"
 
+# The nisse wallpaper (N-407a): installed with a light and a dark picture for each size, and the default in both looks.
+wp="$root/usr/share/wallpapers/nisse"
+[ -f "$wp/metadata.json" ] || fail "the nisse wallpaper is missing ($wp)"
+[ -f "$wp/contents/images/1920x1080.png" ] && [ -f "$wp/contents/images_dark/1920x1080.png" ] \
+    || fail "the nisse wallpaper lacks its light or dark 1920x1080 picture"
+for laf in org.nisse.desktop org.nisse.desktop.light; do
+    awk '$0=="[Wallpaper]"{s=1;next} /^\[/{s=0} s&&$1=="Image=nisse"{f=1} END{exit !f}' "$root/usr/share/plasma/look-and-feel/$laf/contents/defaults" \
+        || fail "$laf does not default to the nisse wallpaper (Image=nisse under [Wallpaper])"
+done
+
 # The live session itself: livesys creates the live user and sets up autologin; without these units the ISO boots to
 # a login prompt instead of the desktop (Fedora enables them through its own preset file, which nisse-release replaced).
 for u in livesys.service livesys-late.service; do

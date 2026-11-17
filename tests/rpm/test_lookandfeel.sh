@@ -64,6 +64,11 @@ for n in NisseEmber NisseEmberLight; do
     [ -f "assets/theme/color-schemes/$n.colors" ] || fail "defaults name scheme $n but assets/theme/color-schemes/$n.colors is missing"
 done
 echo "ok   defaults name the nisse schemes and the Breeze shapes"
+# the nisse wallpaper is the default in both looks (N-407a); nisse-wallpaper installs /usr/share/wallpapers/nisse
+want "$dark"  Wallpaper Image nisse
+want "$light" Wallpaper Image nisse
+rpm -qp --requires "$rpm_path" | grep -q nisse-wallpaper || fail "nisse-lookandfeel must require nisse-wallpaper (the default wallpaper it names)"
+echo "ok   both looks default to the nisse wallpaper"
 
 # the system default for every new user
 g="$scratch/etc/xdg/kdeglobals"

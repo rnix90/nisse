@@ -1,0 +1,13 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "nisse"
+            }
+        ],
+        "Id": "nisse",
+        "Name": "nisse",
+        "License": "GPL-2.0-or-later",
+        "Description": "A quiet Scandinavian evening, a simulation, in a light and a dark look"
+    }
+}

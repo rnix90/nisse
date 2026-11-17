@@ -21,8 +21,10 @@ Plasma wants `contents/images/WIDTHxHEIGHT.png` and `contents/images_dark/WIDTHx
 `package_files()`).
 
     python tools/art/wallpaper.py                       writes the review sheet and the 16:9 masters to assets/art/wallpaper/
-    python tools/art/wallpaper.py --all [--concept NAME]  also renders the whole Plasma wallpaper folder (the chosen concept unless
-                                                        told otherwise) to out/wallpapers/nisse/
+    python tools/art/wallpaper.py --all [--concept NAME] [--out DIR]
+                                                        also renders the whole Plasma wallpaper folder (the chosen concept unless
+                                                        told otherwise) to DIR (default out/wallpapers/nisse/; the committed copy the
+                                                        nisse-wallpaper package installs is assets/art/wallpaper/package/nisse)
 """
 import base64
 import json
@@ -325,7 +327,7 @@ def main(argv=None):
         (OUT / "sheet.png").write_bytes(_screenshot(page, sheet, SHEET_W, SHEET_H))
         if "--all" in argv:
             concept = argv[argv.index("--concept") + 1] if "--concept" in argv else CHOSEN
-            pkg = ROOT / "out" / "wallpapers" / "nisse"
+            pkg = Path(argv[argv.index("--out") + 1]) if "--out" in argv else ROOT / "out" / "wallpapers" / "nisse"
             (pkg / "contents").mkdir(parents=True, exist_ok=True)
             (pkg / "metadata.json").write_text(metadata(), encoding="ascii", newline=LF)
             for folder, mode in (("images", "light"), ("images_dark", "dark")):
