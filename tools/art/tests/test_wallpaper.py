@@ -53,20 +53,25 @@ def test_light_and_dark_are_the_same_scene_with_only_the_colors_changed():
     assert wallpaper.scene(1920, 1080, "dark") != wallpaper.scene(1920, 1080, "light")
 
 
-def test_the_scene_has_the_nordic_parts_and_the_logo_sun_and_hill():
+def test_the_scene_is_a_big_hill_with_a_grid_wireframe_mountains_a_fjord_firs_and_a_ring_sun():
     svg = wallpaper.scene(1920, 1080, "dark")
-    for ident in ("sky", "sun", "mountains-far", "mountains-mid", "lake", "hill", "cottage", "firs-near"):
+    for ident in ("sky", "sun", "clouds", "mountains-far", "mountains-mid", "water", "hill", "grid", "rim", "firs"):
         assert f'id="{ident}"' in svg, ident
-    # the sun is a disc and the hill in front of it is the logo's horizon curve: both exist
-    assert "<circle" in svg and "<path" in svg
+    assert svg.count("<circle") >= 3                      # the sun disc and its rings
+    assert 'clip-path="url(#hill-clip)"' in svg           # the grid lives on the hill only
+    assert svg.count("<line") + svg.count("<path") >= 20  # grid lines
 
 
-def test_the_cottage_is_falu_red_which_is_ember_and_has_lit_windows():
-    dark = wallpaper.scene(1920, 1080, "dark")
-    cottage = dark[dark.index('id="cottage"'):]
-    assert wallpaper.DARK["cottage"].lower() in cottage.lower()
-    assert wallpaper.DARK["window"].lower() in cottage.lower()
-    assert wallpaper.DARK["cottage"].lower() in {"#e0623f", "#bd573c"}
+def test_there_is_no_house_or_other_building():
+    for mode in ("dark", "light"):
+        svg = wallpaper.scene(1920, 1080, mode)
+        for banned in ('id="cottage"', 'id="chimney"', 'id="roof"', "cottage"):
+            assert banned not in svg, banned
+
+
+def test_the_hill_is_the_logos_horizon_curve_a_smooth_dome_that_scales_with_the_screen_height():
+    assert wallpaper.horizon_px(1440) / wallpaper.horizon_px(1080) == pytest.approx(1440 / 1080, rel=0.02)
+    assert wallpaper.horizon_px(1080) > 0.3 * 1080          # Bliss: the hill is a big part of the picture
 
 
 def test_the_same_screen_shape_always_gives_the_same_picture():
@@ -76,11 +81,7 @@ def test_the_same_screen_shape_always_gives_the_same_picture():
 def test_a_wider_screen_shows_more_land_not_a_stretched_picture():
     narrow = wallpaper.scene(1920, 1080, "dark")
     wide = wallpaper.scene(3440, 1440, "dark")
-    # more firs and peaks on the ultrawide, and the cottage is the same size relative to the height
-    assert wide.count("<polygon") > narrow.count("<polygon")
-    sizes = {wallpaper.cottage_width(1080), wallpaper.cottage_width(1440)}
-    assert wallpaper.cottage_width(1440) / wallpaper.cottage_width(1080) == pytest.approx(1440 / 1080, rel=0.02)
-    assert len(sizes) == 2
+    assert wide.count("<polygon") > narrow.count("<polygon")      # more peaks and firs on the ultrawide
 
 
 def test_the_plasma_package_layout_names_each_picture_by_its_size_and_has_a_dark_folder():
