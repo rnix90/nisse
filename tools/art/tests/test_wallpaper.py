@@ -122,7 +122,7 @@ def test_the_concepts_have_the_structure_the_brief_describes():
         assert f'id="{ident}"' in hill, ident
     assert "<line" not in hill                                    # no grid on the hill
     layers = wallpaper.scene(1920, 1080, "dark", "fjell-layers")
-    for ident in ("sky", "sun", "ridge-1", "ridge-2", "headland", "water", "glow"):
+    for ident in ("sky", "sun", "ridge-1", "ridge-2", "headland", "water"):
         assert f'id="{ident}"' in layers, ident
     assert layers.count('class="scan"') == 4
 
@@ -141,16 +141,14 @@ def test_round_two_fixes_from_the_art_director():
     xs = [float(p.split(",")[0]) for p in trail.split()]
     tip = min(xs, key=lambda x: abs(x - sun_x))
     assert abs(tip - sun_x) < 0.03 * 1920                         # the ribbon reaches the sun's column
-    # Fjell Layers: a bigger sun and a glow line about a third of the width, centred on the sun
+    # Fjell Layers: a bigger sun; the horizontal orange glow line was removed at the owner's gate (the sun is the only orange)
     layers = wallpaper.scene(1920, 1080, "dark", "fjell-layers")
     m = re.search(r'<circle id="sun" cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"', layers)
     cx, cy, r = (float(v) for v in m.groups())
     assert r >= 0.065 * 1080
     assert 'id="ridge-3"' not in layers and 'id="ridge-4"' not in layers      # the stepped lower mass is gone (round 3)
     assert layers.index('id="ridge-2"') < layers.index('id="water"') < layers.index('id="headland"')
-    g = re.search(r'<line id="glow" x1="([\d.]+)" y1="[\d.]+" x2="([\d.]+)"', layers)
-    x1, x2 = float(g.group(1)), float(g.group(2))
-    assert 0.30 * 1920 <= (x2 - x1) <= 0.40 * 1920 and abs((x1 + x2) / 2 - cx) < 2
+
 
 
 def test_there_is_no_house_no_snow_cap_no_outlined_fir_no_sun_rings_no_clouds():
@@ -202,3 +200,13 @@ def test_a_portrait_screen_gets_the_scene_on_a_shorter_canvas_so_nothing_is_lost
         svg = wallpaper.scene(1080, 1920, "dark", concept)
         assert 'id="sky-top"' in svg and "translate(0 " in svg, concept       # the scene sits at the bottom under extra sky
     assert 'id="sky-top"' not in wallpaper.scene(1920, 1080, "dark", "fjord-gate")
+
+
+def test_the_chosen_wallpaper_is_fjell_layers_and_it_has_no_horizontal_orange_line():
+    assert wallpaper.CHOSEN == "fjell-layers"                  # Bert, 2026-11-16: "3 is it"
+    for mode in ("dark", "light"):
+        svg = wallpaper.scene(1920, 1080, mode, "fjell-layers")
+        assert 'id="glow"' not in svg
+        for tag in re.findall(r"<line[^>]*>", svg):
+            assert "#e0623f" not in tag.lower(), tag           # every remaining line is a quiet scan line
+        assert svg.lower().count("#e0623f") == 1               # the sun alone is orange

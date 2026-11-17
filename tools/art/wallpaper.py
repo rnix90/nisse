@@ -21,7 +21,8 @@ Plasma wants `contents/images/WIDTHxHEIGHT.png` and `contents/images_dark/WIDTHx
 `package_files()`).
 
     python tools/art/wallpaper.py                       writes the review sheet and the 16:9 masters to assets/art/wallpaper/
-    python tools/art/wallpaper.py --all --concept NAME  also renders the whole Plasma wallpaper folder to out/wallpapers/nisse/
+    python tools/art/wallpaper.py --all [--concept NAME]  also renders the whole Plasma wallpaper folder (the chosen concept unless
+                                                        told otherwise) to out/wallpapers/nisse/
 """
 import base64
 import json
@@ -64,6 +65,7 @@ PALETTES = {
     },
 }
 MODES = ("dark", "light")
+CHOSEN = "fjell-layers"       # the owner's pick (N-407 gate, 2026-11-16); the other two stay as built alternatives
 
 
 class Rng:
@@ -215,8 +217,9 @@ def one_hill(w, h, p):
 def fjell_layers(w, h, p):
     """Two receding fjell ridges, a fjord of open dark water with perspective scan lines, and one headland in front, shaped by hand:
     a far plateau on the right whose steep wall drops toward the sun, a near-left mass with its own diagonal into the fjord, the sun
-    sunk in the gap between them, a glow line a third of the width. (Rounds 2 and 3, art director: the stepped lower layers are
-    gone; one asymmetric headland rises diagonally from the water.)"""
+    sunk in the gap between them. (Rounds 2 and 3, art director: the stepped lower layers are gone; one asymmetric headland rises
+    diagonally from the water. The owner then chose this concept and asked for the horizontal orange glow line to go: the sun is
+    the only orange.)"""
     u = h / 900
     sx = pull(0.34, w, h)
     rs = 0.07 * h
@@ -236,7 +239,6 @@ def fjell_layers(w, h, p):
             + sun(sx, 0.575 * h, rs, p["orange"])
             + f'<path id="ridge-2" d="{r2}" fill="{p["r2"]}"/>'
             + f'<rect id="water" x="0" y="{f1(water_top)}" width="{w}" height="{f1(h - water_top + 2)}" fill="{p["water"]}"/>{scans}'
-            + line(sx - 0.175 * w, water_top, sx + 0.175 * w, water_top, 3.5 * u, p["orange"], ' id="glow"')
             + f'<path id="headland" d="{headland}" fill="{p["headland"]}"/>')
 
 
@@ -322,7 +324,7 @@ def main(argv=None):
         page = browser.new_page()
         (OUT / "sheet.png").write_bytes(_screenshot(page, sheet, SHEET_W, SHEET_H))
         if "--all" in argv:
-            concept = argv[argv.index("--concept") + 1]
+            concept = argv[argv.index("--concept") + 1] if "--concept" in argv else CHOSEN
             pkg = ROOT / "out" / "wallpapers" / "nisse"
             (pkg / "contents").mkdir(parents=True, exist_ok=True)
             (pkg / "metadata.json").write_text(metadata(), encoding="ascii", newline=LF)
