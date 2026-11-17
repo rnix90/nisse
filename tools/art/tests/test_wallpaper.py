@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""N-407: the nisse wallpaper, one flat Scandinavian landscape drawn for any screen shape, in a light and a dark look."""
+"""N-407: the nisse wallpaper, three base concepts from the art director's brief, each in a light and a dark look.
+
+The rules come from the brief (see the N-407 ledger entry): solid fills with no outlines, at most six colors in a look, under
+25 marks, exactly one orange (the sun and what belongs to it), the left fifth calm, flat shapes only.
+"""
 import json
 import re
 import sys
@@ -15,19 +19,29 @@ import wallpaper  # noqa: E402
 ROOT = HERE.parents[2]
 CAPITAL = "N" + "isse"   # in two parts so the lowercase-name scan does not flag this test
 PALETTE = json.loads((ROOT / "assets" / "palette" / "ember.json").read_text(encoding="ascii"))
+CONCEPTS = ["fjord-gate", "one-hill", "fjell-layers"]
+SHAPES = [(1920, 1080), (2560, 1600), (3440, 1440), (2736, 1824), (1024, 768), (1080, 1920)]
+ORANGES = {"#e0623f", "#f28463", "#bd573c", "#bd4525"}
+MARK = re.compile(r"<(rect|circle|path|polygon|line|ellipse|polyline)\b")
 
 
 def palette_hexes():
     return {e["hex"].lower() for g in ("dark", "light") for e in PALETTE[g].values()}
 
 
-SHAPES = [(1920, 1080), (2560, 1600), (3440, 1440), (2736, 1824), (1024, 768), (1080, 1920)]
+def used_colors(svg):
+    return {h.lower() for h in re.findall(r"#[0-9a-fA-F]{6}\b", svg)}
 
 
+def test_the_three_concepts_from_the_art_director_exist():
+    assert sorted(wallpaper.CONCEPTS) == sorted(CONCEPTS)
+
+
+@pytest.mark.parametrize("concept", CONCEPTS)
 @pytest.mark.parametrize("mode", ["dark", "light"])
 @pytest.mark.parametrize("w,h", SHAPES)
-def test_every_screen_shape_gets_a_valid_ascii_svg_of_exactly_that_size(mode, w, h):
-    svg = wallpaper.scene(w, h, mode)
+def test_every_screen_shape_gets_a_valid_ascii_svg_of_exactly_that_size(concept, mode, w, h):
+    svg = wallpaper.scene(w, h, mode, concept)
     svg.encode("ascii")
     assert f'viewBox="0 0 {w} {h}"' in svg and f'width="{w}"' in svg and f'height="{h}"' in svg
     assert "SPDX-License-Identifier: GPL-2.0-or-later" in svg
@@ -35,53 +49,115 @@ def test_every_screen_shape_gets_a_valid_ascii_svg_of_exactly_that_size(mode, w,
         assert title and CAPITAL not in title
 
 
+@pytest.mark.parametrize("concept", CONCEPTS)
 @pytest.mark.parametrize("mode", ["dark", "light"])
-def test_only_ember_palette_colors_flat_with_no_gradients_filters_or_opacity(mode):
-    svg = wallpaper.scene(1920, 1080, mode)
-    used = {h.lower() for h in re.findall(r"#[0-9a-fA-F]{6}\b", svg)}
+def test_only_ember_palette_colors_at_most_six_and_flat(concept, mode):
+    svg = wallpaper.scene(1920, 1080, mode, concept)
+    used = used_colors(svg)
     assert used <= palette_hexes(), sorted(used - palette_hexes())
-    assert len(used) <= wallpaper.COLOR_BUDGET, len(used)
+    assert len(used) <= wallpaper.COLOR_BUDGET == 6, (len(used), sorted(used))
     for banned in ("Gradient", "filter", "opacity", "mask", "<image", "<text"):
         assert banned not in svg
 
 
-def test_light_and_dark_are_the_same_scene_with_only_the_colors_changed():
+@pytest.mark.parametrize("concept", CONCEPTS)
+def test_fills_have_no_outlines_only_lines_are_stroked(concept):
+    svg = wallpaper.scene(1920, 1080, "dark", concept)
+    for tag in re.findall(r"<(?:rect|circle|path|polygon|ellipse)\b[^>]*>", svg):
+        assert "stroke" not in tag or 'fill="none"' in tag, tag
+
+
+@pytest.mark.parametrize("concept", CONCEPTS)
+def test_under_25_marks_so_the_picture_stays_quiet(concept):
+    svg = wallpaper.scene(1920, 1080, "dark", concept)
+    assert len(MARK.findall(svg)) < 25, len(MARK.findall(svg))
+
+
+@pytest.mark.parametrize("concept", CONCEPTS)
+@pytest.mark.parametrize("mode", ["dark", "light"])
+def test_exactly_one_orange_the_sun_and_what_belongs_to_it(concept, mode):
+    svg = wallpaper.scene(1920, 1080, mode, concept)
+    assert len(used_colors(svg) & ORANGES) == 1          # one orange, one focal point
+    assert re.search(r'<circle id="sun"[^>]*>', svg), "the sun is a circle with id sun"
+
+
+@pytest.mark.parametrize("concept", CONCEPTS)
+def test_light_and_dark_are_the_same_scene_with_only_the_colors_changed(concept):
     def shapes(svg):
         return re.sub(r'#[0-9a-fA-F]{6}\b', "#", svg).replace("light", "").replace("dark", "")
     for w, h in SHAPES:
-        assert shapes(wallpaper.scene(w, h, "dark")) == shapes(wallpaper.scene(w, h, "light")), (w, h)
-    assert wallpaper.scene(1920, 1080, "dark") != wallpaper.scene(1920, 1080, "light")
+        assert shapes(wallpaper.scene(w, h, "dark", concept)) == shapes(wallpaper.scene(w, h, "light", concept)), (w, h)
+    assert wallpaper.scene(1920, 1080, "dark", concept) != wallpaper.scene(1920, 1080, "light", concept)
 
 
-def test_the_scene_is_a_big_hill_with_a_grid_wireframe_mountains_a_fjord_firs_and_a_ring_sun():
-    svg = wallpaper.scene(1920, 1080, "dark")
-    for ident in ("sky", "sun", "clouds", "mountains-far", "mountains-mid", "water", "hill", "grid", "rim", "firs"):
-        assert f'id="{ident}"' in svg, ident
-    assert svg.count("<circle") >= 3                      # the sun disc and its rings
-    assert 'clip-path="url(#hill-clip)"' in svg           # the grid lives on the hill only
-    assert svg.count("<line") + svg.count("<path") >= 20  # grid lines
+@pytest.mark.parametrize("concept", CONCEPTS)
+def test_the_same_screen_shape_always_gives_the_same_picture(concept):
+    assert wallpaper.scene(2560, 1440, "dark", concept) == wallpaper.scene(2560, 1440, "dark", concept)
 
 
-def test_there_is_no_house_or_other_building():
-    for mode in ("dark", "light"):
-        svg = wallpaper.scene(1920, 1080, mode)
-        for banned in ('id="cottage"', 'id="chimney"', 'id="roof"', "cottage"):
-            assert banned not in svg, banned
+@pytest.mark.parametrize("concept", CONCEPTS)
+@pytest.mark.parametrize("w,h", SHAPES)
+def test_the_sun_stays_off_the_left_fifth_where_the_desktop_icons_sit(concept, w, h):
+    svg = wallpaper.scene(w, h, "dark", concept)
+    m = re.search(r'<circle id="sun" cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"', svg)
+    cx, cy, r = (float(v) for v in m.groups())
+    assert cx - r > 0.2 * w or cx > 0.4 * w, (cx, r, w)
 
 
-def test_the_hill_is_the_logos_horizon_curve_a_smooth_dome_that_scales_with_the_screen_height():
-    assert wallpaper.horizon_px(1440) / wallpaper.horizon_px(1080) == pytest.approx(1440 / 1080, rel=0.02)
-    assert wallpaper.horizon_px(1080) > 0.3 * 1080          # Bliss: the hill is a big part of the picture
+@pytest.mark.parametrize("w,h", [(3440, 1440), (1080, 1920)])
+@pytest.mark.parametrize("concept", CONCEPTS)
+def test_on_an_ultrawide_and_a_portrait_screen_the_focal_point_is_pulled_to_the_middle(concept, w, h):
+    svg = wallpaper.scene(w, h, "dark", concept)
+    cx = float(re.search(r'<circle id="sun" cx="([\d.]+)"', svg).group(1))
+    assert 0.38 * w <= cx <= 0.72 * w, cx
 
 
-def test_the_same_screen_shape_always_gives_the_same_picture():
-    assert wallpaper.scene(2560, 1440, "dark") == wallpaper.scene(2560, 1440, "dark")
+def test_the_concepts_have_the_structure_the_brief_describes():
+    gate = wallpaper.scene(1920, 1080, "dark", "fjord-gate")
+    for ident in ("sky", "sun", "wall-left", "wall-right", "water", "grid", "glow", "reflection"):
+        assert f'id="{ident}"' in gate, ident
+    assert gate.count("<line") >= 12                              # the receding grid
+    hill = wallpaper.scene(1920, 1080, "dark", "one-hill")
+    for ident in ("sky", "sun", "plateau", "hill", "trail"):
+        assert f'id="{ident}"' in hill, ident
+    assert "<line" not in hill                                    # no grid on the hill
+    layers = wallpaper.scene(1920, 1080, "dark", "fjell-layers")
+    for ident in ("sky", "sun", "ridge-1", "ridge-2", "headland", "water", "glow"):
+        assert f'id="{ident}"' in layers, ident
+    assert layers.count('class="scan"') == 4
 
 
-def test_a_wider_screen_shows_more_land_not_a_stretched_picture():
-    narrow = wallpaper.scene(1920, 1080, "dark")
-    wide = wallpaper.scene(3440, 1440, "dark")
-    assert wide.count("<polygon") > narrow.count("<polygon")      # more peaks and firs on the ultrawide
+def test_round_two_fixes_from_the_art_director():
+    # Fjord Gate: the dark grid is visible (near lines are brighter) and the reflection is three stacked dashes, not a stake
+    gate = wallpaper.scene(1920, 1080, "dark", "fjord-gate")
+    assert wallpaper.PALETTES["fjord-gate"]["dark"]["grid-near"] == "#7a8699"
+    reflection = gate[gate.index('id="reflection"'):]
+    assert reflection[:reflection.index("</g>")].count("<rect") == 3
+    # One Hill: the sun is half sunk behind the plateau (drawn before it) and the trail ends under the sun's column
+    hill = wallpaper.scene(1920, 1080, "dark", "one-hill")
+    assert hill.index('id="sun"') < hill.index('id="plateau"') < hill.index('id="hill"') < hill.index('id="trail"')
+    sun_x = float(re.search(r'<circle id="sun" cx="([\d.]+)"', hill).group(1))
+    trail = re.search(r'<polygon id="trail" points="([^"]+)"', hill).group(1)
+    xs = [float(p.split(",")[0]) for p in trail.split()]
+    tip = min(xs, key=lambda x: abs(x - sun_x))
+    assert abs(tip - sun_x) < 0.03 * 1920                         # the ribbon reaches the sun's column
+    # Fjell Layers: a bigger sun and a glow line about a third of the width, centred on the sun
+    layers = wallpaper.scene(1920, 1080, "dark", "fjell-layers")
+    m = re.search(r'<circle id="sun" cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"', layers)
+    cx, cy, r = (float(v) for v in m.groups())
+    assert r >= 0.065 * 1080
+    assert 'id="ridge-3"' not in layers and 'id="ridge-4"' not in layers      # the stepped lower mass is gone (round 3)
+    assert layers.index('id="ridge-2"') < layers.index('id="water"') < layers.index('id="headland"')
+    g = re.search(r'<line id="glow" x1="([\d.]+)" y1="[\d.]+" x2="([\d.]+)"', layers)
+    x1, x2 = float(g.group(1)), float(g.group(2))
+    assert 0.30 * 1920 <= (x2 - x1) <= 0.40 * 1920 and abs((x1 + x2) / 2 - cx) < 2
+
+
+def test_there_is_no_house_no_snow_cap_no_outlined_fir_no_sun_rings_no_clouds():
+    for concept in CONCEPTS:
+        svg = wallpaper.scene(1920, 1080, "dark", concept).lower()
+        for banned in ("cottage", "roof", 'id="snow', 'id="firs', 'id="clouds', 'id="ring'):
+            assert banned not in svg, (concept, banned)
 
 
 def test_the_plasma_package_layout_names_each_picture_by_its_size_and_has_a_dark_folder():
@@ -107,8 +183,22 @@ def test_the_metadata_names_the_wallpaper_nisse_in_lowercase_with_the_repository
     assert meta["KPlugin"]["License"] == "GPL-2.0-or-later"
 
 
-def test_the_review_sheet_shows_light_and_dark_and_three_other_shapes():
+def test_the_review_sheet_shows_each_concept_in_both_looks_and_on_other_screens():
     sheet = wallpaper.build_sheet()
     sheet.encode("ascii")
-    for word in ("light", "dark", "ultrawide", "portrait", "16:10"):
+    for word in ("fjord-gate", "one-hill", "fjell-layers", "dark", "light", "ultrawide", "portrait"):
         assert word in sheet, word
+
+
+def test_round_three_one_hill_sun_is_sunk_into_the_plateau_edge():
+    hill = wallpaper.scene(1920, 1080, "dark", "one-hill")
+    m = re.search(r'<circle id="sun" cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"', hill)
+    cx, cy, r = (float(v) for v in m.groups())
+    assert cy >= 0.37 * 1080                       # the centre is on or below the plateau's top edge: a half disc, not a bump
+
+
+def test_a_portrait_screen_gets_the_scene_on_a_shorter_canvas_so_nothing_is_lost_in_the_crop():
+    for concept in CONCEPTS:
+        svg = wallpaper.scene(1080, 1920, "dark", concept)
+        assert 'id="sky-top"' in svg and "translate(0 " in svg, concept       # the scene sits at the bottom under extra sky
+    assert 'id="sky-top"' not in wallpaper.scene(1920, 1080, "dark", "fjord-gate")
