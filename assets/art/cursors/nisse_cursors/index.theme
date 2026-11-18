@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Icon Theme]
+Name=nisse cursors
+Comment=A plain W and X in the nisse font for the two logo cursors; every other pointer is Breeze's
+Inherits=breeze_cursors
