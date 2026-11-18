@@ -8,7 +8,7 @@ cd "$root"
 mkdir -p out
 rm -f out/nisse-live.iso   # a failed RPM build must not leave an old ISO that looks current
 
-for pkg in nisse-release nisse-branding nisse-fonts-nunito nisse-theme nisse-wallpaper nisse-cursors nisse-icons nisse-lookandfeel nisse-defaults nisse-hw nisse-installer nisse-snapshots nisse-sudo nisse-avatars nisse-firstboot nisse-daemon nisse-panel; do
+for pkg in nisse-release nisse-branding nisse-fonts-nunito nisse-theme nisse-wallpaper nisse-cursors nisse-icons nisse-lookandfeel nisse-defaults nisse-hw nisse-installer nisse-snapshots nisse-sudo nisse-choices nisse-avatars nisse-firstboot nisse-daemon nisse-panel; do
     echo "== building $pkg"
     tools/rpm/build-rpm.sh "$pkg" > "out/build-$pkg.log" 2>&1 < /dev/null || {
         echo "build of $pkg failed; see out/build-$pkg.log" >&2

@@ -304,6 +304,14 @@ done
 [ -x "$root/usr/libexec/nisse/shims/sudo" ] && [ -x "$root/usr/libexec/nisse/nisse-askpass" ] || fail "the sudo shim or the popup helper is not executable"
 [ -f "$root/usr/bin/kdialog" ] || fail "kdialog is not in the image (the limited-mode password popup needs it)"
 grep -q 'UserGroups=.*wheel' "$root/etc/xdg/plasmasetuprc" || fail "the first-run user setup does not put the new user in wheel (the sudo policy is for wheel)"
-echo "sudo: nisse-sudo in full mode, shim and popup helper installed, first-run users join wheel"
+# The install choices framework (ledger N-306c): the engine is in the image, the sudo mode is a choice it knows, and the
+# apply service is enabled once the image applies its presets (and not on live media, which the unit itself skips).
+case "$(rpmq -q nisse-choices 2>/dev/null)" in nisse-choices-*) ;; *) fail "nisse-choices is not installed in the image" ;; esac
+[ -x "$root/usr/bin/nisse-choices" ] || fail "the nisse-choices command is missing from the image"
+[ -f "$root/usr/share/nisse/choices.d/10-sudo-mode.toml" ] || fail "the sudo-mode choice manifest is missing from the image"
+state="$(sudo systemctl --root="$merged" is-enabled nisse-choices-apply.service 2>/dev/null || true)"
+case "$state" in enabled | enabled-runtime) ;; *) fail "nisse-choices-apply.service is '$state' after the image applies its presets, expected enabled" ;; esac
+NISSE_CHOICES_MANIFESTS="$root/usr/share/nisse/choices.d" "$root/usr/bin/nisse-choices" validate >/dev/null 2>&1 || fail "the choice manifests in the image do not validate"
+echo "sudo: nisse-sudo in full mode, shim and popup helper installed, first-run users join wheel; choices engine and sudo-mode manifest present"
 
 echo "PASS: ISO contents ($iso), Qt $qt"

@@ -9,8 +9,10 @@ nisse is meant to work without stopping for a password, and the design gives the
 | **limited** | only `/usr/libexec/nisse/nisse-snapshot-batch` is passwordless; one answer is remembered for a few minutes for callers with no terminal | opens a KDE password popup (through the sudo shim) | asks on the terminal as usual |
 
 Switch with `sudo nisse-sudo-mode limited` or `full` (`nisse-sudo-mode status` shows the mode). The new policy is checked with
-`visudo -cf` before it replaces the old file, so a mistake cannot lock everyone out of sudo. The **installer toggle** that picks
-the mode at install time is N-306c; until it exists every install is full.
+`visudo -cf` before it replaces the old file, so a mistake cannot lock everyone out of sudo. The mode is also an
+**install choice** (`docs/install-choices.md`, N-306c): the first-boot wizard (N-306d, N-306e) will ask, an answers file or a
+installer script can set it (`nisse-choices set sudo-mode limited`), and `nisse-choices apply` applies it at first boot. Until
+the wizard page exists every install is full.
 
 **What full mode means, plainly.** Any process running as the installed user (the AI, but also a browser exploit or a malicious
 script the person runs) gets root with no prompt. That is the design's choice (autonomous root with a rollback net), not an

@@ -1,0 +1,2 @@
+# Apply the install choices at every boot; finished work is skipped, so this is cheap and picks up a changed answer.
+enable nisse-choices-apply.service

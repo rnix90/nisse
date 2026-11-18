@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The sudo mode as an install choice (docs/install-choices.md). Applied by nisse-choices through nisse-sudo-mode.
+id = "sudo-mode"
+title = "Administrator rights for the AI"
+description = "How the AI, and every program that runs as you, gets administrator rights. Nothing stops to ask unless you pick the limited mode."
+stage = "firstboot"
+order = 10
+kind = "enum"
+default = "full"
+
+[[options]]
+value = "full"
+title = "All passwordless"
+description = "Never asks for a password. Fastest, and the AI works without interruptions, but any program running as you can act as administrator."
+
+[[options]]
+value = "limited"
+title = "Limited, ask me"
+description = "Only nisse's snapshot helper is passwordless. When the AI needs administrator rights a window asks for your password."
+
+[apply]
+command = ["/usr/sbin/nisse-sudo-mode", "{value}"]
+status = ["/usr/sbin/nisse-sudo-mode", "status"]

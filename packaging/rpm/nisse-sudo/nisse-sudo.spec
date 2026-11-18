@@ -3,18 +3,20 @@
 
 Name:           nisse-sudo
 Version:        0.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        nisse sudo policy, full or limited, with a password popup
 License:        GPL-2.0-or-later
 BuildArch:      noarch
 Requires:       sudo
 Recommends:     kdialog
+Recommends:     nisse-choices
 
 Source0:        nisse-sudo-mode
 Source1:        nisse-sudo-shim
 Source2:        nisse-askpass
 Source3:        sudoers-full
 Source4:        sudoers-limited
+Source5:        choice-sudo-mode.toml
 
 %description
 nisse is meant to work without being stopped for a password, so everyone in
@@ -38,6 +40,8 @@ install -Dpm 0755 %{SOURCE1} %{buildroot}%{_libexecdir}/nisse/shims/sudo
 install -Dpm 0755 %{SOURCE2} %{buildroot}%{_libexecdir}/nisse/nisse-askpass
 install -Dpm 0644 %{SOURCE3} %{buildroot}%{_datadir}/nisse/sudo/sudoers-full
 install -Dpm 0644 %{SOURCE4} %{buildroot}%{_datadir}/nisse/sudo/sudoers-limited
+# The install choice (N-306c): nisse-choices applies it through nisse-sudo-mode
+install -Dpm 0644 %{SOURCE5} %{buildroot}%{_datadir}/nisse/choices.d/10-sudo-mode.toml
 # The active policy starts as full mode; nisse-sudo-mode replaces both files together.
 install -Dpm 0440 %{SOURCE3} %{buildroot}%{_sysconfdir}/sudoers.d/50-nisse-sudo
 install -dm 0755 %{buildroot}%{_sysconfdir}/nisse
@@ -50,10 +54,15 @@ echo full > %{buildroot}%{_sysconfdir}/nisse/sudo-mode
 %{_libexecdir}/nisse/nisse-askpass
 %{_datadir}/nisse/sudo/sudoers-full
 %{_datadir}/nisse/sudo/sudoers-limited
+%dir %{_datadir}/nisse/choices.d
+%{_datadir}/nisse/choices.d/10-sudo-mode.toml
 %dir %{_sysconfdir}/nisse
 %config(noreplace) %attr(0440,root,root) %{_sysconfdir}/sudoers.d/50-nisse-sudo
 %config(noreplace) %{_sysconfdir}/nisse/sudo-mode
 
 %changelog
+* Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
+- Ship the sudo-mode install choice (a nisse-choices manifest); full stays the default (N-306c)
+
 * Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1
 - Initial package: full mode (wheel passwordless, the default) and limited mode (snapshot helper only, password popup for AI sessions), switched with nisse-sudo-mode
