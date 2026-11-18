@@ -1,0 +1,14 @@
+[Unit]
+Description=nisse health check after an update
+Documentation=file:///usr/share/doc/nisse-update/safe-apply.md
+After=graphical.target multi-user.target network.target
+ConditionKernelCommandLine=!rd.live.image
+ConditionPathExists=/var/lib/nisse/update/state
+
+[Service]
+# simple, not oneshot: the check waits for slow starts and must not hold up the boot's own completion
+Type=simple
+ExecStart=/usr/bin/nisse-health-check run
+
+[Install]
+WantedBy=multi-user.target

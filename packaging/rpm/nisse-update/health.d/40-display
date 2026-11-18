@@ -1,0 +1,27 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse health check: the display session was reached. Only for a machine that boots to the graphical target. The login
+# manager must be running without a restart loop (more than 2 restarts fails), and a session must exist on a seat: the
+# greeter, or a logged-in user's graphical session. A console or serial login has no seat and does not count.
+# Test overrides (never set in production): NISSE_SYSTEMCTL, NISSE_LOGINCTL.
+systemctl="${NISSE_SYSTEMCTL:-/usr/bin/systemctl}"
+loginctl="${NISSE_LOGINCTL:-/usr/bin/loginctl}"
+[ "$("$systemctl" get-default 2>/dev/null)" = graphical.target ] || exit 0
+if [ "$("$systemctl" is-active display-manager.service 2>/dev/null)" != active ]; then
+    echo "the login manager (display-manager.service) is not running"
+    exit 1
+fi
+restarts="$("$systemctl" show -p NRestarts --value display-manager.service 2>/dev/null)"
+case "$restarts" in
+    '' | *[!0-9]*) restarts=0 ;;
+esac
+if [ "$restarts" -gt 2 ]; then
+    echo "the login manager restarted $restarts times"
+    exit 1
+fi
+if ! SYSTEMD_COLORS=0 "$loginctl" list-sessions --no-legend --no-pager 2>/dev/null |
+    awk '$4 ~ /^seat/ && ($6 == "greeter" || $6 == "user") { found = 1 } END { exit !found }'; then
+    echo "no greeter or user session exists on a seat: the display session was not reached"
+    exit 1
+fi
+exit 0

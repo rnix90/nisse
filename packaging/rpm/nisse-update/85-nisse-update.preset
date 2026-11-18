@@ -1,0 +1,2 @@
+# nisse update: the health check runs after every boot (it does nothing unless an update waits to be verified).
+enable nisse-health-check.service

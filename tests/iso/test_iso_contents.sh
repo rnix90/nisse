@@ -313,6 +313,16 @@ case "$(rpmq -q nisse-update 2>/dev/null)" in nisse-update-*) ;; *) fail "nisse-
 grep -q 'NISSE_SNAPSHOT_SKIP' "$root/usr/libexec/nisse/nisse-snapshot-hook" || fail "the dnf snapshot hook does not stand aside for safe-apply"
 echo "safe-apply: nisse-update is in the image, the dnf hook stands aside for it, no update is pending"
 
+# The health check (ledger N-309): the runner, its four checks and the services list are in the image and executable, and the
+# unit is enabled (it does nothing unless an update waits to be verified).
+for f in /usr/bin/nisse-health-check /usr/lib/nisse/health.d/10-boot /usr/lib/nisse/health.d/20-network /usr/lib/nisse/health.d/30-services /usr/lib/nisse/health.d/40-display; do
+    [ -x "$root$f" ] || fail "$f is missing or not executable"
+done
+[ -f "$root/usr/share/nisse/health/services.d/00-core.list" ] || fail "the core service list is missing"
+state="$(sudo systemctl --root="$merged" is-enabled nisse-health-check.service 2>/dev/null || true)"
+case "$state" in enabled | enabled-runtime) ;; *) fail "nisse-health-check.service is '$state' after the image applies its presets, expected enabled" ;; esac
+echo "health check: the runner, the four checks and the unit are in the image and enabled"
+
 # nisse's sudo policy (ledger N-306a): the package is in the image in its default, full mode (wheel runs sudo with no
 # password, the AI works with no interruptions), the sudoers drop-in is the mode sudo requires (0440), and the shim and
 # the password popup helper are there for limited mode.

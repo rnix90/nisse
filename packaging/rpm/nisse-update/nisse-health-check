@@ -1,0 +1,161 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-health-check: is the system good after an update? (ledger N-309)
+#
+#   nisse-health-check run [--deadline SECONDS] [--force]
+#       Only while an update waits to be verified (state=pending-verify, see nisse-apply-updates), or with --force.
+#       Runs every executable in /usr/lib/nisse/health.d in name order, each time round, until all have passed or the
+#       deadline (default 180 s) is over: a slow start is not a failure, so a failing check is simply tried again. A check
+#       that has passed is not run again. Each check is stopped after 20 s.
+#       All passed: write the result and call `nisse-apply-updates verified` (disarms the boot fallback).
+#       Otherwise: write the result with every failing check and its reason, leave the update pending, exit 1. Rolling back
+#       is N-310's job, not this one's.
+#   nisse-health-check status
+#       Print the last result (/var/lib/nisse/update/health), or result=none.
+#
+# A check is an executable: exit 0 when healthy, otherwise non-zero with ONE line on stdout saying what is wrong. A package
+# adds its own checks (and service lists) without touching this one. The four that ship: 10-boot, 20-network, 30-services,
+# 40-display. Bert's decision for the network check: the stack must work, not the internet.
+#
+# Test overrides (never set in production): NISSE_HEALTH_DIR, NISSE_STATE_DIR, NISSE_APPLY_UPDATES, NISSE_HEALTH_INTERVAL,
+# NISSE_CHECK_TIMEOUT, NISSE_NOW.
+set -u
+
+health_dir="${NISSE_HEALTH_DIR:-/usr/lib/nisse/health.d}"
+state_dir="${NISSE_STATE_DIR:-/var/lib/nisse/update}"
+state_file="$state_dir/state"
+health_file="$state_dir/health"
+apply="${NISSE_APPLY_UPDATES:-/usr/bin/nisse-apply-updates}"
+interval="${NISSE_HEALTH_INTERVAL:-3}"
+check_timeout="${NISSE_CHECK_TIMEOUT:-20}"
+default_deadline=180
+
+say() { echo "nisse-health-check: $*"; }
+
+state_value() {
+    [ -f "$state_file" ] || return 0
+    sed -n "s/^$1=//p" "$state_file" | tail -1
+}
+
+one_line() {
+    printf '%s' "$*" | tr '\n\r' '  ' | cut -c1-200
+}
+
+cmd_status() {
+    if [ -f "$health_file" ]; then
+        cat "$health_file"
+    else
+        echo "result=none"
+    fi
+}
+
+cmd_run() {
+    deadline="$default_deadline"
+    force=no
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --force) force=yes; shift ;;
+            --deadline)
+                [ $# -ge 2 ] || { echo "nisse-health-check: --deadline needs a number of seconds" >&2; exit 2; }
+                deadline="$2"
+                shift 2
+                ;;
+            *) echo "nisse-health-check: unknown option: $1" >&2; exit 2 ;;
+        esac
+    done
+    case "$deadline" in
+        '' | *[!0-9]* | 0) echo "nisse-health-check: --deadline must be a whole number of seconds, not '$deadline'" >&2; exit 2 ;;
+    esac
+
+    if [ "$force" = no ] && [ "$(state_value state)" != pending-verify ]; then
+        say "no update is pending verification: nothing to check"
+        return 0
+    fi
+
+    checks=""
+    for f in $(ls -1 "$health_dir" 2>/dev/null | sort); do
+        [ -f "$health_dir/$f" ] && [ -x "$health_dir/$f" ] && checks="$checks $f"
+    done
+    checks="${checks# }"
+    mkdir -p "$state_dir" || { echo "nisse-health-check: cannot create $state_dir" >&2; exit 1; }
+    now="${NISSE_NOW:-$(date +%s)}"
+    if [ -z "$checks" ]; then
+        printf 'message=no health checks are installed in %s
+' "$health_dir" > "$state_dir/health.msg"
+        write_result unhealthy "$now" "" "" "$state_dir/health.msg"
+        rm -f "$state_dir/health.msg"
+        echo "nisse-health-check: no health checks are installed in $health_dir" >&2
+        exit 1
+    fi
+
+    scratch="$(mktemp -d)"
+    trap 'rm -rf "$scratch"' EXIT
+    end=$(($(date +%s) + deadline))
+    while :; do
+        failed=""
+        for c in $checks; do
+            [ -e "$scratch/$c.pass" ] && continue
+            timeout "$check_timeout" "$health_dir/$c" > "$scratch/$c.out" 2>&1
+            rc=$?
+            if [ "$rc" = 0 ]; then
+                : > "$scratch/$c.pass"
+                rm -f "$scratch/$c.msg"
+            else
+                if [ "$rc" = 124 ]; then
+                    printf 'timed out after %s seconds\n' "$check_timeout" > "$scratch/$c.msg"
+                else
+                    head -n 1 "$scratch/$c.out" > "$scratch/$c.msg"
+                    [ -s "$scratch/$c.msg" ] || printf 'failed (exit %s) with no message\n' "$rc" > "$scratch/$c.msg"
+                fi
+                failed="$failed $c"
+            fi
+        done
+        [ -z "$failed" ] && break
+        [ "$(date +%s)" -ge "$end" ] && break
+        sleep "$interval"
+    done
+
+    if [ -z "$failed" ]; then
+        write_result healthy "$now" "$checks" ""
+        say "healthy: $checks"
+        if [ "$force" = no ]; then
+            "$apply" verified || { echo "nisse-health-check: the system is healthy but nisse-apply-updates verified failed" >&2; exit 1; }
+        fi
+        return 0
+    fi
+    failed="${failed# }"
+    : > "$scratch/extra"
+    for c in $failed; do
+        printf 'message-%s=%s
+' "$c" "$(one_line "$(cat "$scratch/$c.msg")")" >> "$scratch/extra"
+        echo "nisse-health-check: $c: $(cat "$scratch/$c.msg")" >&2
+    done
+    write_result unhealthy "$now" "$checks" "$failed" "$scratch/extra"
+    echo "nisse-health-check: unhealthy: $failed" >&2
+    exit 1
+}
+
+# write_result RESULT NOW CHECKS FAILED [FILE-WITH-EXTRA-LINES]
+write_result() {
+    res="$1"; at="$2"; names="$3"; failed_names="$4"; extra_file="${5:-}"
+    tmp="$health_file.new"
+    {
+        echo "result=$res"
+        echo "checked-at=$at"
+        echo "checks=$names"
+        if [ -n "$failed_names" ]; then echo "failed=$failed_names"; fi
+        if [ -n "$extra_file" ] && [ -f "$extra_file" ]; then cat "$extra_file"; fi
+    } > "$tmp" && mv -f "$tmp" "$health_file"
+}
+
+case "${1:-}" in
+    run)
+        shift
+        cmd_run "$@"
+        ;;
+    status) cmd_status ;;
+    *)
+        echo "usage: nisse-health-check run [--deadline SECONDS] [--force] | status" >&2
+        exit 2
+        ;;
+esac

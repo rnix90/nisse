@@ -1,0 +1,6 @@
+# nisse health check (N-309): the services every nisse system needs running. Other packages add their own *.list files.
+dbus-broker.service
+systemd-logind.service
+polkit.service
+systemd-journald.service
+NetworkManager.service

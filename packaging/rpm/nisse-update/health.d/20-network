@@ -1,0 +1,29 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse health check: the network STACK works. Bert's decision (N-309): not the internet. A machine offline for any
+# reason (no cable, a plane, the router off) is healthy; what is checked is that NetworkManager runs and answers, and that
+# it lists every physical network interface the kernel has (a broken driver or a broken NetworkManager update shows here).
+# Test overrides (never set in production): NISSE_SYSTEMCTL, NISSE_NMCLI, NISSE_SYS_NET.
+systemctl="${NISSE_SYSTEMCTL:-/usr/bin/systemctl}"
+nmcli="${NISSE_NMCLI:-/usr/bin/nmcli}"
+sysnet="${NISSE_SYS_NET:-/sys/class/net}"
+if [ "$("$systemctl" is-active NetworkManager.service 2>/dev/null)" != active ]; then
+    echo "NetworkManager is not running"
+    exit 1
+fi
+if ! "$nmcli" -t -f STATE general >/dev/null 2>&1; then
+    echo "NetworkManager is running but does not answer"
+    exit 1
+fi
+devices="$("$nmcli" -t -f DEVICE,TYPE,STATE device 2>/dev/null | cut -d: -f1)"
+missing=""
+for n in "$sysnet"/*; do
+    [ -e "$n/device" ] || continue
+    name="${n##*/}"
+    printf '%s\n' "$devices" | grep -qx "$name" || missing="$missing $name"
+done
+if [ -n "$missing" ]; then
+    echo "the kernel has the network interface(s)$missing that NetworkManager does not list"
+    exit 1
+fi
+exit 0

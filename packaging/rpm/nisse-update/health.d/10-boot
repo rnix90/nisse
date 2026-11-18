@@ -1,0 +1,19 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse health check: the boot reached its target. The default target must be active, and the machine must not have
+# fallen into rescue or emergency mode. One line on stdout says what is wrong.
+# Test override (never set in production): NISSE_SYSTEMCTL.
+systemctl="${NISSE_SYSTEMCTL:-/usr/bin/systemctl}"
+target="$("$systemctl" get-default 2>/dev/null)"
+[ -n "$target" ] || target=multi-user.target
+if [ "$("$systemctl" is-active "$target" 2>/dev/null)" != active ]; then
+    echo "$target is not active"
+    exit 1
+fi
+for t in rescue.target emergency.target; do
+    if [ "$("$systemctl" is-active "$t" 2>/dev/null)" = active ]; then
+        echo "the machine is in $t"
+        exit 1
+    fi
+done
+exit 0

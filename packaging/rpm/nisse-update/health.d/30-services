@@ -1,0 +1,19 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse health check: the key services are active. The units are listed, one per line, in *.list files in
+# /usr/share/nisse/health/services.d (comments with #); any package can add a list for its own services.
+# Test overrides (never set in production): NISSE_SYSTEMCTL, NISSE_SERVICES_DIR.
+systemctl="${NISSE_SYSTEMCTL:-/usr/bin/systemctl}"
+dir="${NISSE_SERVICES_DIR:-/usr/share/nisse/health/services.d}"
+bad=""
+for f in "$dir"/*.list; do
+    [ -f "$f" ] || continue
+    for unit in $(sed 's/#.*//' "$f"); do
+        [ "$("$systemctl" is-active "$unit" 2>/dev/null)" = active ] || bad="$bad $unit"
+    done
+done
+if [ -n "$bad" ]; then
+    echo "not active:$bad"
+    exit 1
+fi
+exit 0

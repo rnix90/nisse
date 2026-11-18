@@ -35,6 +35,31 @@ A failure at any step records `state=failed` with a one-line `message=`, arms no
 | `message` | the reason for a failure |
 | `last` | in `idle`: `verified` or `nothing-to-do` |
 
+## The health check (N-309)
+
+`nisse-health-check` (same package) decides whether the machine that came up after an update is good. The unit
+`nisse-health-check.service` starts after the graphical target on every boot, and does nothing unless
+`state=pending-verify` (it logs "nothing to check").
+
+    nisse-health-check run [--deadline SECONDS] [--force]      status
+
+| Check (`/usr/lib/nisse/health.d/`) | Healthy means |
+|---|---|
+| `10-boot` | the default target is active, and the machine is not in rescue or emergency mode |
+| `20-network` | NetworkManager runs and answers, and it lists every physical network interface the kernel has. **Bert's decision: the network STACK must work, not the internet**: a machine offline for any reason (no cable, a plane, the router off) is healthy, a broken driver or a broken NetworkManager is not |
+| `30-services` | every unit in `/usr/share/nisse/health/services.d/*.list` is active (dbus-broker, systemd-logind, polkit, systemd-journald, NetworkManager) |
+| `40-display` | for a graphical machine: the login manager runs without a restart loop (more than 2 restarts fails) and a greeter or user session exists on a seat (a serial or console login has no seat and does not count) |
+
+- **A check is an executable** in that folder: exit 0 when healthy, otherwise non-zero with ONE line saying what is wrong. A
+  package adds its own check, or a service list, without touching the runner (the AI daemon will add one).
+- **A slow start is not a failure.** The runner goes through the checks again and again until all have passed or the
+  deadline (180 s) is over; a check that has passed is not run again; a check that hangs is stopped after 20 s.
+- **Healthy:** it writes `/var/lib/nisse/update/health` (`result=healthy`, `checked-at`, `checks`) and calls
+  `nisse-apply-updates verified`, which disarms the boot fallback. **Unhealthy:** `result=unhealthy`, `failed=` every failing
+  check and a `message-NAME=` line with its reason, and the update stays pending with GRUB still armed. Rolling back is N-310.
+- No checks installed is a failure, not a pass. `status` prints the last result (`result=none` before any run). `--force`
+  runs the checks without an update pending and without calling `verified` (for looking, and for the tests).
+
 ## The other commands
 
 - `nisse-apply-updates status` prints the state file (`state=idle` when there is none).
@@ -49,14 +74,16 @@ A failure at any step records `state=failed` with a one-line `message=`, arms no
 |---|---|---|
 | `tests/shell/test_nisse_apply_updates.sh` | anywhere | the flow, its order (snapshot, hardware, dnf, post snapshot, arm), every refusal, each failure arming nothing and rebooting nothing, nothing-to-update, status, verified, reboot, against fakes |
 | `tests/shell/test_snapshot_scripts.sh` | anywhere | the dnf hook stands aside when safe-apply is running |
-| `tests/rpm/test_nisse_update.sh` | build VM | the package contents and requirements, rpmlint |
+| `tests/shell/test_nisse_health.sh` | anywhere | each of the four checks, healthy and broken, and the runner (retries, a hanging check, no checks, nothing pending, --force), against fakes |
+| `tests/rpm/test_nisse_update.sh` | build VM | the package contents and requirements, the checks executable, the unit, rpmlint |
+| `tests/e2e/test_health_check.sh` | host (QEMU, installed disk) | the REAL checks on the healthy machine, the display and services checks failing when the login manager or polkit is stopped, a healthy update verifying itself after the reboot, an idle boot touching nothing, an update with a masked NetworkManager staying pending with the reasons recorded |
 | `tests/e2e/test_apply_updates.sh` | host (QEMU, installed disk) | the real dnf, snapper and GRUB: an update from a local file repository ends pending-verify with GRUB armed on the before snapshot, the packages really changed, the machine survives the reboot, and `verified` finishes it; a failing update arms nothing |
 | `tests/iso/test_iso_contents.sh` | ISO rebuild (queued) | the package is in the image |
 
 ## Handed on
 
-- N-309 runs the checks after the reboot and calls `nisse-apply-updates verified` (or lets the watchdog act).
-- N-310 uses `state=pending-verify` and `nisse-boot status` to decide when to roll back.
+- N-309 (done): the health check runs after the reboot and calls `nisse-apply-updates verified` when the machine is good.
+- N-310 uses `state=pending-verify`, the health result (`nisse-health-check status`) and `nisse-boot status` to decide when to roll back.
 - **After a fallback boot the real root's state still says `pending-verify`.** GRUB started the before snapshot (read-only,
   its own copy of the state directory predates the update), and nobody can edit the real root from there. Once the machine is
   back on the normal root, N-310 must settle it (roll back properly, or record the failed update) and not leave it pending.
