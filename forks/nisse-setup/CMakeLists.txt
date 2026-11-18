@@ -81,6 +81,12 @@ add_subdirectory(files)
 add_subdirectory(src)
 add_subdirectory(modules)
 
+# nisse's own tests for nisse's code in this fork (N-306e); the RPM build turns them off
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 file(GLOB_RECURSE ALL_CLANG_FORMAT_SOURCE_FILES src/*.cpp src/*.h modules/*.cpp modules/*.h)
 kde_clang_format(${ALL_CLANG_FORMAT_SOURCE_FILES})
 

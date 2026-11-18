@@ -11,6 +11,11 @@ kpackage_install_package(account org.kde.plasmasetup.account packages plasma)
 add_subdirectory(finished)
 kpackage_install_package(finished org.kde.plasmasetup.finished packages plasma)
 
+# nisse's own page (N-306e): the install choices, drawn from the manifests that packages ship
+add_subdirectory(choicesutil)
+add_subdirectory(choices)
+kpackage_install_package(choices org.nisse.setup.choices packages plasma)
+
 add_subdirectory(hostname)
 kpackage_install_package(hostname org.kde.plasmasetup.hostname packages plasma)
 

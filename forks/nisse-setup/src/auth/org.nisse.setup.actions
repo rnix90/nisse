@@ -681,3 +681,8 @@ Description[uk]=Встановити налаштування тимчасово
 Description[zh_CN]=设置新建用户的显示管理器临时自动登录配置
 Description[zh_TW]=為新建立的使用者設定登入畫面的暫時性自動登入配置
 Policy=no
+
+[org.nisse.setup.setchoice]
+Name=Set an install choice
+Description=Record and apply one of nisse's install choices
+Policy=no

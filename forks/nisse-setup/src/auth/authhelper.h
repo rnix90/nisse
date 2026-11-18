@@ -110,6 +110,20 @@ public Q_SLOTS:
      */
     ActionReply setnewusertempautologin(const QVariantMap &args);
 
+    /**
+     * Records and applies one answer of nisse's install choices (nisse-choices set, then apply).
+     *
+     * The wizard's user may only ask for one answer to one choice; the id and the answer are checked here and again by
+     * nisse-choices against the choice's manifest, so only a manifest's own command ever runs (docs/install-choices.md in the
+     * nisse repository).
+     *
+     * @param args The arguments passed to the action, which should include:
+     * - String: "id": The id of the choice.
+     * - String or bool: "value": The answer ("true" or "false" for a bool choice).
+     * @return An ActionReply indicating success or failure (the failure is one plain line).
+     */
+    ActionReply setchoice(const QVariantMap &args);
+
 private:
     /**
      * Adds a user to the provided supplementary groups using usermod.

@@ -5,6 +5,8 @@
 add_executable(nisse-setup-auth-helper
     authhelper.cpp
     authhelper.h
+    choiceset.cpp
+    choiceset.h
 )
 
 target_link_libraries(nisse-setup-auth-helper

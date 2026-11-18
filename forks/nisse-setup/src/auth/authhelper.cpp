@@ -4,6 +4,7 @@
 
 #include "authhelper.h"
 #include "../usernamevalidator.h"
+#include "choiceset.h"
 
 #include "config-plasma-setup.h"
 
@@ -715,6 +716,18 @@ QString PlasmaSetupAuthHelper::displayManagerConfigPath()
         return PLASMALOGIN_AUTOLOGIN_CONFIG_PATH;
     }
     return SDDM_AUTOLOGIN_CONFIG_PATH;
+}
+
+ActionReply PlasmaSetupAuthHelper::setchoice(const QVariantMap &args)
+{
+    const QVariant rawValue = args.value(QStringLiteral("value"));
+    const QString value = rawValue.typeId() == QMetaType::Bool ? (rawValue.toBool() ? QStringLiteral("true") : QStringLiteral("false")) : rawValue.toString();
+
+    const NisseChoices::SetResult result = NisseChoices::setAndApply(args.value(QStringLiteral("id")).toString(), value);
+    if (!result.ok) {
+        return makeErrorReply(result.message);
+    }
+    return ActionReply::SuccessReply();
 }
 
 KAUTH_HELPER_MAIN("org.nisse.setup", PlasmaSetupAuthHelper)

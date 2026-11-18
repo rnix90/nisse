@@ -31,6 +31,7 @@ polkit.addRule(function (action, subject) {
         "org.nisse.setup.setnewuserglobaltheme", // Set global theme for new user
         "org.nisse.setup.setnewuserdisplayscaling", // Set display scaling for new user
         "org.nisse.setup.setnewusertempautologin", // Set temporary autologin for new user
+        "org.nisse.setup.setchoice", // Record and apply one of nisse's install choices (nisse-choices)
         "org.freedesktop.timedate1.set-timezone", // Set system timezone
     ];
 

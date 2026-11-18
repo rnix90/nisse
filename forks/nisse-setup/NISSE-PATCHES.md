@@ -41,3 +41,31 @@ loudly if a line moved; replay it onto a fresh upstream import before re-applyin
 | `src/main.cpp` | application id `nisse-setup` | the application's id |
 | `src/CMakeLists.txt` | the program is `nisse-setup` | what is installed to libexec |
 | `README.md` | the service, flag file and config file names | the docs follow the renames |
+
+## The install choices page (N-306e; nisse's code, in nisse-owned files and a few hooks into upstream's)
+
+New files are nisse's own (GPL-2.0-or-later, `SPDX-FileCopyrightText: 2026 nisse`); upstream's files only get the hooks that call them.
+
+| File | Change | Why |
+|---|---|---|
+| `src/auth/choiceset.h` | new: validates a choice id and an answer, then runs `nisse-choices set` and `apply --id` | what the root helper does for the page, testable without KAuth |
+| `src/auth/choiceset.cpp` | new: the implementation (no shell, a time limit on the apply, one plain line for a failure) | the helper's logic |
+| `src/auth/authhelper.h` | declares the action `setchoice` | the helper's new action |
+| `src/auth/authhelper.cpp` | implements `setchoice` by calling `NisseChoices::setAndApply` | the helper's new action |
+| `src/auth/CMakeLists.txt` | builds `choiceset.cpp` into the helper | follows the new files |
+| `src/auth/org.nisse.setup.actions` | declares `org.nisse.setup.setchoice` (Policy=no: only the polkit rule's user may use it) | KAuth needs the action declared |
+| `files/nisse-setup-polkit.rules` | the wizard's user may run `org.nisse.setup.setchoice` | the page must be allowed to ask |
+| `modules/CMakeLists.txt` | builds the utility module and installs the page package `org.nisse.setup.choices` | follows the new module |
+| `modules/choicesutil/CMakeLists.txt` | new: the QML utility module `org.nisse.setup.choicesutil` | the page's backend |
+| `modules/choicesutil/choiceslisting.h` | new: reads `nisse-choices list --json` | the page's data |
+| `modules/choicesutil/choiceslisting.cpp` | new: the parser, which gives no choices and a reason for any bad input | the page's data |
+| `modules/choicesutil/choicesutil.h` | new: the singleton the page binds to (choices, count, error, setChoice, reload) | the page's backend |
+| `modules/choicesutil/choicesutil.cpp` | new: runs the engine to list, and the KAuth action to answer | the page's backend |
+| `modules/choices/CMakeLists.txt` | new: the page's QML module | follows the page |
+| `modules/choices/metadata.json` | new: a KDE/PlasmaSetup page `org.nisse.setup.choices`, weight 150 (after Wi-Fi, before Finished) | where the page sits in the wizard |
+| `modules/choices/metadata.json.license` | new: licence of the metadata | REUSE convention |
+| `modules/choices/contents/ui/main.qml` | new: the page (a block per choice: radio buttons for an enum, a switch for a bool, a field for a text; hidden with no choices) | the page |
+| `tests/CMakeLists.txt` | new: builds and registers the two tests | nisse's tests |
+| `tests/choiceset_test.cpp` | new: the helper's logic against a fake engine and, with `NISSE_CHOICES_REAL`, the real one | nisse's tests |
+| `tests/choiceslisting_test.cpp` | new: the parser | nisse's tests |
+| `CMakeLists.txt` | adds the tests directory when testing is on | nisse's tests |
