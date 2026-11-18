@@ -18,7 +18,7 @@
 
 Name:           nisse-setup
 Version:        0.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        nisse's first-boot setup wizard (a fork of KDE Plasma Setup)
 License:        (GPL-2.0-or-later or GPL-3.0-or-later) and GPL-2.0-or-later and GPL-3.0-or-later and (LGPL-2.0-or-later or LGPL-3.0-or-later) and (LGPL-2.1-or-later or LGPL-3.0-or-later) and LGPL-2.1-or-later and BSD-2-Clause and CC0-1.0
 URL:            https://github.com/rnix90/nisse
@@ -73,13 +73,15 @@ before the login screen: language, keyboard, network, time zone, the
 computer's name and the first user, who joins the administrator group. It is a
 fork of KDE Plasma Setup with nisse's look, so a new user gets nisse's
 wallpaper and theme. It runs as a special user that a polkit rule allows to
-run a small root helper, and writes /etc/nisse-setup-done when it finishes so
-that it never runs again.
+run a small root helper. It shows the choices that installed packages
+declare, such as how administrator rights work, and writes
+/etc/nisse-setup-done when it finishes so that it never runs again.
 
 %prep
 
 %build
-%cmake_kf6
+# nisse's own tests run from tests/e2e (they need the real engine), not in the package build
+%cmake_kf6 -DBUILD_TESTING=OFF
 %cmake_build
 
 %install
@@ -107,6 +109,8 @@ cp -p %{_vpath_srcdir}/LICENSES/* licenses/
 %{_kf6_qmldir}/org/kde/plasmasetup/
 %{_kf6_plugindir}/packagestructure/plasmasetup.so
 %{_kf6_datadir}/plasma/packages/%{orgname}.*/
+%{_kf6_datadir}/plasma/packages/%{setupname}.*/
+%{_kf6_qmldir}/org/nisse/
 %license %{_kf6_datadir}/plasma/packages/%{orgname}.finished/contents/ui/konqi-calling.png.license
 %{_unitdir}/nisse-setup*
 %{_sysusersdir}/nisse-setup*
@@ -119,5 +123,8 @@ cp -p %{_vpath_srcdir}/LICENSES/* licenses/
 %{_datadir}/nisse-setup/
 
 %changelog
+* Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
+- The choices page (org.nisse.setup.choices, weight 150) and the root helper action org.nisse.setup.setchoice that records and applies one install choice through nisse-choices (N-306e)
+
 * Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1
 - Initial package: the nisse fork of KDE Plasma Setup 6.8.3 (forks/nisse-setup), with nisse's look and nisse-owned system names (N-306d)

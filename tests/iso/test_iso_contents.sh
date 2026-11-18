@@ -328,6 +328,14 @@ done
 grep -qx 'UserGroups=wheel' "$root/etc/xdg/nissesetuprc" || fail "the wizard's user does not join wheel (the sudo policy is for wheel)"
 state="$(sudo systemctl --root="$merged" is-enabled nisse-setup.service 2>/dev/null || true)"
 case "$state" in enabled | enabled-runtime) ;; *) fail "nisse-setup.service is '$state' after the image applies its presets, expected enabled" ;; esac
-echo "first boot: nisse-setup replaces plasma-setup, enabled, wheel, not finished"
+# The choices page of the wizard (ledger N-306e): the page, its backend module and the helper action are in the image, and the
+# action is declared and allowed for the wizard's user only.
+for f in /usr/share/plasma/packages/org.nisse.setup.choices/metadata.json /usr/share/plasma/packages/org.nisse.setup.choices/contents/ui/main.qml; do
+    [ -f "$root$f" ] || fail "$f missing from the image"
+done
+[ -d "$root/usr/lib64/qt6/qml/org/nisse/setup/choicesutil" ] || fail "the choicesutil QML module is missing from the image"
+grep -q 'action id="org.nisse.setup.setchoice"' "$root/usr/share/polkit-1/actions/org.nisse.setup.policy" || fail "the helper does not declare org.nisse.setup.setchoice"
+grep -q '"org.nisse.setup.setchoice"' "$root/usr/share/polkit-1/rules.d/nisse-setup-polkit.rules" || fail "polkit does not allow org.nisse.setup.setchoice for the wizard's user"
+echo "first boot: nisse-setup replaces plasma-setup, enabled, wheel, not finished; the choices page and its helper action are present"
 
 echo "PASS: ISO contents ($iso), Qt $qt"

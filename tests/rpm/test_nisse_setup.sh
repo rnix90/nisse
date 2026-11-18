@@ -62,6 +62,26 @@ grep -q 'org.kde.plasmasetup.' <<< "$rules" && fail "the polkit rule still names
 dbus="$(member usr/share/dbus-1/system-services/org.nisse.setup.service)"
 grep -q 'nisse-setup-auth-helper' <<< "$dbus" || fail "the helper's D-Bus service must start nisse-setup-auth-helper"
 
+# N-306e: the choices page and the helper action behind it
+grep -qx "/usr/share/plasma/packages/org.nisse.setup.choices/metadata.json" <<< "$files" || fail "the choices page package is missing"
+grep -qx "/usr/share/plasma/packages/org.nisse.setup.choices/contents/ui/main.qml" <<< "$files" || fail "the choices page has no main.qml"
+grep -q '/usr/lib64/qt6/qml/org/nisse/setup/choicesutil/' <<< "$files" || fail "the choicesutil QML module is missing"
+page="$(member usr/share/plasma/packages/org.nisse.setup.choices/metadata.json)"
+python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["KPackageStructure"]=="KDE/PlasmaSetup" and d["X-KDE-ParentApp"]=="org.kde.plasmasetup"; w=d["X-KDE-Weight"]; assert 50 < w < 200, w' "$page" \
+    || fail "the choices page must be a KDE/PlasmaSetup page weighted between Wi-Fi (50) and Finished (200)"
+grep -q 'action id="org.nisse.setup.setchoice"' <<< "$policy" || fail "the helper does not declare org.nisse.setup.setchoice"
+grep -q '"org.nisse.setup.setchoice"' <<< "$rules" || fail "polkit does not allow org.nisse.setup.setchoice for the wizard's user"
+# its default is no for everybody else: only the polkit rule's user may use it
+python3 - "$policy" <<'PY' || fail "setchoice must default to no (only the wizard's user, through the polkit rule)"
+import re, sys
+policy = sys.argv[1]
+m = re.search(r'<action id="org\.nisse\.setup\.setchoice"\s*>(.*?)</action>', policy, re.S)
+assert m, "no setchoice action"
+d = re.search(r'<defaults>(.*?)</defaults>', m.group(1), re.S).group(1)
+vals = re.findall(r'<allow_(\w+)>(\w+)</allow_\1>', d)
+assert vals and all(v == "no" for _, v in vals), d   # every default that is set says no
+PY
+
 # every KPackage page the wizard discovers is there (KDE's modules, KDE/PlasmaSetup)
 for page in account finished hostname keyboard language prepare time wifi; do
     grep -qx "/usr/share/plasma/packages/org.kde.plasmasetup.$page/metadata.json" <<< "$files" || fail "page $page is missing"

@@ -37,8 +37,11 @@ it is, what was changed and how upstream is tracked: `forks/nisse-setup/UPSTREAM
 
 **How N-306e writes answers** (decided here so the page needs no new mechanism): the choices page is a KPackage module of the fork;
 it calls one more root-helper action, `org.nisse.setup.setchoice` (id and value as arguments), which runs `nisse-choices set ID
-VALUE` as root (the engine validates against the manifests, so the helper trusts nothing); the action is added to the polkit rule's
-list. The unit `nisse-choices-apply.service` runs after `nisse-setup.service`, so the answers are applied before the first login.
+VALUE` and then `nisse-choices apply --id ID` as root (the engine validates against the manifests, so the helper trusts nothing); the
+action is in the polkit rule's list. **Answers are applied at once, not by the boot-time service:** `nisse-setup.service` is only the
+boot utility and ends before the wizard's window opens, so a service ordered after it would run before anyone has answered.
+`nisse-choices-apply.service` stays as the safety net for answers that arrive another way (a kickstart, an import) and runs at every
+boot.
 
 **Unattended installs** (the install harness): the answer file's `%post` creates `/etc/nisse-setup-done`, so no wizard waits for a
 person; `kickstart(wizard=True)` leaves it for a run that wants to see the wizard.
