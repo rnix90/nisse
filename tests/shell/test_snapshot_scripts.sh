@@ -53,6 +53,14 @@ STUB
 }
 has_call() { grep -q -- "$1" "$work/calls"; }
 
+# ---- hook: stands aside while safe-apply (N-308) takes its own pair around the same dnf transaction
+fresh; touch "$work/confdir/root"
+export NISSE_SNAPSHOT_SKIP=1; out="$(sh "$hook" pre 2>&1)"; rc=$?
+[ "$rc" = 0 ] && ! has_call 'create' && ok "hook pre: NISSE_SNAPSHOT_SKIP=1 takes no snapshot (safe-apply has its own pair)" || bad "hook pre with skip: rc=$rc calls=$(cat "$work/calls")"
+echo 7 > "$work/state/pre-number"
+sh "$hook" post >/dev/null 2>&1; unset NISSE_SNAPSHOT_SKIP
+! has_call 'create' && ok "hook post: NISSE_SNAPSHOT_SKIP=1 takes no snapshot either" || bad "hook post with skip took a snapshot"
+
 # ---- hook
 fresh; touch "$work/confdir/root"
 out="$(sh "$hook" pre 2>&1)"; rc=$?

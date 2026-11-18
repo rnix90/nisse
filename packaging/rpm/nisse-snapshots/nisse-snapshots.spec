@@ -3,7 +3,7 @@
 
 Name:           nisse-snapshots
 Version:        0.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        btrfs snapshots around package changes, with a 20-pair, 14-day limit
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -75,6 +75,9 @@ install -Dpm 0755 %{SOURCE9} %{buildroot}%{_libexecdir}/nisse/nisse-snapshot-bat
 %{_presetdir}/83-nisse-snapshots.preset
 
 %changelog
+* Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-3
+- The dnf hook stands aside while nisse-apply-updates takes its own snapshot pair (N-308)
+
 * Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
 - Add nisse-snapshot-batch: the snapshot pair around one AI turn, run by the daemon through sudo (N-306)
 

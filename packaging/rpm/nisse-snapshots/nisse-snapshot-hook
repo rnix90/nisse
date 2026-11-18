@@ -9,7 +9,8 @@
 # error returns 2. Lines of the form log.LEVEL=message are what the actions plugin sends to dnf's own log.
 #
 # Test overrides (never set in production): NISSE_SNAPPER, NISSE_STATE_DIR, NISSE_SNAPPER_CONFDIR, NISSE_ROOT_FSTYPE,
-# NISSE_FREE_PERCENT, NISSE_SNAPSHOT_CONFIG, NISSE_MIN_FREE_PERCENT.
+# NISSE_FREE_PERCENT, NISSE_SNAPSHOT_CONFIG, NISSE_MIN_FREE_PERCENT. NISSE_SNAPSHOT_SKIP (set by nisse-apply-updates) makes the
+# hook do nothing.
 set -u
 
 snapper="${NISSE_SNAPPER:-/usr/bin/snapper}"
@@ -26,6 +27,13 @@ case "$mode" in
     pre | post) ;;
     *) echo "usage: nisse-snapshot-hook pre|post" >&2; exit 2 ;;
 esac
+
+# nisse-apply-updates (safe-apply, N-308) takes its own pair around the transaction and sets this, so the same change is not
+# snapshotted twice.
+if [ -n "${NISSE_SNAPSHOT_SKIP:-}" ]; then
+    info "skipped: safe-apply takes its own snapshot pair"
+    exit 0
+fi
 
 # Only a btrfs root that has the snapper root config can be snapshotted: live media, other filesystems and a
 # half-installed system are quietly skipped.

@@ -306,6 +306,13 @@ done
 [ -e "$root/boot/grub2/nisse-boot.cfg" ] && fail "the image ships a snapshot menu file (it is written on an installed btrfs system)"
 echo "boot recovery: nisse-boot, the GRUB snippets and the units are in the image; no snapshot menu until an installed system makes one"
 
+# Safe-apply (ledger N-308): the update flow is in the image with what it calls, and nothing is pending in a fresh image.
+case "$(rpmq -q nisse-update 2>/dev/null)" in nisse-update-*) ;; *) fail "nisse-update is not installed in the image" ;; esac
+[ -x "$root/usr/bin/nisse-apply-updates" ] || fail "nisse-apply-updates is missing or not executable"
+[ -e "$root/var/lib/nisse/update/state" ] && fail "the image ships an update state file (nothing may be pending in a fresh image)"
+grep -q 'NISSE_SNAPSHOT_SKIP' "$root/usr/libexec/nisse/nisse-snapshot-hook" || fail "the dnf snapshot hook does not stand aside for safe-apply"
+echo "safe-apply: nisse-update is in the image, the dnf hook stands aside for it, no update is pending"
+
 # nisse's sudo policy (ledger N-306a): the package is in the image in its default, full mode (wheel runs sudo with no
 # password, the AI works with no interruptions), the sudoers drop-in is the mode sudo requires (0440), and the shim and
 # the password popup helper are there for limited mode.
