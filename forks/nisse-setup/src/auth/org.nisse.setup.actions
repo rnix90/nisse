@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 [Domain]
-Name=Plasma Setup
+Name=nisse setup
 Name[ar]=إعداد بلازما
 Name[az]=Plasma qurulması
 Name[ca]=Configuració del Plasma
@@ -47,7 +47,7 @@ Name[zh_TW]=Plasma 初始設定
 Icon=kauth-example
 URL=https://invent.kde.org/plasma/plasma-setup
 
-[org.kde.plasmasetup.createuser]
+[org.nisse.setup.createuser]
 Name=Create User
 Name[ar]=أنشئ مستخدِم
 Name[ca]=Creació d'un usuari
@@ -128,7 +128,7 @@ Description[zh_CN]=创建初始用户账户
 Description[zh_TW]=建立初始使用者帳號
 Policy=no
 
-[org.kde.plasmasetup.createflagfile]
+[org.nisse.setup.createflagfile]
 Name=Create Completion Flag File
 Name[ar]=أنشئ ملف علامة الإكمال
 Name[ca]=Crea un fitxer d'indicadors de compleció
@@ -167,46 +167,46 @@ Name[tr]=Tamamlanma Bayrağı Dosyası Oluştur
 Name[uk]=Створити файл прапорця завершення
 Name[zh_CN]=创建补全标志文件
 Name[zh_TW]=建立完成旗標檔案
-Description=Write the /etc/plasma-setup-done marker to prevent rerunning setup
-Description[ar]=اكتب علامة /etc/plasma-setup-done لمنع إعادة تشغيل الإعداد
-Description[ca]=Escriu el marcador /etc/plasma-setup-done per a evitar tornar a executar la configuració
-Description[ca@valencia]=Escriu el marcador /etc/plasma-setup-done per a evitar tornar a executar la configuració
-Description[cs]=Zapsat značku /etc/plasma-setup-done pro prevenci nového spuštění úvodního nastavení
-Description[de]=Den „/etc/plasma-setup-done“-Marker schreiben, um das Wiederholen der Einrichtung zu verhindern
-Description[es]=Escribir el marcador /etc/plasma-setup-done para no repetir la configuración
-Description[eu]=Idatzi /etc/plasma-setup-done marka ezarpena berriz exekutatzea saihesteko
-Description[fi]=Kirjoita /etc/plasma-setup-done-tiedosto, jottei asetusohjelmaa ajeta uudelleen
-Description[fr]=Écrivez le marqueur « /etc/plasma-setup-done » pour éviter une nouvelle application de la configuration
-Description[he]=לכתוב את הסמן ‎/etc/plasma-setup-done כדי למנוע את הרצת תוכנית ההתקנה שוב
-Description[hu]=Létrehozza az /etc/plasma-setup-done jelölőt a beállítás újra futtatásának megelőzésére
-Description[ia]=Scribe le marcator de /etc/plasma-setup-done perprevenir re-executar setup (le configurar)
-Description[it]=Scrivi il marcatore /etc/plasma-setup-done per evitare di eseguire nuovamente l'installazione
+Description=Write the /etc/nisse-setup-done marker to prevent rerunning setup
+Description[ar]=اكتب علامة /etc/nisse-setup-done لمنع إعادة تشغيل الإعداد
+Description[ca]=Escriu el marcador /etc/nisse-setup-done per a evitar tornar a executar la configuració
+Description[ca@valencia]=Escriu el marcador /etc/nisse-setup-done per a evitar tornar a executar la configuració
+Description[cs]=Zapsat značku /etc/nisse-setup-done pro prevenci nového spuštění úvodního nastavení
+Description[de]=Den „/etc/nisse-setup-done“-Marker schreiben, um das Wiederholen der Einrichtung zu verhindern
+Description[es]=Escribir el marcador /etc/nisse-setup-done para no repetir la configuración
+Description[eu]=Idatzi /etc/nisse-setup-done marka ezarpena berriz exekutatzea saihesteko
+Description[fi]=Kirjoita /etc/nisse-setup-done-tiedosto, jottei asetusohjelmaa ajeta uudelleen
+Description[fr]=Écrivez le marqueur « /etc/nisse-setup-done » pour éviter une nouvelle application de la configuration
+Description[he]=לכתוב את הסמן ‎/etc/nisse-setup-done כדי למנוע את הרצת תוכנית ההתקנה שוב
+Description[hu]=Létrehozza az /etc/nisse-setup-done jelölőt a beállítás újra futtatásának megelőzésére
+Description[ia]=Scribe le marcator de /etc/nisse-setup-done perprevenir re-executar setup (le configurar)
+Description[it]=Scrivi il marcatore /etc/nisse-setup-done per evitare di eseguire nuovamente l'installazione
 Description[ka]=/etc/plasma-setup-dome ფაილის ჩაწერა მორგების პროგრამის თავიდან გაშვების თავიდან ასაცილებლად
-Description[ko]=/etc/plasma-setup-done 마커를 생성하여 설정이 다시 실행되는 것을 방지함
-Description[lt]=Įrašyti /etc/plasma-setup-done žymeklį, kad būtų neleista iš naujo paleisti sąranką
-Description[lv]=Rakstīt „/etc/plasma-setup-done“ marķieri, lai novērstu atkārtotu ierīces sagatavošanas darbam palaišanu
-Description[nb]=Skriv «/etc/plasma-setup-done»-markøren for å hindre at oppsettet gjentas
-Description[nl]=Schrijf de /etc/plasma-setup-done markering om opzet opnieuw uit te voeren te voorkomen
-Description[nn]=Lagra fila /etc/plasma-setup-done for å hindra at vegvisaren vert køyrd på nytt
-Description[pa]=ਸੈਟਅੱਪ ਦੇ ਦੁਬਾਰਾ ਚਲਾਉਣ ਤੋਂ ਰੋਕਣ ਵਾਸਤੇ  /etc/plasma-setup-done ਨਿਸ਼ਾਨ ਬਣਾਓ
-Description[pl]=Zapisz znacznik w /etc/plasma-setup-done aby uniemożliwić ponowne otwieranie ustawień
-Description[pt_BR]=Escreve o marcador /etc/plasma-setup-done para prevenir a reexecução da configuração
-Description[ro]=Scrie marcatorul /etc/plasma-setup-done pentru a preveni repetarea configurării
-Description[ru]=Запись метки /etc/plasma-setup-done, чтобы настройка не запускалась повторно
-Description[sk]=Zapísať značku /etc/plasma-setup-done na zabránenie opätovného spustenia nastavenia
-Description[sl]=Zapiši označevalnik /etc/plasma-setup-done, da se prepreči ponovni zagon namestitvenega programa
-Description[sr]=Упиши маркер /etc/plasma-setup-done да се подешавање Плазме не би поново покретало
-Description[sr@ijekavian]=Упиши маркер /etc/plasma-setup-done да се подешавање Плазме не би поново покретало
-Description[sr@ijekavianlatin]=Upiši marker /etc/plasma-setup-done da se podešavanje Plasme ne bi ponovo pokretalo
-Description[sr@latin]=Upiši marker /etc/plasma-setup-done da se podešavanje Plasme ne bi ponovo pokretalo
-Description[sv]=Skriv markören /etc/plasma-setup-done för att förhindra att inställning utförs igen
-Description[tr]=Kurulumu yeniden çalıştırmayı önlemek için /etc/plasma-setup-done imleyicisini yazın
-Description[uk]=Записати позначку /etc/plasma-setup-done для запобігання повторному запуску налаштовування
-Description[zh_CN]=写入 /etc/plasma-setup-done 标志以防止反复运行初始设置向导
-Description[zh_TW]=寫入 /etc/plasma-setup-done 檔案來標記設定已完成，以避免重複執行初始設定
+Description[ko]=/etc/nisse-setup-done 마커를 생성하여 설정이 다시 실행되는 것을 방지함
+Description[lt]=Įrašyti /etc/nisse-setup-done žymeklį, kad būtų neleista iš naujo paleisti sąranką
+Description[lv]=Rakstīt „/etc/nisse-setup-done“ marķieri, lai novērstu atkārtotu ierīces sagatavošanas darbam palaišanu
+Description[nb]=Skriv «/etc/nisse-setup-done»-markøren for å hindre at oppsettet gjentas
+Description[nl]=Schrijf de /etc/nisse-setup-done markering om opzet opnieuw uit te voeren te voorkomen
+Description[nn]=Lagra fila /etc/nisse-setup-done for å hindra at vegvisaren vert køyrd på nytt
+Description[pa]=ਸੈਟਅੱਪ ਦੇ ਦੁਬਾਰਾ ਚਲਾਉਣ ਤੋਂ ਰੋਕਣ ਵਾਸਤੇ  /etc/nisse-setup-done ਨਿਸ਼ਾਨ ਬਣਾਓ
+Description[pl]=Zapisz znacznik w /etc/nisse-setup-done aby uniemożliwić ponowne otwieranie ustawień
+Description[pt_BR]=Escreve o marcador /etc/nisse-setup-done para prevenir a reexecução da configuração
+Description[ro]=Scrie marcatorul /etc/nisse-setup-done pentru a preveni repetarea configurării
+Description[ru]=Запись метки /etc/nisse-setup-done, чтобы настройка не запускалась повторно
+Description[sk]=Zapísať značku /etc/nisse-setup-done na zabránenie opätovného spustenia nastavenia
+Description[sl]=Zapiši označevalnik /etc/nisse-setup-done, da se prepreči ponovni zagon namestitvenega programa
+Description[sr]=Упиши маркер /etc/nisse-setup-done да се подешавање Плазме не би поново покретало
+Description[sr@ijekavian]=Упиши маркер /etc/nisse-setup-done да се подешавање Плазме не би поново покретало
+Description[sr@ijekavianlatin]=Upiši marker /etc/nisse-setup-done da se podešavanje Plasme ne bi ponovo pokretalo
+Description[sr@latin]=Upiši marker /etc/nisse-setup-done da se podešavanje Plasme ne bi ponovo pokretalo
+Description[sv]=Skriv markören /etc/nisse-setup-done för att förhindra att inställning utförs igen
+Description[tr]=Kurulumu yeniden çalıştırmayı önlemek için /etc/nisse-setup-done imleyicisini yazın
+Description[uk]=Записати позначку /etc/nisse-setup-done для запобігання повторному запуску налаштовування
+Description[zh_CN]=写入 /etc/nisse-setup-done 标志以防止反复运行初始设置向导
+Description[zh_TW]=寫入 /etc/nisse-setup-done 檔案來標記設定已完成，以避免重複執行初始設定
 Policy=no
 
-[org.kde.plasmasetup.createnewuserautostarthook]
+[org.nisse.setup.createnewuserautostarthook]
 Name=Create New User Autostart Hook
 Name[ar]=إنشاء خطاف بدء آلي لمستخدم جديد
 Name[az]=Yeni istifadəçi avtobaşlatma qoşması yaradın
@@ -287,7 +287,7 @@ Description[zh_CN]=为新创建的用户创建一个自动启动钩子
 Description[zh_TW]=為新建立的使用者建立自動啟動掛鉤
 Policy=no
 
-[org.kde.plasmasetup.removeautologin]
+[org.nisse.setup.removeautologin]
 Name=Remove Autologin
 Name[ar]=إزالة الولوج الآلي
 Name[az]=Avtogirişi silin
@@ -365,7 +365,7 @@ Description[zh_CN]=移除显示管理器自动登录配置
 Description[zh_TW]=移除登入畫面的自動登入配置
 Policy=no
 
-[org.kde.plasmasetup.setnewuserglobaltheme]
+[org.nisse.setup.setnewuserglobaltheme]
 Name=Set New User Global Theme
 Name[ar]=عيِّن سمة عامة جديدة للمستخدم
 Name[az]=Yeni istifadəçi üçün xarici görünüş
@@ -445,7 +445,7 @@ Description[zh_CN]=设置新用户的全局主题
 Description[zh_TW]=為新建立的使用者設定全域主題
 Policy=no
 
-[org.kde.plasmasetup.setnewuserdisplayscaling]
+[org.nisse.setup.setnewuserdisplayscaling]
 Name=Set New User Display Scaling
 Name[ar]=عيّن مقياس عرض المستخدم الجديد
 Name[az]=Yeni istifdəçi üçün ekran miqyası
@@ -524,7 +524,7 @@ Description[zh_CN]=设置新用户的显示缩放
 Description[zh_TW]=為新建立的使用者建立顯示器縮放
 Policy=no
 
-[org.kde.plasmasetup.setnewuserhomedirectoryownership]
+[org.nisse.setup.setnewuserhomedirectoryownership]
 Name=Set New User Home Directory Ownership
 Name[ar]=تعيين ملكية مجلد البيت للمستخدمين الجدد
 Name[az]=Yeni istifadəçi üçün ev qovluğu sahibliyi
@@ -604,7 +604,7 @@ Description[zh_CN]=将新用户的主目录所有权设置为新建用户所有
 Description[zh_TW]=將新使用者的家目錄的擁有者設為該新使用者
 Policy=no
 
-[org.kde.plasmasetup.setnewusertempautologin]
+[org.nisse.setup.setnewusertempautologin]
 Name=Set New User Temporary Autologin
 Name[ar]=تعيين الولوج الآلي المؤقت للمستخدمين الجدد
 Name[az]=Yeni istifadəçi üçün müvəqqəti avtogiriş

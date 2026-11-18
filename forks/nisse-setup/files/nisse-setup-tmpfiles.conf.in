@@ -1,0 +1,44 @@
+# -*- mode: properties -*-
+
+# SPDX-FileCopyrightText: 2025 Kristen McWilliam <kristen@kde.org>
+#
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# tmpfiles.d file for creating the home directory of the nisse-setup
+# user, which is required for nisse setup to run correctly.
+#
+# /usr/lib/tmpfiles.d/nisse-setup.conf
+
+# Create the home dir of the nisse-setup user
+d /run/nisse-setup - - - - -
+
+# Copy the autostart file so it runs on login
+C /run/nisse-setup/.config/autostart/nisse-setup.desktop - - - - ${CMAKE_INSTALL_FULL_DATADIR}/nisse-setup/nisse-setup.desktop
+
+# Prevent plasma-welcome from running
+#
+# This works because plasma-welcome checks this config to decide whether to
+# run or not. A bit hacky, might break if plasma-welcome changes.
+f /run/nisse-setup/.config/plasma-welcomerc - - - - [General]\nLastSeenVersion=6.4.2\nShowUpdatePage=false
+
+# Disable screen locking, leaving only screen dimming / blanking enabled.
+#
+# The nisse-setup special user does not have a password (nor would it be appropriate
+# to require one during first user setup).
+f /run/nisse-setup/.config/kscreenlockerrc - - - - [Daemon]\nAutolock=false\nLockOnResume=false\nTimeout=0
+
+# Disable KWallet so it doesn't bother the user during initial setup
+f /run/nisse-setup/.config/kwalletrc - - - - [Wallet]\nEnabled=false
+
+# Prevent Plasma Desktop from populating with default widgets during initial
+# setup, e.g. no task manager, no system tray, no applications launcher, etc.
+#
+# We create an empty panel with 0 thickness (invisible) to prevent a default
+# empty panel from being created when there are no panels.
+f /run/nisse-setup/.config/plasma-org.kde.plasma.desktop-appletsrc - - - - [Containments][1]\nformfactor=2\nlocation=3\nplugin=org.kde.panel\n\n[Containments][1][General]\nthickness=0
+
+# Install the customized global shortcuts config
+C+ /run/nisse-setup/.config/kglobalaccelrc - - - - ${CMAKE_INSTALL_FULL_DATADIR}/nisse-setup/kglobalaccelrc
+
+# Recursively set the ownership of the home directory
+Z /run/nisse-setup 0750 nisse-setup nisse-setup - -

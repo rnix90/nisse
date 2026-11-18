@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 
-add_executable(plasma-setup-auth-helper
+add_executable(nisse-setup-auth-helper
     authhelper.cpp
     authhelper.h
 )
 
-target_link_libraries(plasma-setup-auth-helper
+target_link_libraries(nisse-setup-auth-helper
     Qt::Core
     Qt::DBus
     KF6::AuthCore
@@ -15,13 +15,13 @@ target_link_libraries(plasma-setup-auth-helper
     KF6::I18n
 )
 
-target_include_directories(plasma-setup-auth-helper PRIVATE
+target_include_directories(nisse-setup-auth-helper PRIVATE
     ${CMAKE_BINARY_DIR} # Allow include of config-plasma-setup.h
 )
 
 # Enable exceptions for the PrivilegeGuard to ease error handling.
-kde_target_enable_exceptions(plasma-setup-auth-helper PRIVATE)
+kde_target_enable_exceptions(nisse-setup-auth-helper PRIVATE)
 
-kauth_install_actions(org.kde.plasmasetup org.kde.plasmasetup.actions)
-install(TARGETS plasma-setup-auth-helper DESTINATION ${KAUTH_HELPER_INSTALL_DIR})
-kauth_install_helper_files(plasma-setup-auth-helper org.kde.plasmasetup root)
+kauth_install_actions(org.nisse.setup org.nisse.setup.actions)
+install(TARGETS nisse-setup-auth-helper DESTINATION ${KAUTH_HELPER_INSTALL_DIR})
+kauth_install_helper_files(nisse-setup-auth-helper org.nisse.setup root)

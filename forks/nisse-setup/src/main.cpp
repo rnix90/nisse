@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
         QQuickStyle::setStyle(QStringLiteral("org.kde.desktop"));
     }
 
-    KAboutData about(QStringLiteral("plasma-setup"),
+    KAboutData about(QStringLiteral("nisse-setup"),
                      i18n("nisse setup"),
                      QStringLiteral(PLASMASETUP_VERSION_STRING),
                      i18n("Make nisse yours"),

@@ -20,12 +20,12 @@
 /**
  * Path to the SDDM autologin configuration file.
  */
-const QString SDDM_AUTOLOGIN_CONFIG_PATH = QStringLiteral("/etc/sddm.conf.d/99-plasma-setup.conf");
+const QString SDDM_AUTOLOGIN_CONFIG_PATH = QStringLiteral("/etc/sddm.conf.d/99-nisse-setup.conf");
 
 /**
  * Path to the PlasmaLogin autologin configuration file.
  */
-const QString PLASMALOGIN_AUTOLOGIN_CONFIG_PATH = QStringLiteral("/etc/plasmalogin.conf.d/99-plasma-setup.conf");
+const QString PLASMALOGIN_AUTOLOGIN_CONFIG_PATH = QStringLiteral("/etc/plasmalogin.conf.d/99-nisse-setup.conf");
 
 /**
  * Path to the config to the active display manager (sddm or plasmalogin)
@@ -82,7 +82,7 @@ bool BootUtil::writeDisplayManagerAutologin(const bool autoLogin)
     // Write the autologin configuration
     QTextStream stream(&file);
     stream << "[Autologin]\n";
-    stream << "User=plasma-setup\n";
+    stream << "User=nisse-setup\n";
     stream << "Session=plasma\n";
     file.close();
 

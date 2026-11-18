@@ -1,0 +1,42 @@
+// -*- mode: javascript -*-
+
+// SPDX-FileCopyrightText: 2025 Kristen McWilliam <kristen@kde.org>
+//
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+// Polkit rule allowing nisse setup to run actions without requiring interactive authentication.
+//
+// /etc/polkit-1/rules.d/nisse-setup.rules
+
+polkit.addRule(function (action, subject) {
+    // Uncomment the following log action for debugging purposes
+    // polkit.log("nisse-setup: action: " + action + ", subject: " + subject);
+
+    // Only allow actions for the "nisse-setup" user.
+    if (subject.user !== "nisse-setup") {
+        return;
+    }
+
+    // Actions that are allowed without authentication for the "nisse-setup" user.
+    var allowedActions = [
+        "org.freedesktop.NetworkManager.settings.modify.system", // System-wide network connections
+        "org.freedesktop.hostname1.set-hostname", // Transient hostname
+        "org.freedesktop.hostname1.set-static-hostname", // Static hostname
+        "org.freedesktop.locale1.set-keyboard", // Keyboard layout
+        "org.freedesktop.locale1.set-locale", // System locale
+        "org.nisse.setup.createuser", // User creation
+        "org.nisse.setup.createflagfile", // Create completion flag file
+        "org.nisse.setup.createnewuserautostarthook", // Create autostart hook for new user to perform cleanup tasks
+        "org.nisse.setup.removeautologin", // Remove display manager autologin
+        "org.nisse.setup.setnewuserglobaltheme", // Set global theme for new user
+        "org.nisse.setup.setnewuserdisplayscaling", // Set display scaling for new user
+        "org.nisse.setup.setnewusertempautologin", // Set temporary autologin for new user
+        "org.freedesktop.timedate1.set-timezone", // Set system timezone
+    ];
+
+    // Check if the current action is in our allowed list.
+    if (allowedActions.indexOf(action.id) >= 0) {
+        polkit.log("nisse-setup: allowing action " + action.id);
+        return polkit.Result.YES;
+    }
+});

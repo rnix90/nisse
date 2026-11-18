@@ -15,7 +15,7 @@ ecm_qt_declare_logging_category(logging_SRCS
     EXPORT PLASMASETUP
 )
 
-add_executable(plasma-setup
+add_executable(nisse-setup
     main.cpp
     pagesmodel.cpp
     pagesmodel.h
@@ -31,14 +31,14 @@ add_executable(plasma-setup
     ${logging_SRCS}
 )
 
-ecm_add_qml_module(plasma-setup GENERATE_PLUGIN_SOURCE
+ecm_add_qml_module(nisse-setup GENERATE_PLUGIN_SOURCE
     URI "org.kde.plasmasetup"
     DEPENDENCIES
         QtGui
         QtQuick
 )
 
-qt_target_qml_sources(plasma-setup
+qt_target_qml_sources(nisse-setup
     QML_FILES
         qml/Main.qml
         qml/SessionMenu.qml
@@ -46,7 +46,7 @@ qt_target_qml_sources(plasma-setup
         qml/LandingComponent.qml
 )
 
-target_link_libraries(plasma-setup
+target_link_libraries(nisse-setup
     PUBLIC
         Qt::Widgets
         Qt::Core
@@ -67,8 +67,8 @@ target_link_libraries(plasma-setup
         componentspluginplugin
 )
 
-target_include_directories(plasma-setup PRIVATE 
+target_include_directories(nisse-setup PRIVATE 
     ${CMAKE_BINARY_DIR} # Allow include of config-plasma-setup.h
 )
 
-install(TARGETS plasma-setup RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})
+install(TARGETS nisse-setup RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})

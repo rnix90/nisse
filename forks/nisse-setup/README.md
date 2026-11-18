@@ -66,7 +66,7 @@ kde-builder --run plasma-setup
 - Enable the systemd service:
 
   ```bash
-  sudo systemctl enable plasma-setup.service
+  sudo systemctl enable nisse-setup.service
   ```
 
 - Reboot:
@@ -76,19 +76,19 @@ With the systemd service enabled, reboot your system and the initial setup will 
 ### Completion flag file
 
 When setup finishes successfully it creates a flag file to indicate this at
-`/etc/plasma-setup-done`. The systemd unit checks for this flag and only runs if
+`/etc/nisse-setup-done`. The systemd unit checks for this flag and only runs if
 it does not exist, so the out-of-box experience only runs once. If you
 intentionally want to re-run the wizard (for example while developing Plasma
 Setup), remove the file manually and reboot:
 
 ```bash
-sudo rm /etc/plasma-setup-done
+sudo rm /etc/nisse-setup-done
 ```
 
 ### Configuration
 
 Plasma Setup can be customized via a system-wide configuration file located at
-`/etc/xdg/plasmasetuprc`. This file allows administrators to set default values
+`/etc/xdg/nissesetuprc`. This file allows administrators to set default values
 and preferences, as well as control certain aspects of the setup process.
 
 #### Build-time options

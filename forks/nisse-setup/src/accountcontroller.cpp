@@ -119,9 +119,9 @@ bool AccountController::createUser()
     QList<QWindow *> topLevelWindows = QGuiApplication::topLevelWindows();
     QWindow *window = topLevelWindows.isEmpty() ? nullptr : topLevelWindows.first();
 
-    KAuth::Action action(QStringLiteral("org.kde.plasmasetup.createuser"));
+    KAuth::Action action(QStringLiteral("org.nisse.setup.createuser"));
     action.setParentWindow(window);
-    action.setHelperId(QStringLiteral("org.kde.plasmasetup"));
+    action.setHelperId(QStringLiteral("org.nisse.setup"));
     action.setArguments({
         {QStringLiteral("username"), m_username},
         {QStringLiteral("fullName"), m_fullName},

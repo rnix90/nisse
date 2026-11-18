@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 [Desktop Entry]
-Exec=${CMAKE_INSTALL_FULL_LIBEXECDIR}/plasma-setup
+Exec=${CMAKE_INSTALL_FULL_LIBEXECDIR}/nisse-setup
 NoDisplay=true
 Type=Application
-Name=Plasma Setup
+Name=nisse setup
 Name[ar]=إعداد بلازما
 Name[az]=Plasma qurulması
 Name[ca]=Configuració del Plasma

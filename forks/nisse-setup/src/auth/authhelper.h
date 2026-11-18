@@ -48,7 +48,7 @@ public Q_SLOTS:
     ActionReply createuser(const QVariantMap &args);
 
     /**
-     * Creates the `/etc/plasma-setup-done` flag file when setup completes.
+     * Creates the `/etc/nisse-setup-done` flag file when setup completes.
      *
      * @param args The arguments passed to the action (not used here).
      * @return An ActionReply indicating success or failure.

@@ -36,17 +36,17 @@ constexpr int MIN_REGULAR_USER_UID = 1000;
 /**
  * Path to the SDDM autologin configuration file.
  */
-const QString SDDM_AUTOLOGIN_CONFIG_PATH = QStringLiteral("/etc/sddm.conf.d/99-plasma-setup.conf");
+const QString SDDM_AUTOLOGIN_CONFIG_PATH = QStringLiteral("/etc/sddm.conf.d/99-nisse-setup.conf");
 
 /**
  * Path to the PlasmaLogin autologin configuration file.
  */
-const QString PLASMALOGIN_AUTOLOGIN_CONFIG_PATH = QStringLiteral("/etc/plasmalogin.conf.d/99-plasma-setup.conf");
+const QString PLASMALOGIN_AUTOLOGIN_CONFIG_PATH = QStringLiteral("/etc/plasmalogin.conf.d/99-nisse-setup.conf");
 
 /**
  * Path to the Plasma Setup home directory.
  */
-const QString PLASMA_SETUP_HOMEDIR = QStringLiteral("/run/plasma-setup");
+const QString PLASMA_SETUP_HOMEDIR = QStringLiteral("/run/nisse-setup");
 
 /**
  * RAII guard for temporarily dropping privileges to a specific user.
@@ -329,7 +329,7 @@ ActionReply PlasmaSetupAuthHelper::createflagfile(const QVariantMap &args)
     }
 
     QTextStream stream(&flagFile);
-    stream << "Plasma Setup completed at " << QDateTime::currentDateTimeUtc().toString(Qt::ISODate) << "Z\n";
+    stream << "nisse setup completed at " << QDateTime::currentDateTimeUtc().toString(Qt::ISODate) << "Z\n";
     flagFile.close();
 
     if (chmod(flagFilePath.toUtf8().constData(), 0644) != 0) {
@@ -375,7 +375,7 @@ ActionReply PlasmaSetupAuthHelper::createnewuserautostarthook(const QVariantMap 
                                   + desktopFile.errorString());
         }
 
-        QString plasmaSetupExecutablePath = QStringLiteral(PLASMA_SETUP_LIBEXECDIR) + QStringLiteral("/plasma-setup");
+        QString plasmaSetupExecutablePath = QStringLiteral(PLASMA_SETUP_LIBEXECDIR) + QStringLiteral("/nisse-setup");
         if (plasmaSetupExecutablePath.isEmpty()) {
             desktopFile.close();
             return makeErrorReply(QStringLiteral("Unable to find the Plasma Setup executable path."));
@@ -717,6 +717,6 @@ QString PlasmaSetupAuthHelper::displayManagerConfigPath()
     return SDDM_AUTOLOGIN_CONFIG_PATH;
 }
 
-KAUTH_HELPER_MAIN("org.kde.plasmasetup", PlasmaSetupAuthHelper)
+KAUTH_HELPER_MAIN("org.nisse.setup", PlasmaSetupAuthHelper)
 
 #include "moc_authhelper.cpp"

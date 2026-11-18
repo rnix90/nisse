@@ -6,31 +6,31 @@
 
 # systemd service file for loading Plasma Setup
 #
-# This service runs plasma-setup's bootutil binary, which decides whether to
+# This service runs nisse-setup's bootutil binary, which decides whether to
 # launch the Plasma Setup wizard based on the presence of a flag file
-# (`plasma-setup-done`) in the system configuration directory.
+# (`nisse-setup-done`) in the system configuration directory.
 #
 # If the flag file does not exist, the wizard starts at boot time before the
 # login manager, and will guide the user through the initial setup process. Once
 # the user completes the setup, the flag file is created to prevent the wizard
 # from running again on subsequent boots.
 #
-# systemd/system/plasma-setup.service
+# systemd/system/nisse-setup.service
 
 [Unit]
-Description=Plasma Setup - Out-of-Box / First-Run setup wizard
+Description=nisse setup - first-run wizard
 After=systemd-user-sessions.service plymouth-quit.service systemd-logind.service dbus.service
 Before=display-manager.service
 
-# Only run if the `plasma-setup-done` flag file does not exist.
-ConditionPathExists=!${KDE_INSTALL_FULL_SYSCONFDIR}/plasma-setup-done
+# Only run if the `nisse-setup-done` flag file does not exist.
+ConditionPathExists=!${KDE_INSTALL_FULL_SYSCONFDIR}/nisse-setup-done
 
 # Do not run in live environments (known condition for dracut)
 ConditionKernelCommandLine=!rd.live.image
 
 [Service]
 Type=oneshot
-ExecStart=${CMAKE_INSTALL_FULL_LIBEXECDIR}/plasma-setup-bootutil
+ExecStart=${CMAKE_INSTALL_FULL_LIBEXECDIR}/nisse-setup-bootutil
 
 [Install]
 WantedBy=multi-user.target

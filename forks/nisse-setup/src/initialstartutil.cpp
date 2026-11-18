@@ -70,9 +70,9 @@ void InitialStartUtil::disablePlasmaSetupAutologin()
 
     qCInfo(PlasmaSetup) << "Removing autologin configuration for plasma-setup user.";
 
-    KAuth::Action action(QStringLiteral("org.kde.plasmasetup.removeautologin"));
+    KAuth::Action action(QStringLiteral("org.nisse.setup.removeautologin"));
     action.setParentWindow(m_window);
-    action.setHelperId(QStringLiteral("org.kde.plasmasetup"));
+    action.setHelperId(QStringLiteral("org.nisse.setup"));
     KAuth::ExecuteJob *job = action.execute();
 
     if (!job->exec()) {
@@ -84,7 +84,7 @@ void InitialStartUtil::disablePlasmaSetupAutologin()
 
 bool InitialStartUtil::runningAsPlasmaSetupUser()
 {
-    return (qgetenv("USER") == "plasma-setup");
+    return (qgetenv("USER") == "nisse-setup");
 }
 
 void InitialStartUtil::logOut()
@@ -97,9 +97,9 @@ void InitialStartUtil::setNewUserTempAutologin()
     const QString username = m_accountController->username();
     qCInfo(PlasmaSetup) << "Setting temporary autologin for new user:" << username;
 
-    KAuth::Action action(QStringLiteral("org.kde.plasmasetup.setnewusertempautologin"));
+    KAuth::Action action(QStringLiteral("org.nisse.setup.setnewusertempautologin"));
     action.setParentWindow(m_window);
-    action.setHelperId(QStringLiteral("org.kde.plasmasetup"));
+    action.setHelperId(QStringLiteral("org.nisse.setup"));
     action.setArguments({{QStringLiteral("username"), username}});
     KAuth::ExecuteJob *job = action.execute();
 
@@ -114,9 +114,9 @@ void InitialStartUtil::createCompletionFlag()
 {
     qCInfo(PlasmaSetup) << "Creating plasma-setup completion flag file.";
 
-    KAuth::Action action(QStringLiteral("org.kde.plasmasetup.createflagfile"));
+    KAuth::Action action(QStringLiteral("org.nisse.setup.createflagfile"));
     action.setParentWindow(m_window);
-    action.setHelperId(QStringLiteral("org.kde.plasmasetup"));
+    action.setHelperId(QStringLiteral("org.nisse.setup"));
     KAuth::ExecuteJob *job = action.execute();
 
     if (!job->exec()) {
@@ -131,9 +131,9 @@ void InitialStartUtil::createNewUserAutostartHook()
     const QString username = m_accountController->username();
     qCInfo(PlasmaSetup) << "Creating autostart hook for new user:" << username;
 
-    KAuth::Action action(QStringLiteral("org.kde.plasmasetup.createnewuserautostarthook"));
+    KAuth::Action action(QStringLiteral("org.nisse.setup.createnewuserautostarthook"));
     action.setParentWindow(m_window);
-    action.setHelperId(QStringLiteral("org.kde.plasmasetup"));
+    action.setHelperId(QStringLiteral("org.nisse.setup"));
     action.setArguments({{QStringLiteral("username"), username}});
     KAuth::ExecuteJob *job = action.execute();
 

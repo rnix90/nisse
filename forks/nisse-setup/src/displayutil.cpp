@@ -21,9 +21,9 @@ void DisplayUtil::setGlobalThemeForNewUser(QWindow *window, QString userName)
 {
     qCInfo(PlasmaSetup) << "Setting global theme for new user.";
 
-    KAuth::Action action(QStringLiteral("org.kde.plasmasetup.setnewuserglobaltheme"));
+    KAuth::Action action(QStringLiteral("org.nisse.setup.setnewuserglobaltheme"));
     action.setParentWindow(window);
-    action.setHelperId(QStringLiteral("org.kde.plasmasetup"));
+    action.setHelperId(QStringLiteral("org.nisse.setup"));
     action.addArgument(QStringLiteral("username"), userName);
 
     KAuth::ExecuteJob *job = action.execute();
@@ -39,9 +39,9 @@ void DisplayUtil::setScalingForNewUser(QWindow *window, QString userName)
 {
     qCInfo(PlasmaSetup) << "Setting scaling for new user:" << userName;
 
-    KAuth::Action action(QStringLiteral("org.kde.plasmasetup.setnewuserdisplayscaling"));
+    KAuth::Action action(QStringLiteral("org.nisse.setup.setnewuserdisplayscaling"));
     action.setParentWindow(window);
-    action.setHelperId(QStringLiteral("org.kde.plasmasetup"));
+    action.setHelperId(QStringLiteral("org.nisse.setup"));
     action.addArgument(QStringLiteral("username"), userName);
 
     KAuth::ExecuteJob *job = action.execute();

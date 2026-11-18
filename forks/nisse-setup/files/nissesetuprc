@@ -4,12 +4,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# Plasma Setup configuration file.
+# nisse setup configuration file.
 #
-# Usually installed to /etc/xdg/plasmasetuprc.
+# Usually installed to /etc/xdg/nissesetuprc.
 #
 # Distributions and administrators can edit it to customize various aspects of
-# how Plasma Setup works.
+# how nisse setup works.
 
 [Accounts]
 # Additional groups (comma-separated) that the user created by Plasma

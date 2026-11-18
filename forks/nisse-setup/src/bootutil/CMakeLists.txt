@@ -11,18 +11,18 @@ ecm_qt_declare_logging_category(logging_SRCS
     EXPORT PLASMASETUP_BOOTUTIL
 )
 
-add_executable(plasma-setup-bootutil
+add_executable(nisse-setup-bootutil
     bootutil.cpp
     bootutil.h
     main.cpp
     ${logging_SRCS}
 )
 
-target_link_libraries(plasma-setup-bootutil
+target_link_libraries(nisse-setup-bootutil
     PRIVATE
         KF6::ConfigCore
         Qt::Core
         Qt::DBus
 )
 
-install(TARGETS plasma-setup-bootutil RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})
+install(TARGETS nisse-setup-bootutil RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})

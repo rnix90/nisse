@@ -16,7 +16,7 @@ public:
      * Writes the autologin configuration.
      *
      * This function writes the necessary configuration to enable autologin
-     * for the display manager for the user "plasma-setup".
+     * for the display manager for the user "nisse-setup".
      *
      * @param autoLogin If true, enables autologin; if false, disables it.
      * @return true if the operation was successful, false otherwise.

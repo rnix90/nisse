@@ -76,7 +76,7 @@ private:
     void setNewUserTempAutologin();
 
     /**
-     * Creates the completion flag file (usually /etc/plasma-setup-done) to indicate that initial setup is complete.
+     * Creates the completion flag file (usually /etc/nisse-setup-done) to indicate that initial setup is complete.
      */
     void createCompletionFlag();
 

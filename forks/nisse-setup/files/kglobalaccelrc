@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# Customized global shortcuts for the plasma-setup session.
+# Customized global shortcuts for the nisse-setup session.
 # 
 # This file is used to disable all but a few essential global shortcuts during
 # setup, preventing users from triggering actions that could interfere with the

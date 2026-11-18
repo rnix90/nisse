@@ -2,40 +2,40 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 
-configure_file(plasma-setup.service.in plasma-setup.service)
+configure_file(nisse-setup.service.in nisse-setup.service)
 install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/plasma-setup.service
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/nisse-setup.service
     DESTINATION ${KDE_INSTALL_SYSTEMDUNITDIR}/system
 )
 
 install(
-    FILES "plasma-setup-polkit.rules"
+    FILES "nisse-setup-polkit.rules"
     DESTINATION ${KDE_INSTALL_DATADIR}/polkit-1/rules.d
 )
 
 install(
-    FILES "plasma-setup-sysuser.conf"
+    FILES "nisse-setup-sysuser.conf"
     DESTINATION "lib/sysusers.d"
 )
 
-configure_file(plasma-setup-tmpfiles.conf.in plasma-setup-tmpfiles.conf)
+configure_file(nisse-setup-tmpfiles.conf.in nisse-setup-tmpfiles.conf)
 install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/plasma-setup-tmpfiles.conf
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/nisse-setup-tmpfiles.conf
     DESTINATION "lib/tmpfiles.d"
 )
 
-configure_file(plasma-setup.desktop.in plasma-setup.desktop)
+configure_file(nisse-setup.desktop.in nisse-setup.desktop)
 install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/plasma-setup.desktop
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/plasma-setup
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/nisse-setup.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/nisse-setup
 )
 
 install(
     FILES "kglobalaccelrc"
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/plasma-setup
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/nisse-setup
 )
 
 install(
-    FILES plasmasetuprc
+    FILES nissesetuprc
     DESTINATION ${KDE_INSTALL_FULL_CONFDIR}
 )

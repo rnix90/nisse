@@ -29,7 +29,7 @@ n="$(git ls-tree -r --name-only "$import" -- "$fork" | wc -l)"
 # everything changed since the import must be in the patch ledger, and the ledger must not name unchanged files
 ledger="$fork/NISSE-PATCHES.md"
 [ -f "$ledger" ] || bad "NISSE-PATCHES.md is missing"
-changed="$(git diff --name-only "$import" HEAD -- "$fork" 2>/dev/null; git ls-files --others --exclude-standard -- "$fork"; git diff --name-only HEAD -- "$fork")"
+changed="$(git diff --name-only --find-renames=30% "$import" HEAD -- "$fork" 2>/dev/null; git ls-files --others --exclude-standard -- "$fork"; git diff --name-only --find-renames=30% HEAD -- "$fork")"
 changed="$(printf '%s\n' "$changed" | sed "s|^$fork/||" | sort -u | grep -v '^$' | grep -v -x -e 'UPSTREAM.md' -e 'NISSE-PATCHES.md')"
 while read -r f; do
     [ -n "$f" ] || continue
@@ -42,6 +42,25 @@ while read -r f; do
     # a listed file may be a rename target or an added file: it must at least exist, and a pure leftover is stale
     [ -e "$fork/$f" ] && ok "ledger names $f (present)" || bad "NISSE-PATCHES.md names $f, which is not in the tree"
 done <<< "$listed"
+
+# the renames (commit 3): the system-visible names are nisse's, and the script that made them is idempotent
+for f in files/nisse-setup.service.in files/nisse-setup-polkit.rules files/nisse-setup-sysuser.conf files/nisse-setup-tmpfiles.conf.in \
+         files/nisse-setup.desktop.in files/nissesetuprc src/auth/org.nisse.setup.actions; do
+    [ -f "$fork/$f" ] && ok "renamed file $f exists" || bad "$f is missing"
+done
+for f in files/plasma-setup.service.in files/plasma-setup-polkit.rules files/plasmasetuprc src/auth/org.kde.plasmasetup.actions; do
+    [ ! -e "$fork/$f" ] && ok "$f is gone" || bad "$f is still there"
+done
+old="$(grep -rn --exclude-dir=po --exclude=UPSTREAM.md --exclude=NISSE-PATCHES.md \
+    -e 'plasma-setup-done' -e '/run/plasma-setup' -e 'plasma-setup-auth-helper' -e 'plasma-setup-bootutil' -e 'User=plasma-setup' \
+    -e '99-plasma-setup' -e 'plasmasetuprc' -e '"plasma-setup"' -e 'setHelperId(QStringLiteral("org.kde.plasmasetup"' \
+    -e 'org.kde.plasmasetup.createuser' -e 'org.kde.plasmasetup.createflagfile' -e 'org.kde.plasmasetup.setnewuser' \
+    -e 'org.kde.plasmasetup.removeautologin' -e 'org.kde.plasmasetup.createnewuserautostarthook' "$fork" | head -5)"
+[ -z "$old" ] && ok "no system-visible plasma-setup name is left in the fork" || bad "old names left: $old"
+if [ -f tools/fork/nisse_setup_rename.py ] && command -v python3 >/dev/null 2>&1; then
+    out="$(python3 tools/fork/nisse_setup_rename.py --check 2>&1)"; rc=$?
+    [ "$rc" = 0 ] && [ -z "$out" ] && ok "the rename script has nothing left to do (it is idempotent)" || bad "rename script --check: rc=$rc out=$out"
+fi
 
 # the nisse look (commit 2)
 grep -q 'wallpapers/nisse/contents/images/' "$fork/src/qml/LandingComponent.qml" && grep -q 'wallpapers/nisse/contents/images_dark/' "$fork/src/qml/LandingComponent.qml" \
