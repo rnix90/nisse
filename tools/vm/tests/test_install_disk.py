@@ -40,7 +40,8 @@ def test_the_answer_file_gives_the_installed_system_a_serial_console_and_a_login
 
 def test_the_install_powers_the_machine_off_when_done_so_the_harness_can_boot_the_disk_next():
     ks = install_disk.kickstart("tester", "pw12345678901234")
-    assert ks.rstrip().endswith("poweroff")
+    assert "poweroff" in ks.splitlines()          # a command, before the %post section
+    assert install_disk.kickstart("tester", "pw12345678901234", wizard=True).rstrip().endswith("poweroff")
 
 
 def test_the_answer_file_is_ascii_and_carries_no_stored_secret():
@@ -137,3 +138,14 @@ def test_the_checks_assert_the_n302_subvolumes_and_compression_on_the_installed_
     assert not re.search(root.expect, "btrfs /dev/vda3[/home]\n")
     comp = next(c for c in install_disk.CHECKS if c.name == "compression")
     assert re.search(comp.expect, "rw,relatime,compress=zstd:1,ssd,discard=async,space_cache=v2,subvolid=256,subvol=/root")
+
+
+def test_an_unattended_install_marks_the_first_boot_wizard_done_so_nobody_has_to_click_through_it():
+    # N-306d: nisse-setup runs before the login screen on a fresh install; the harness has no one to answer it
+    lines = install_disk.kickstart("tester", "pw12345678901234").splitlines()
+    assert "%post" in lines and "%end" in lines
+    post = lines[lines.index("%post") + 1:lines.index("%end")]
+    assert "touch /etc/nisse-setup-done" in post
+    assert lines.index("poweroff") < lines.index("%post"), "the commands come before the sections"
+    wizard = install_disk.kickstart("tester", "pw12345678901234", wizard=True).splitlines()
+    assert "%post" not in wizard and "touch /etc/nisse-setup-done" not in wizard, "wizard=True leaves the wizard to run"

@@ -314,4 +314,20 @@ case "$state" in enabled | enabled-runtime) ;; *) fail "nisse-choices-apply.serv
 NISSE_CHOICES_MANIFESTS="$root/usr/share/nisse/choices.d" "$root/usr/bin/nisse-choices" validate >/dev/null 2>&1 || fail "the choice manifests in the image do not validate"
 echo "sudo: nisse-sudo in full mode, shim and popup helper installed, first-run users join wheel; choices engine and sudo-mode manifest present"
 
+# The first-boot wizard (ledger N-306d): nisse's fork replaces KDE's Plasma Setup, runs before the login screen once, and is
+# not on the live image's own boot (the unit skips live media).
+case "$(rpmq -q nisse-setup 2>/dev/null)" in nisse-setup-*) ;; *) fail "nisse-setup is not installed in the image" ;; esac
+if rpmq -q plasma-setup >/dev/null 2>&1 && case "$(rpmq -q plasma-setup)" in nisse-setup*) false ;; *) true ;; esac; then fail "KDE's plasma-setup is installed beside nisse-setup (it must be replaced)"; fi
+for f in /usr/libexec/nisse-setup /usr/libexec/nisse-setup-bootutil /usr/libexec/kf6/kauth/nisse-setup-auth-helper \
+         /usr/lib/systemd/system/nisse-setup.service /usr/share/polkit-1/rules.d/nisse-setup-polkit.rules /usr/share/polkit-1/actions/org.nisse.setup.policy \
+         /usr/lib/sysusers.d/nisse-setup-sysuser.conf /etc/xdg/nissesetuprc; do
+    [ -e "$root$f" ] || fail "$f missing from the image"
+done
+[ -e "$root/usr/libexec/plasma-setup" ] && fail "KDE's /usr/libexec/plasma-setup is in the image"
+[ -e "$root/etc/nisse-setup-done" ] && fail "the image ships /etc/nisse-setup-done (the wizard would never run on an installed system)"
+grep -qx 'UserGroups=wheel' "$root/etc/xdg/nissesetuprc" || fail "the wizard's user does not join wheel (the sudo policy is for wheel)"
+state="$(sudo systemctl --root="$merged" is-enabled nisse-setup.service 2>/dev/null || true)"
+case "$state" in enabled | enabled-runtime) ;; *) fail "nisse-setup.service is '$state' after the image applies its presets, expected enabled" ;; esac
+echo "first boot: nisse-setup replaces plasma-setup, enabled, wheel, not finished"
+
 echo "PASS: ISO contents ($iso), Qt $qt"

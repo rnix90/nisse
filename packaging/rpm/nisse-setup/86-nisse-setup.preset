@@ -1,0 +1,2 @@
+# The first-boot wizard runs once on an installed system (the unit itself skips live media and a finished setup).
+enable nisse-setup.service

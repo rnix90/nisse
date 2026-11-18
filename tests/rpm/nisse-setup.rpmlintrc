@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# rpmlint filter for the nisse-setup test: these are KDE's own standard license texts, shipped unchanged by Fedora's plasma-setup too
+# (a zero-length KDE license reference and old FSF addresses in the GPL and LGPL texts). Nothing of nisse's is filtered.
+addFilter(r"zero-length /usr/share/licenses/nisse-setup/LicenseRef-KDE-Accepted-LGPL.txt")
+addFilter(r"incorrect-fsf-address /usr/share/licenses/nisse-setup/")

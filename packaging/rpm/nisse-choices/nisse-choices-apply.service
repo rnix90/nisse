@@ -1,7 +1,7 @@
 [Unit]
 Description=Apply the nisse install choices
 # After the first-boot wizard has recorded its answers, before anybody can log in.
-After=local-fs.target plasma-setup.service nisse-setup.service
+After=local-fs.target nisse-setup.service
 Before=display-manager.service
 ConditionKernelCommandLine=!rd.live.image
 

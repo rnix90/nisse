@@ -22,7 +22,7 @@ unit="$(member usr/lib/systemd/system/nisse-choices-apply.service)"
 for want in 'Type=oneshot' 'ExecStart=/usr/bin/nisse-choices apply' 'Before=display-manager.service' 'ConditionKernelCommandLine=!rd.live.image' 'WantedBy=multi-user.target'; do
     grep -qx "$want" <<< "$unit" || fail "nisse-choices-apply.service lacks: $want"
 done
-grep -qE '^After=.*plasma-setup.service' <<< "$unit" || fail "the apply service must run after the first-boot wizard"
+grep -qE '^After=.*nisse-setup.service' <<< "$unit" || fail "the apply service must run after the first-boot wizard"
 grep -qx 'enable nisse-choices-apply.service' <<< "$(member usr/lib/systemd/system-preset/84-nisse-choices.preset)" || fail "preset must enable the apply service"
 
 if command -v systemd-analyze >/dev/null 2>&1; then

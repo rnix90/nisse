@@ -22,6 +22,32 @@ later whole-Plasma fork inherits them; and patches to upstream stay small and do
 | Does it take extra pages? | Yes: a page is a KPackage in `/usr/share/plasma/packages/org.kde.plasmasetup.<name>/` (`KPackageStructure` `KDE/PlasmaSetup`, `X-KDE-ParentApp` `org.kde.plasmasetup`, `X-KDE-Weight` for the order, `contents/ui/main.qml` on `PlasmaSetupComponents.SetupModule` with `available`, `nextEnabled`, `onPageActivated()`). Licences are LGPL and GPL, so a fork can be shipped. |
 | What would forking the WebUI cost? | The node toolchain (`nodejs` is in Fedora, not installed in the VM) and an npm install of upstream's lockfile, then a rebuild of the bundle on every Fedora update, with the fork shipped as an RPM that provides `anaconda-webui`. Deferred until a choice needs the installer (N-518). |
 
+## The wizard (N-306d): `nisse-setup`, a fork of Plasma Setup
+
+Where it lives: `forks/nisse-setup` (source), `packaging/rpm/nisse-setup` (package, Provides and Obsoletes `plasma-setup`). What
+it is, what was changed and how upstream is tracked: `forks/nisse-setup/UPSTREAM.md` and `NISSE-PATCHES.md`.
+
+| Fact | Detail |
+|---|---|
+| Size and build | 169 files, about 6,000 lines of C++ and QML; the build dependencies are 548 MiB (434 packages) once, then a build takes 56 s on 8 cores and makes a 440 KB RPM. Upstream's git is reachable (`invent.kde.org/plasma/plasma-setup`, tags `v6.8.0` to `v6.8.3`). |
+| Pages | Each page is a KPackage (`docs/CUSTOM_MODULES.md` upstream): `language` (weight 0), `keyboard` (5), `prepare` (10, light or dark look and scaling), `account` (20, hidden when a user already exists), `hostname` (30), `time` (40), `wifi` (50), `finished` (200); a `cellular` module exists too. A nisse page is another KPackage with a weight in between. |
+| Privilege | The wizard runs as the special user `nisse-setup` (home `/run/nisse-setup`, logged in by a display-manager autologin file that `nisse-setup-bootutil` writes before the login screen). A polkit rule lets only that user run 13 listed actions without a password: NetworkManager, hostname, locale, timezone, and seven actions of the root helper `nisse-setup-auth-helper` (domain `org.nisse.setup`: create the user, write `/etc/nisse-setup-done`, an autostart hook for the new user, remove the autologin, the new user's theme, scaling, temporary autologin). |
+| Flow | `nisse-setup.service` (oneshot, before the display manager, only if `/etc/nisse-setup-done` is absent and not on live media) runs the boot utility; the wizard ends by creating the user and the flag file, and logs in as the new user. |
+| What changed | the nisse look (the landing page uses `wallpapers/nisse`, the light and dark toggle applies `org.nisse.desktop` and `.light`, the welcome says nisse) and the system-visible names (decision: only those). |
+
+**How N-306e writes answers** (decided here so the page needs no new mechanism): the choices page is a KPackage module of the fork;
+it calls one more root-helper action, `org.nisse.setup.setchoice` (id and value as arguments), which runs `nisse-choices set ID
+VALUE` as root (the engine validates against the manifests, so the helper trusts nothing); the action is added to the polkit rule's
+list. The unit `nisse-choices-apply.service` runs after `nisse-setup.service`, so the answers are applied before the first login.
+
+**Unattended installs** (the install harness): the answer file's `%post` creates `/etc/nisse-setup-done`, so no wizard waits for a
+person; `kickstart(wizard=True)` leaves it for a run that wants to see the wizard.
+
+**First-boot flow today.** Before N-306d nisse disabled `plasma-setup.service` and Anaconda's own accounts page made the first user. Now
+the wizard runs at first boot on every install and skips its account page when Anaconda already made a user; whether the account step
+moves entirely into the wizard (hiding Anaconda's accounts page, as Fedora's KDE profile does) is decided with N-517a, where the user
+info step matters.
+
 ## The framework
 
 ```

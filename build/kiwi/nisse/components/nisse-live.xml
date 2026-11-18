@@ -41,6 +41,7 @@
     <package name="nisse-snapshots"/>
     <package name="nisse-sudo"/>
     <package name="nisse-choices"/>
+    <package name="nisse-setup"/>
     <package name="nisse-avatars"/>
     <package name="nisse-firstboot"/>
     <package name="nisse-daemon"/>
@@ -50,6 +51,7 @@
     <ignore name="fedora-release-*"/>
     <ignore name="fedora-logos"/>
     <ignore name="generic-logos"/>
+    <ignore name="plasma-setup"/>
   </packages>
   <!-- The live-install set, copied from Fedora's components/liveinstall.xml: the point of a live image is to install. -->
   <packages type="iso" patternType="plusRecommended" profiles="Nisse-Live">

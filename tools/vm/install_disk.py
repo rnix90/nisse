@@ -48,8 +48,11 @@ def new_password(n=20):
     return "".join(secrets.choice(alphabet) for _ in range(n))
 
 
-def kickstart(user, password):
-    """The answer file. No `--type` on autopart: the scheme and subvolumes come from the product profile (N-301, N-304)."""
+def kickstart(user, password, wizard=False):
+    """The answer file. No `--type` on autopart: the scheme and subvolumes come from the product profile (N-301, N-304).
+
+    An unattended install has nobody to answer the first-boot wizard (nisse-setup, N-306d), so unless `wizard` is true the
+    answer file marks setup as done."""
     if not USER_RE.match(user):
         raise ValueError(f"not a plain user name: {user!r}")
     if not re.fullmatch(r"[A-Za-z0-9]+", password):
@@ -67,7 +70,12 @@ def kickstart(user, password):
         "xconfig --startxonboot",
         'bootloader --append="console=ttyS0"',
         "poweroff",
-    ]) + "\n"
+    ] + ([] if wizard else [
+        "%post",
+        "# no one is there to click through the first-boot wizard",
+        "touch /etc/nisse-setup-done",
+        "%end",
+    ])) + "\n"
 
 
 def anaconda_command(profile=None):
