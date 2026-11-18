@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""N-403: the n tile is the nisse panel app's own icon. Checks the pieces that can be checked without building an RPM:
+"""N-403: the n tile, a brand asset in nisse-branding (it was the panel app's icon until N-409a gave the AI app the sparkle).
+Checks the pieces that can be checked without building an RPM:
 the freedesktop icon files, the desktop file, the packaging that ships them and the RPM tests that look for them.
 (The RPM and ISO tests themselves run in the Fedora build VM.)"""
 import re
@@ -20,10 +21,11 @@ def test_the_icon_theme_files_exist_at_every_size_and_scalable_and_symbolic():
     assert sym.is_file() and "currentColor" in sym.read_text(encoding="ascii")
 
 
-def test_the_panel_desktop_file_uses_the_n_not_the_start_button_icon():
+def test_the_panel_desktop_file_uses_the_assistant_sparkle_not_the_n_or_the_start_button_icon():
+    # N-409a (Bert, 2026-11-18): the AI app has the three-star sparkle; the n stays a brand asset
     text = (ROOT / "packaging" / "rpm" / "nisse-panel" / "nisse-panel.desktop").read_text(encoding="ascii")
-    assert re.search(r"^Icon=nisse-n$", text, re.M), text
-    assert "distributor-logo-nisse" not in text
+    assert re.search(r"^Icon=nisse-assistant$", text, re.M), text
+    assert "distributor-logo-nisse" not in text and "Icon=nisse-n" not in text
 
 
 def test_the_branding_package_ships_the_n_icons():
@@ -32,15 +34,15 @@ def test_the_branding_package_ships_the_n_icons():
     assert re.search(r"^%\{_datadir\}/icons/hicolor/\*/apps/nisse-n\*$", spec, re.M), "the spec must list the n icons in %files"
 
 
-def test_the_panel_package_requires_the_branding_that_ships_its_icon_and_was_rebuilt():
+def test_the_panel_package_ships_its_own_icon_and_was_rebuilt():
     spec = (ROOT / "packaging" / "rpm" / "nisse-panel" / "nisse-panel.spec").read_text(encoding="utf-8")
-    assert re.search(r"^Requires:\s+nisse-branding$", spec, re.M)
-    assert re.search(r"^Release:\s+16%\{\?dist\}$", spec, re.M), "the panel changed, so its release moves from 15 to 16"
-    assert "- The panel's own icon is the nisse n" in spec
+    assert re.search(r"^Release:\s+17%\{\?dist\}$", spec, re.M), "the panel changed again (N-409a), so its release is 17"
+    assert "assets/art/assistant/hicolor" in spec and "nisse-assistant" in spec
+    assert "- The panel's own icon is the three-star sparkle" in spec
 
 
 def test_the_vm_rpm_tests_look_for_the_new_icon():
     panel = (ROOT / "tests" / "rpm" / "test_nisse_panel.sh").read_text(encoding="utf-8")
-    assert "Icon=nisse-n" in panel and "Icon=distributor-logo-nisse" not in panel
+    assert "Icon=nisse-assistant" in panel and "Icon=distributor-logo-nisse" not in panel
     brand = (ROOT / "tests" / "rpm" / "test_branding.sh").read_text(encoding="utf-8")
     assert "nisse-n.png" in brand and "nisse-n.svg" in brand and "nisse-n-symbolic.svg" in brand
