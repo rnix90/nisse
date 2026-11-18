@@ -19,7 +19,11 @@ for f in /usr/bin/nisse-panel /usr/share/applications/nisse-panel.desktop; do
 done
 printf '%s\n' "$files" | grep -q 'tst_chat' && fail "the test executable must not be installed"
 
-member usr/share/applications/nisse-panel.desktop | grep -qx 'Icon=nisse-n' || fail "desktop file must use the nisse n icon (N-403), not the start button's hat"
+member usr/share/applications/nisse-panel.desktop | grep -qx 'Icon=nisse-assistant' || fail "desktop file must use the assistant sparkle icon (N-409a), not the start button's disc or the n"
+for f in /usr/share/icons/hicolor/scalable/apps/nisse-assistant.svg /usr/share/icons/hicolor/48x48/apps/nisse-assistant.png          /usr/share/icons/hicolor/16x16/apps/nisse-assistant.png /usr/share/icons/hicolor/512x512/apps/nisse-assistant.png; do
+    printf '%s
+' "$files" | grep -qxF "$f" || fail "RPM lacks the assistant icon $f"
+done
 rpm -qp --requires "$rpmf" | grep -q '^nisse-daemon' || fail "RPM must require nisse-daemon"
 rpm -qp --requires "$rpmf" | grep -q 'qt6-qtdeclarative' || fail "RPM must require qt6-qtdeclarative (QML runtime)"
 # N-205: the microphone check runs pw-dump, so the package must pull it in.

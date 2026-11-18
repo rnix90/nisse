@@ -128,6 +128,14 @@ grep -qx 'Theme=nisse_icons' "$root/usr/share/plasma/look-and-feel/org.nisse.des
 grep -qx 'Theme=nisse_icons_dark' "$root/etc/xdg/kdeglobals" || fail "/etc/xdg/kdeglobals does not default to nisse_icons_dark"
 grep -q 'id="drive"' "$root/usr/share/icons/hicolor/scalable/apps/anaconda.svg" || fail "the anaconda icon is not the logo on a disk"
 
+# The AI panel app's icon is the three-star sparkle (N-409a), at every size; the taskbar's two nisse entries are the Start disc and it.
+grep -qx 'Icon=nisse-assistant' "$root/usr/share/applications/nisse-panel.desktop" || fail "nisse-panel.desktop does not use the nisse-assistant icon"
+for f in scalable/apps/nisse-assistant.svg 48x48/apps/nisse-assistant.png 16x16/apps/nisse-assistant.png 512x512/apps/nisse-assistant.png; do
+    [ -f "$root/usr/share/icons/hicolor/$f" ] || fail "the assistant icon $f is missing from hicolor"
+done
+launchers="$(grep -o 'applications:[a-zA-Z.-]*\.desktop\|preferred://[a-z]*' "$root/usr/share/plasma/look-and-feel/org.nisse.desktop/contents/layouts/org.kde.plasma.desktop-layout.js" | tr '\n' ' ')"
+case "$launchers" in "applications:nisse-panel.desktop preferred://filemanager preferred://browser applications:org.kde.konsole.desktop applications:systemsettings.desktop ") ;; *) fail "the pinned taskbar launchers changed: $launchers" ;; esac
+
 # The live session itself: livesys creates the live user and sets up autologin; without these units the ISO boots to
 # a login prompt instead of the desktop (Fedora enables them through its own preset file, which nisse-release replaced).
 for u in livesys.service livesys-late.service; do

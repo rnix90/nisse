@@ -5,7 +5,7 @@
 
 Name:           nisse-panel
 Version:        0.1
-Release:        16%{?dist}
+Release:        17%{?dist}
 Summary:        nisse panel: chat with the AI that looks after this computer
 License:        GPL-2.0-or-later
 BuildRequires:  cmake
@@ -16,6 +16,7 @@ BuildRequires:  qt6-qtdeclarative-devel
 Requires:       nisse-daemon
 Requires:       qt6-qtdeclarative
 Requires:       nisse-branding
+Requires:       hicolor-icon-theme
 # The desktop notice for a waiting approval is held back while a microphone is in use; that is read with pw-dump.
 Requires:       pipewire-utils
 
@@ -41,14 +42,23 @@ install -Dpm 0755 build/nisse-panel %{buildroot}%{_bindir}/nisse-panel
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/applications/nisse-panel.desktop
 # the default global shortcut (Meta+N) is read from the desktop file in this directory, as for Konsole's Ctrl+Alt+T
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/kglobalaccel/nisse-panel.desktop
+# the panel's own icon (N-409a): the three-star sparkle, at every size and scalable
+install -d %{buildroot}%{_datadir}/icons
+cp -a %{nisse_root}/assets/art/assistant/hicolor %{buildroot}%{_datadir}/icons/hicolor
+find %{buildroot}%{_datadir}/icons/hicolor -type f -exec chmod 0644 {} +
+find %{buildroot}%{_datadir}/icons/hicolor -type d -exec chmod 0755 {} +
 
 %files
 %license licenses/LICENSE
 %{_bindir}/nisse-panel
 %{_datadir}/applications/nisse-panel.desktop
 %{_datadir}/kglobalaccel/nisse-panel.desktop
+%{_datadir}/icons/hicolor/*/apps/nisse-assistant.*
 
 %changelog
+* Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-17
+- The panel's own icon is the three-star sparkle (nisse-assistant), flat and in the nisse colors; it ships the icon at every size
+
 * Sun Nov 15 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-16
 - The panel's own icon is the nisse n (a tipped hat on the wordmark's n), no longer the start button's hat
 
