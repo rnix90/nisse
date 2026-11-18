@@ -1,0 +1,36 @@
+# -*- mode: ini -*-
+
+# SPDX-FileCopyrightText: 2025 Kristen McWilliam <kristen@kde.org>
+#
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# systemd service file for loading Plasma Setup
+#
+# This service runs plasma-setup's bootutil binary, which decides whether to
+# launch the Plasma Setup wizard based on the presence of a flag file
+# (`plasma-setup-done`) in the system configuration directory.
+#
+# If the flag file does not exist, the wizard starts at boot time before the
+# login manager, and will guide the user through the initial setup process. Once
+# the user completes the setup, the flag file is created to prevent the wizard
+# from running again on subsequent boots.
+#
+# systemd/system/plasma-setup.service
+
+[Unit]
+Description=Plasma Setup - Out-of-Box / First-Run setup wizard
+After=systemd-user-sessions.service plymouth-quit.service systemd-logind.service dbus.service
+Before=display-manager.service
+
+# Only run if the `plasma-setup-done` flag file does not exist.
+ConditionPathExists=!${KDE_INSTALL_FULL_SYSCONFDIR}/plasma-setup-done
+
+# Do not run in live environments (known condition for dracut)
+ConditionKernelCommandLine=!rd.live.image
+
+[Service]
+Type=oneshot
+ExecStart=${CMAKE_INSTALL_FULL_LIBEXECDIR}/plasma-setup-bootutil
+
+[Install]
+WantedBy=multi-user.target

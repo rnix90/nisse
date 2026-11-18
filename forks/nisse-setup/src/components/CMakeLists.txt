@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2025 Carl Schwan <carl@carlschwan.eu>
+# SPDX-License-Identifier: BSD-2-Clause
+
+add_library(componentsplugin STATIC)
+
+ecm_add_qml_module(componentsplugin
+    URI "org.kde.plasmasetup.components"
+    GENERATE_PLUGIN_SOURCE
+    DEPENDENCIES
+        QtQuick
+)
+
+target_sources(componentsplugin PRIVATE
+    setupmodule.cpp
+    setupmodule.h
+)
+
+qt_target_qml_sources(componentsplugin
+    QML_FILES
+        qml/Debouncer.qml
+)
+
+target_link_libraries(componentsplugin PRIVATE
+    Qt6::Quick
+    Qt6::Qml
+)
+
+ecm_finalize_qml_module(componentsplugin DESTINATION ${KDE_INSTALL_QMLDIR})

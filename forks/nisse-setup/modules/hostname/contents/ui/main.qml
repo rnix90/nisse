@@ -1,0 +1,148 @@
+// SPDX-FileCopyrightText: 2025 Kristen McWilliam <kristen@kde.org>
+//
+// SPDX-License-Identifier: LGPL-2.1-or-later
+
+pragma ComponentBehavior: Bound
+
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+
+import org.kde.kirigami as Kirigami
+
+import org.kde.plasmasetup
+import org.kde.plasmasetup.components as PlasmaSetupComponents
+
+import org.kde.plasmasetup.hostnameutil
+
+/**
+* Page for setting the system's hostname.
+*/
+PlasmaSetupComponents.SetupModule {
+    id: root
+
+    available: HostnameUtil.hostnameIsDefault()
+
+    /**
+    * Whether the user has modified the field.
+    */
+    property bool hasEdited: false
+
+    /**
+    * True while we are waiting for the debounce timer to fire.
+    */
+    property bool validationPending: false
+
+    /**
+    * Whether the hostname entered is valid.
+    */
+    property bool debouncedHostnameValid: false
+
+    /**
+    * Validation message for the hostname entered.
+    *
+    * If empty, the hostname is valid.
+    */
+    property string debouncedHostnameMessage: ""
+
+    function onPageActivated() {
+        // Disallow these default hostnames, as they would break networking for
+        // user shares.
+        if (HostnameUtil.hostname === "localhost" || HostnameUtil.hostname === "localhost.localdomain") {
+            let username = AccountController.username;
+            let prefix = username.length > 0 ? username : "plasma";
+            hostnameField.text = prefix + "-pc";
+        }
+        hostnameField.forceActiveFocus();
+    }
+
+    /**
+    * Update the validation properties based on the current hostname field text.
+    */
+    function updateValidation() {
+        debouncedHostnameValid = HostnameUtil.isHostnameValid(hostnameField.text);
+        debouncedHostnameMessage = HostnameUtil.hostnameValidationMessage(hostnameField.text);
+        validationPending = false;
+    }
+
+    Component.onCompleted: updateValidation()
+
+    nextEnabled: !root.validationPending && root.debouncedHostnameValid
+
+    contentItem: ScrollView {
+        id: scroll
+        anchors.fill: parent
+        clip: true
+
+        Item {
+            id: centered
+            width: Math.min(scroll.availableWidth, Kirigami.Units.gridUnit * 32)
+            height: scroll.availableHeight
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            ColumnLayout {
+                id: mainColumn
+                anchors.centerIn: parent
+                width: parent.width - Kirigami.Units.gridUnit * 2
+
+                spacing: Kirigami.Units.gridUnit
+
+                Label {
+                    id: titleLabel
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    horizontalAlignment: Text.AlignHCenter
+                    text: i18nc("@info:usagetip", "What should this device be called?")
+                }
+
+                Kirigami.FormLayout {
+                    Layout.fillWidth: true
+
+                    TextField {
+                        id: hostnameField
+
+                        Kirigami.FormData.label: i18nc("@label:textbox", "Hostname:")
+                        inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+
+                        text: HostnameUtil.hostname
+                        onTextChanged: {
+                            root.hasEdited = true;
+                            root.validationPending = true;
+                            validationDebouncer.reset();
+                        }
+
+                        onAccepted: {
+                            if (root.nextEnabled) {
+                                root.nextRequested();
+                            }
+                        }
+
+                        onEditingFinished: {
+                            HostnameUtil.hostname = text;
+                            // `onEditingFinished` means the user pressed Enter or
+                            // moved focus away so we want to validate immediately
+                            // rather than waiting for the debouncer.
+                            validationDebouncer.stop();
+                            root.updateValidation();
+                        }
+                    }
+
+                    Kirigami.InlineMessage {
+                        Layout.fillWidth: true
+                        visible: root.hasEdited && !root.validationPending && root.debouncedHostnameMessage.length > 0
+                        text: root.debouncedHostnameMessage
+                        type: Kirigami.MessageType.Error
+                    }
+
+                    PlasmaSetupComponents.Debouncer {
+                        id: validationDebouncer
+                        onDebounced: root.updateValidation()
+                    }
+                }
+            }
+        }
+    }
+}

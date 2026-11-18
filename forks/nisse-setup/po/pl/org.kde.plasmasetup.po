@@ -1,0 +1,514 @@
+# Copyright (C) 2024 This file is copyright:
+# This file is distributed under the same license as the kiss package.
+# SPDX-FileCopyrightText: 2024, 2025, 2026 Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kiss\n"
+"Report-Msgid-Bugs-To: https://bugs.kde.org\n"
+"POT-Creation-Date: 2026-08-21 00:47+0000\n"
+"PO-Revision-Date: 2026-02-21 09:00+0100\n"
+"Last-Translator: Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>\n"
+"Language-Team: pl\n"
+"Language: pl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
+"|| n%100>=20) ? 1 : 2);\n"
+"X-Generator: Lokalize 25.08.2\n"
+
+#, kde-format
+msgctxt "NAME OF TRANSLATORS"
+msgid "Your names"
+msgstr "Łukasz Wojniłowicz"
+
+#, kde-format
+msgctxt "EMAIL OF TRANSLATORS"
+msgid "Your emails"
+msgstr "lukasz.wojnilowicz@gmail.com"
+
+#: modules/account/contents/ui/main.qml:104
+#, kde-format
+msgid "We need a few details to complete the setup."
+msgstr "Potrzebujemy kilku szczegółów, aby ukończyć ustawianie."
+
+#: modules/account/contents/ui/main.qml:124
+#, kde-format
+msgctxt "@info"
+msgid "This user will be an administrator."
+msgstr "Ten użytkownik będzie administratorem."
+
+#: modules/account/contents/ui/main.qml:135
+#, kde-kuit-format
+msgctxt "@info"
+msgid ""
+"This user will have administrative privileges on the system.<nl/><nl/>This "
+"means that they can change system settings, install software, and access all "
+"files on the system.<nl/><nl/>Choose a strong password for this user."
+msgstr ""
+"Ten użytkownik będzie miał uprawnienia administratora na tym systemie.<nl/"
+"><nl/>Oznacza to, że będą mogli zmienić ustawienia systemowe, początkowe "
+"oprogramowanie oraz dostęp do plików systemowych.<nl/><nl/>Zalecamy nadanie "
+"silnego hasła dla tego użytkownika."
+
+#: modules/account/contents/ui/main.qml:150
+#, kde-format
+msgctxt "@label:textbox"
+msgid "Full Name"
+msgstr "Pełna nazwa"
+
+#: modules/account/contents/ui/main.qml:175
+#, kde-format
+msgctxt "@label:textbox"
+msgid "Username"
+msgstr "Nazwa użytkownika"
+
+#: modules/account/contents/ui/main.qml:202
+#, kde-format
+msgctxt "@label:textbox"
+msgid "Password"
+msgstr "Hasło"
+
+#: modules/account/contents/ui/main.qml:223
+#, kde-format
+msgctxt "@label:textbox"
+msgid "Confirm Password"
+msgstr "Potwierdź hasło"
+
+#: modules/account/contents/ui/main.qml:255
+#, kde-format
+msgid "Passwords must match"
+msgstr "Hasła muszą być takie same"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:14
+#, kde-format
+msgid "Edit APN"
+msgstr "Zmień APN"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:38
+#, kde-format
+msgid "Name"
+msgstr "Nazwa"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:43
+#, kde-format
+msgid "APN"
+msgstr "APN"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:48
+#, kde-format
+msgid "Username"
+msgstr "Nazwa użytkownika"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:53
+#, kde-format
+msgid "Password"
+msgstr "Hasło"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:58
+#, kde-format
+msgid "Network type"
+msgstr "Rodzaj sieci"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:59
+#, kde-format
+msgid "4G/3G/2G"
+msgstr "4G/3G/2G"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:59
+#, kde-format
+msgid "3G/2G"
+msgstr "3G/2G"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:59
+#, kde-format
+msgid "2G"
+msgstr "2G"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:59
+#, kde-format
+msgid "Only 4G"
+msgstr "Tylko 4G"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:59
+#, kde-format
+msgid "Only 3G"
+msgstr "Tylko 3G"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:59
+#, kde-format
+msgid "Only 2G"
+msgstr "Tylko 2G"
+
+#: modules/cellular/contents/ui/EditProfileDialog.qml:59
+#, kde-format
+msgid "Any"
+msgstr "Dowolny"
+
+#: modules/cellular/contents/ui/main.qml:45
+#, kde-format
+msgid ""
+"Please configure your APN below for mobile data, further information will be "
+"available with your carrier."
+msgstr ""
+"Ustaw swój APN poniżej, aby skorzystać z sieci przenośnej, dalszych "
+"szczegółów dostarczy twój dostawca sieci."
+
+#: modules/cellular/contents/ui/main.qml:47
+#, kde-format
+msgid "You are connected to the mobile network."
+msgstr "Jesteś podłączony do sieci komórkowej."
+
+#: modules/cellular/contents/ui/main.qml:49
+#, kde-format
+msgid "Please insert a SIM card into your device."
+msgstr "Włóż kartę SIM do swojego urządzenia."
+
+#: modules/cellular/contents/ui/main.qml:51
+#, kde-format
+msgid "Your device does not have a modem available."
+msgstr "Twoje urządzenie nie zawiera modemu."
+
+#: modules/cellular/contents/ui/main.qml:63
+#, kde-format
+msgid "Mobile Data"
+msgstr "Dane komórkowe"
+
+#: modules/cellular/contents/ui/main.qml:109
+#, kde-format
+msgid "Edit"
+msgstr "Edytuj"
+
+#: modules/cellular/contents/ui/main.qml:117
+#, kde-format
+msgid "Delete"
+msgstr "Usuń"
+
+#: modules/cellular/contents/ui/main.qml:127
+#, kde-format
+msgid "Add APN"
+msgstr "Dodaj APN"
+
+#: modules/finished/contents/ui/main.qml:25
+#, kde-format
+msgctxt "%1 is the distro name"
+msgid "Your device is now ready.<br /><br />Enjoy <b>%1</b>!"
+msgstr ""
+"Twoje urządzenie jest teraz gotowe.<br /><br />Przyjemności z używania <b>"
+"%1</b>!"
+
+#: modules/finished/contents/ui/main.qml:34
+#, kde-format
+msgctxt "%1 is the distro name"
+msgid ""
+"Your device is now ready.<br /><br />After clicking <b>Finish</b> you will "
+"be able to sign in to your new account.<br /><br />Enjoy <b>%1</b>!"
+msgstr ""
+"Twoje urządzenie jest teraz gotowe.<br /><br />Po naciśnięciu <b>Zakończ</b> "
+"będziesz mógł wejść na swoje konto.<br /><br />Przyjemności z używania <b>"
+"%1</b>!"
+
+#: modules/hostname/contents/ui/main.qml:95
+#, kde-format
+msgctxt "@info:usagetip"
+msgid "What should this device be called?"
+msgstr "Jak powinno się nazywać to urządzenie?"
+
+#: modules/hostname/contents/ui/main.qml:104
+#, kde-format
+msgctxt "@label:textbox"
+msgid "Hostname:"
+msgstr "Nazwa gospodarza:"
+
+#: modules/hostnameutil/hostnameutil.cpp:94
+#, kde-format
+msgctxt "@info"
+msgid "Hostname cannot be empty."
+msgstr "Nazwa gospodarza nie może być pusta."
+
+#: modules/hostnameutil/hostnameutil.cpp:96
+#, kde-format
+msgctxt "@info"
+msgid "Hostname cannot be “localhost” or “localhost.localdomain”."
+msgstr ""
+"Nazwa gospodarza nie może być równa “localhost” ani “localhost.localdomain”."
+
+#: modules/hostnameutil/hostnameutil.cpp:98
+#, kde-format
+msgctxt "@info"
+msgid "Hostname is too long (maximum 253 characters)."
+msgstr "Nazwa gospodarza jest zbyt długa (co najwyżej 253 znaki)."
+
+#: modules/hostnameutil/hostnameutil.cpp:100
+#, kde-format
+msgctxt "@info"
+msgid "Hostname cannot start with a dot."
+msgstr "Nazwa gospodarza nie może zaczynać się od kropki."
+
+#: modules/hostnameutil/hostnameutil.cpp:102
+#, kde-format
+msgctxt "@info"
+msgid "Hostname cannot end with a dot."
+msgstr "Nazwa gospodarza nie może kończyć się na kropce."
+
+#: modules/hostnameutil/hostnameutil.cpp:104
+#, kde-format
+msgctxt "@info"
+msgid "Hostname cannot contain consecutive dots."
+msgstr "Nazw gospodarza nie może zawierać kropek obok siebie."
+
+#: modules/hostnameutil/hostnameutil.cpp:106
+#, kde-format
+msgctxt "@info"
+msgid "Hostname labels cannot be empty."
+msgstr "Nazwa gospodarza nie może być pusta."
+
+#: modules/hostnameutil/hostnameutil.cpp:108
+#, kde-format
+msgctxt "@info"
+msgid "Each hostname label must be at most 63 characters."
+msgstr "Długość nazwy gospodarza nie może przekraczać 63 znaków."
+
+#: modules/hostnameutil/hostnameutil.cpp:110
+#, kde-format
+msgctxt "@info"
+msgid ""
+"Hostnames may contain letters, numbers, and hyphens. Each label must start "
+"and end with a letter or number."
+msgstr ""
+"Nazwa gospodarza może zawierać litery, cyfry i myślniki. Każda nazwa musi "
+"zaczynać i kończyć się na literze lub cyfrze."
+
+#: modules/keyboard/contents/ui/main.qml:188
+#, kde-format
+msgid "Select your keyboard layout and language."
+msgstr "Wybierz układ swojej klawiatury oraz język."
+
+#: modules/language/contents/ui/main.qml:46
+#, kde-format
+msgid "Please select your preferred language."
+msgstr "Wybierz swój główny język."
+
+#: modules/language/contents/ui/main.qml:52
+#, kde-format
+msgid "Search languages…"
+msgstr "Poszukaj języków…"
+
+#: modules/prepare/contents/ui/main.qml:76
+#, kde-format
+msgid "Dark Theme"
+msgstr "Ciemny tryb"
+
+#: modules/time/contents/ui/main.qml:41
+#, kde-format
+msgid "Select your time zone."
+msgstr "Ustaw swoją strefę czasową."
+
+#: modules/wifi/contents/ui/main.qml:75
+#, kde-format
+msgid "Connect to a WiFi network for network access."
+msgstr "Podłącz się do WiFi, aby uzyskać dostęp do sieci."
+
+#: modules/wifi/contents/ui/main.qml:167
+#, kde-format
+msgid "Connect to"
+msgstr "Połącz z"
+
+#: modules/wifi/contents/ui/PasswordField.qml:14
+#, kde-format
+msgid "Password:"
+msgstr "Hasło:"
+
+#: modules/wifi/contents/ui/PasswordField.qml:26
+#, kde-format
+msgid "Invalid input."
+msgstr "Nieprawidłowe dane wejściowe."
+
+#: src/main.cpp:35 src/qml/Main.qml:13
+#, kde-format
+msgid "Plasma Setup"
+msgstr "Ustawienia Plazmy"
+
+#: src/main.cpp:37
+#, kde-format
+msgid "Make Plasma yours"
+msgstr "Uczyń Plazmę swoją"
+
+#: src/main.cpp:39
+#, kde-format
+msgid "© 2021-2024 KDE Community"
+msgstr "© 2021-2024 Społeczność KDE"
+
+#: src/main.cpp:44
+#, kde-format
+msgid "Remove the Plasma Setup autologin configuration."
+msgstr "Usuń ustawienia autologowania Ustawień Plazmy."
+
+#: src/qml/LandingComponent.qml:135
+#, kde-format
+msgid "Welcome to<br/><b>Plasma Mobile</b>"
+msgstr "Witaj w<br/><b>Przenośnej Plazmie</b>"
+
+#: src/qml/LandingComponent.qml:136
+#, kde-format
+msgid "Welcome to<br/><b>Plasma Desktop</b>"
+msgstr "Witaj w<br/><b>Biurkowej Plazmie</b>"
+
+#: src/qml/LandingComponent.qml:150
+#, kde-format
+msgid "Begin Setup"
+msgstr "Rozpocznij ustawianie"
+
+#: src/qml/LandingComponent.qml:186
+#, kde-format
+msgctxt "%1 is the distro name"
+msgid "Powered by<br/><b>%1</b>"
+msgstr "Stworzone przez<br/><b>%1</b>"
+
+#: src/qml/Wizard.qml:316
+#, kde-format
+msgctxt "@action:button"
+msgid "Back"
+msgstr "Wstecz"
+
+#: src/qml/Wizard.qml:335
+#, kde-format
+msgctxt "@action:button"
+msgid "Next"
+msgstr "Dalej"
+
+#: src/qml/Wizard.qml:352
+#, kde-format
+msgctxt "@action:button"
+msgid "Finish"
+msgstr "Zakończ"
+
+#~ msgid "Adjust the size of elements on the screen."
+#~ msgstr "Dostosuj rozmiar rzeczy na ekranie."
+
+#~ msgid "Display Scaling"
+#~ msgstr "Skalowanie wyświetlacza"
+
+#~ msgid "Upload new avatar"
+#~ msgstr "Wyślij nowy awatar"
+
+#~ msgid "Remove current avatar"
+#~ msgstr "Usuń bieżącego awatara"
+
+#~ msgctxt "@info, %1 is an error message"
+#~ msgid "Failed to crop image: %1"
+#~ msgstr "Nie udało się przyciąć obrazu: %1"
+
+#~ msgctxt "%1 is the username"
+#~ msgid "Could not get permission to save user %1"
+#~ msgstr "Nie można uzyskać uprawnień do zachowania użytkownika %1"
+
+#~ msgid "There was an error while saving changes"
+#~ msgstr "Napotkano błąd podczas zachowywania zmian"
+
+#~ msgid "Failed to resize image: opening temp file failed"
+#~ msgstr ""
+#~ "Nie udało się zmienić rozmiaru obrazu: nie udało się otworzyć pliku "
+#~ "tymczasowego"
+
+#~ msgid "Failed to resize image: writing to temp file failed"
+#~ msgstr ""
+#~ "Nie udało się zmienić rozmiaru obrazu: nie udało się zapisać do pliku "
+#~ "tymczasowego"
+
+#~ msgid "Username argument is missing or invalid."
+#~ msgstr "Brakuj nazwy użytkownika lub jest nieprawidłowa."
+
+#~ msgctxt "%1 is a directory path"
+#~ msgid "Failed to create autostart directory: %1"
+#~ msgstr "Nie udało się utworzyć katalogu autostartu: %1"
+
+#~ msgctxt "%1 is a file path"
+#~ msgid "Failed to open file for writing: %1"
+#~ msgstr "Nie udało się otworzyć pliku do zapisu: %1"
+
+#~ msgid "Failed to find the Plasma Setup executable path."
+#~ msgstr "Nie udało się znaleźć ścieżki pliku wykonywalnego Ustawień Plazmy"
+
+#~ msgctxt "%1 is an error message"
+#~ msgid "Failed to disable systemd unit: %1"
+#~ msgstr "Nie udało się wyłączyć jednostki systemd: %1"
+
+#~ msgctxt "%1 is a file path"
+#~ msgid "Failed to remove file %1"
+#~ msgstr "Nie udało się usunąć %1"
+
+#~ msgctxt "%1 is a directory path"
+#~ msgid "Failed to create .config directory: %1"
+#~ msgstr "Nie udało się utworzyć katalogu .config: %1"
+
+#~ msgctxt "%1 is a file path"
+#~ msgid "Failed to copy file %1"
+#~ msgstr "Nie udało się skopiować pliku %1"
+
+#~ msgctxt "%1 is a directory path, %2 an exit code"
+#~ msgid "Failed to set ownership for home directory %1: exit code %2"
+#~ msgstr ""
+#~ "Nie udało się ustawić właściciela na katalogu domowym %1: kod wyjścia %2"
+
+#~ msgctxt "%1 is a file path"
+#~ msgid "Failed to open file %1 for writing."
+#~ msgstr "Nie udało się otworzyć pliku %1 do zapisu."
+
+#~ msgid "24-Hour Format"
+#~ msgstr "24 godzinny zapis czasu"
+
+#, fuzzy
+#~| msgid "Username:"
+#~ msgctxt "@label:textfield"
+#~ msgid "Username"
+#~ msgstr "Nazwa użytkownika:"
+
+#, fuzzy
+#~| msgid "Password:"
+#~ msgctxt "@label:textfield"
+#~ msgid "Password"
+#~ msgstr "Hasło:"
+
+#~ msgid "Next"
+#~ msgstr "Następny"
+
+#~ msgid "Previous"
+#~ msgstr "Poprzedni"
+
+#~ msgid "All Done!"
+#~ msgstr "Wszystko zrobione!"
+
+#~ msgid "Let's get started"
+#~ msgstr "Zacznijmy"
+
+#~ msgid "Welcome"
+#~ msgstr "Witaj"
+
+#~ msgid "Select a language to begin setup"
+#~ msgstr "Wybierz język, aby przejść do ustawiania"
+
+#~ msgid "I accept these terms and conditions"
+#~ msgstr "Zgadzam się na te warunki"
+
+#~ msgid "Legal Terms"
+#~ msgstr "Warunki prawne"
+
+#~ msgid "Let's get the legalese out of the way..."
+#~ msgstr "Odłóżmy niezrozumiałe zwroty na bok..."
+
+#~ msgid "Hello World!"
+#~ msgstr "Witaj świecie!"
+
+#~ msgid "Sample Page"
+#~ msgstr "Strona przykładowa"
+
+#~ msgid "This is an example page"
+#~ msgstr "Oto strona przykładowa"
+
+#~ msgid "Realname:"
+#~ msgstr "Prawdziwa nazwa:"
+
+#~ msgid "Let's set up your user account"
+#~ msgstr "Zacznijmy od ustawienia twojego konta"
