@@ -424,8 +424,9 @@ Item {
                 wrapMode: Text.Wrap
                 opacity: 0.8
                 text: "Claude Code sessions you start yourself in a terminal on this computer are recorded in the local audit log "
-                    + "(marked as terminal) but never limited or held. To stop recording them, delete "
-                    + "/etc/claude-code/managed-settings.json (it holds only nisse's two audit hooks)."
+                    + "(marked as terminal), and the system is snapshotted before each of your messages so a bad change can be rolled "
+                    + "back, but they are never limited or held. To stop both, delete "
+                    + "/etc/claude-code/managed-settings.json (it holds only nisse's audit and snapshot hooks)."
             }
         }
     }

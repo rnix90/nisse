@@ -261,6 +261,22 @@ with `busctl` (SendMessage, ListApprovals, Approve, Deny):
 - The audit log holds tool inputs, which can contain secrets; it stays on the machine, and the RPM description says
   terminal sessions are recorded and how to stop it (remove the managed file).
 
+## Hooks that bracket a turn (verified 2026-11-18, CLI 2.1.325 in the VM, ledger N-306b)
+
+Probe hooks in the managed settings file, real `claude -p` runs (`tools/spike/claude_turn_hooks_spike.sh`):
+
+- Every turn fires `SessionStart`, `UserPromptSubmit`, `Stop` and `SessionEnd`, **even a turn with no tool call**; a turn with
+  tools fires `PreToolUse` / `PostToolUse` between `UserPromptSubmit` and `Stop`. `SubagentStop` did not fire for a plain turn.
+- The events of one turn share a `prompt_id`; all carry `session_id`. `Stop` carries `stop_hook_active` (false here),
+  `last_assistant_message` and `background_tasks`; `UserPromptSubmit` carries the `prompt`.
+- `NISSE_SESSION` (set by the daemon) is visible to all of them, so a hook can skip daemon sessions.
+- A run killed with SIGTERM during a tool still sent `Stop` and `SessionEnd`. A SIGKILL or a crash cannot: such a turn has no
+  `Stop`.
+- A hook's stdout `{"systemMessage": "..."}` reaches the person as an informational notice ("UserPromptSubmit says: ..."); a hook
+  that prints nothing adds nothing. A hook with an environment prefix (`env A=b /path/hook`) runs fine.
+- Not verified: an interactive (TUI) session (Esc interrupts, one turn per prompt) and `claude remote-control` sessions;
+  hand checks at GATE 3 (the same managed hooks should fire there).
+
 ## How long a PreToolUse hook may hold a call (verified 2026-11-14, CLI 2.1.325 in the VM, ledger N-204)
 
 Each case: the hook sleeps, then prints a deny; the call is `echo ran > marker`; `--dangerously-skip-permissions`.

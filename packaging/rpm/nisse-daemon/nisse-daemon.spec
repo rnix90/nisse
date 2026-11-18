@@ -5,7 +5,7 @@
 
 Name:           nisse-daemon
 Version:        0.1
-Release:        21%{?dist}
+Release:        22%{?dist}
 Summary:        nisse daemon: AI sessions for the nisse panel
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
@@ -32,9 +32,12 @@ sessions it starts until a person approves them.
 The package also installs a Claude Code managed settings file under /etc.
 It makes every Claude Code run on this computer, including ones started from
 a terminal, record its tool use in the same local audit log (one record per
-tool call, marked as coming from a terminal). The hook only records: it never
-blocks or changes a call, and the log stays on this computer. Remove the file
-to stop recording terminal sessions.
+tool call, marked as coming from a terminal). A second hook takes a system
+snapshot before each message of such a session and another after it if the
+session changed anything, so a bad change can be rolled back (it does nothing
+where there is no snapshot support). The hooks only record and snapshot: they
+never block or change a call, and the log stays on this computer. Remove the
+file to stop both for terminal sessions.
 
 %prep
 
@@ -48,6 +51,7 @@ install -pm 0644 %{nisse_root}/LICENSE licenses/LICENSE
 install -Dpm 0755 %{nisse_root}/services/target/release/nisse-daemon %{buildroot}%{_bindir}/nisse-daemon
 install -Dpm 0755 %{nisse_root}/services/target/release/nisse-audit-hook %{buildroot}%{_bindir}/nisse-audit-hook
 install -Dpm 0755 %{nisse_root}/services/target/release/nisse-guard-hook %{buildroot}%{_bindir}/nisse-guard-hook
+install -Dpm 0755 %{nisse_root}/services/target/release/nisse-turn-hook %{buildroot}%{_bindir}/nisse-turn-hook
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_userunitdir}/nisse-daemon.service
 install -Dpm 0644 %{SOURCE2} %{buildroot}%{_datadir}/dbus-1/services/org.nisse.Daemon1.service
 install -Dpm 0644 %{SOURCE3} %{buildroot}%{_datadir}/nisse/claude-settings.json
@@ -59,6 +63,7 @@ install -Dpm 0644 %{nisse_root}/services/crates/nisse-proto/schema/daemon-protoc
 %{_bindir}/nisse-daemon
 %{_bindir}/nisse-audit-hook
 %{_bindir}/nisse-guard-hook
+%{_bindir}/nisse-turn-hook
 %{_userunitdir}/nisse-daemon.service
 %{_datadir}/dbus-1/services/org.nisse.Daemon1.service
 %{_datadir}/nisse/claude-settings.json
@@ -67,6 +72,9 @@ install -Dpm 0644 %{nisse_root}/services/crates/nisse-proto/schema/daemon-protoc
 %config(noreplace) %{_sysconfdir}/claude-code/managed-settings.json
 
 %changelog
+* Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-22
+- nisse-turn-hook: a snapshot pair around each turn of a terminal or remote-access Claude session, from the machine-wide managed settings (UserPromptSubmit, PreToolUse, Stop); daemon sessions are skipped (N-306b)
+
 * Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-21
 - Sessions the daemon starts find the nisse sudo shim first on their PATH, so in limited sudo mode their sudo asks through a password popup (N-306a)
 

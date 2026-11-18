@@ -85,8 +85,8 @@ A turn that is cancelled still gets a post snapshot (it may have changed things 
 **Settings (daemon environment):** `NISSE_NO_SNAPSHOTS=1` turns it off, `NISSE_SNAPSHOT_BATCH` names another helper,
 `NISSE_SNAPSHOT_SUDO=0` runs the helper without sudo. The fake runner (`NISSE_FAKE_RUNNER=1`) never snapshots.
 
-**Not covered:** `claude` runs a person starts in a terminal and sessions of the remote-access server are not turns of
-this daemon, so they get no snapshot pair (a follow-up task is in the ledger).
+**Not covered by the daemon:** `claude` runs a person starts in a terminal and sessions of the remote-access server are not
+turns of this daemon; they are covered by the turn hook below (N-306b).
 
 | Test | Where it runs | What it proves |
 |---|---|---|
@@ -94,6 +94,37 @@ this daemon, so they get no snapshot pair (a follow-up task is in the ledger).
 | `services/crates/nisse-daemon/tests/snapshots.rs` | build VM (cargo) | tool classification, the stream parser, the helper's exit codes, and the daemon around a turn: order, read-only drop, quiet skip, one notice per session, cancel, concurrent sessions |
 | `tests/e2e/test_snapshots_btrfs.sh` | build VM (sudo) | the helper on the real snapper: pre, post and drop, and a foreign pair refused |
 | `tests/e2e/test_daemon_snapshots.sh` | build VM (sudo, cargo) | the daemon code with the real helper, real `sudo -n` and real snapper on a loop btrfs |
+
+## Terminal and remote-access sessions (N-306b)
+
+The machine-wide managed settings (`/etc/claude-code/managed-settings.json`, the file that already makes every `claude` run on the
+computer write the audit log) now also run `nisse-turn-hook` (package nisse-daemon) for three events of every turn:
+
+| Event | What the hook does |
+|---|---|
+| `UserPromptSubmit` (the turn starts) | takes the pre snapshot; first closes the turn of that session that never got its `Stop` (an interrupt), as a pair if it changed things, else removed |
+| `PreToolUse` | notes whether the turn calls a tool that can change the computer (same list as the daemon: Read, Glob, Grep, LS, WebFetch, WebSearch, TodoWrite, ToolSearch, AskUserQuestion are read-only, everything else counts) |
+| `Stop` (the turn ends) | takes the post snapshot, or removes the pre snapshot when the turn only read things |
+
+The facts it rests on are in `docs/claude-cli-notes.md` (every turn fires `UserPromptSubmit` and `Stop`, even with no tool).
+The policy is the N-306 one: the same helper through `sudo -n`, the same audit records (kind `snapshot`, source `terminal`, both ids
+in the post record), the turn goes ahead whether or not a snapshot exists, a real failure shows once per session as a
+`systemMessage` notice and a machine with nothing to snapshot only audits. Sessions the daemon started (`NISSE_SESSION` is set)
+are skipped, since the daemon takes their pair. The open turn of each session is kept in
+`$XDG_RUNTIME_DIR/nisse-turns/<session>.json` (private directory, cleared at logout), because each hook call is its own process.
+`NISSE_NO_SNAPSHOTS=1` turns the hook off; removing the managed settings file stops the audit and the snapshots for terminal
+sessions. The hook never decides anything and always exits 0.
+
+Remote-access sessions (`claude remote-control`) read the same managed settings and have no `NISSE_SESSION`, so the same hook
+should cover them; that is not verified (it needs claude.ai or the phone) and is a hand check at GATE 3, together with an
+interactive terminal session (Esc interrupts, one turn per message). A SIGKILL leaves a pre snapshot with no post: the daily prune
+removes an old unpaired pre, and the next prompt of the same session closes it.
+
+| Test | Where it runs | What it proves |
+|---|---|---|
+| `services/crates/nisse-daemon/tests/turn_hook.rs` | build VM (cargo) | the binary as Claude Code runs it, with a fake helper: pre, post and drop, audit ids, daemon sessions skipped, the notice once per session, interrupted turns, two sessions, junk input, always exit 0 |
+| `tests/e2e/test_terminal_snapshots.sh` | build VM, signed in (3 tiny prompts) | the real `claude`, real managed settings, real helper through sudo, real snapper: a chat turn leaves nothing, a file-changing turn leaves a pair that brackets the change and carries the session id, a daemon-flagged turn is skipped |
+| `tests/rpm/test_nisse_daemon.sh`, `tests/iso/test_iso_contents.sh` | build VM, ISO rebuild | the managed file holds only the audit and turn hooks (never a limit), the hook is installed |
 
 ## Not yet verified
 

@@ -47,6 +47,29 @@ pub fn is_read_only_tool(name: &str) -> bool {
     )
 }
 
+/// Closes the snapshot pair of a turn: a turn that changed things gets its post snapshot, one that only read gets its pre
+/// snapshot removed. Returns the audit detail: `post` (both ids), `dropped`, or `post-failed` / `drop-failed`.
+pub async fn close_turn(tool: &dyn SnapshotTool, session: &str, pre: u64, mutated: bool) -> serde_json::Value {
+    if mutated {
+        match tool.post(session, pre).await {
+            Ok(post) => serde_json::json!({ "phase": "post", "pre": pre, "snapshot": post }),
+            Err(error) => serde_json::json!({ "phase": "post-failed", "pre": pre, "error": error }),
+        }
+    } else {
+        match tool.drop_pre(pre).await {
+            Ok(()) => serde_json::json!({
+                "phase": "dropped", "pre": pre, "reason": "the turn used no tool that changes anything"
+            }),
+            Err(error) => serde_json::json!({ "phase": "drop-failed", "pre": pre, "error": error }),
+        }
+    }
+}
+
+/// The line a person is told when a turn has no snapshot.
+pub fn no_snapshot_notice(reason: &str) -> String {
+    format!("[No snapshot was taken, so this turn cannot be rolled back: {reason}]")
+}
+
 /// Runs `nisse-snapshot-batch`, by default through `sudo -n` (no password prompt: nisse's users do not have one for this).
 #[derive(Debug, Clone)]
 pub struct ScriptSnapshots {

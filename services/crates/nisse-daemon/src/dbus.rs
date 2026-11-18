@@ -23,7 +23,7 @@ use crate::events::EventLog;
 use crate::killswitch::KillSwitch;
 use crate::remote::{RemoteAccess, RemoteOptions};
 use crate::runner::{AgentRunner, ApprovalHook, RunEvent, RunRequest};
-use crate::snapshots::{is_read_only_tool, NoSnapshot, SnapshotTool};
+use crate::snapshots::{close_turn, is_read_only_tool, no_snapshot_notice, NoSnapshot, SnapshotTool};
 use crate::state::{Keep, SessionStore};
 use crate::usage::{parse_usage_text, UsageTracker};
 use nisse_proto::{EventKind, Session};
@@ -57,19 +57,7 @@ impl Batch {
     /// A turn that changed things gets its post snapshot (both ids go in one audit record); a turn that only read gets its
     /// pre snapshot removed again.
     async fn close(core: &Core, tool: &Arc<dyn SnapshotTool>, session: &str, pre: u64, mutated: bool) {
-        let detail = if mutated {
-            match tool.post(session, pre).await {
-                Ok(post) => serde_json::json!({ "phase": "post", "pre": pre, "snapshot": post }),
-                Err(error) => serde_json::json!({ "phase": "post-failed", "pre": pre, "error": error }),
-            }
-        } else {
-            match tool.drop_pre(pre).await {
-                Ok(()) => serde_json::json!({
-                    "phase": "dropped", "pre": pre, "reason": "the turn used no tool that changes anything"
-                }),
-                Err(error) => serde_json::json!({ "phase": "drop-failed", "pre": pre, "error": error }),
-            }
-        };
+        let detail = close_turn(tool.as_ref(), session, pre, mutated).await;
         core.audit(Some(session), "daemon", "snapshot", detail);
     }
 
@@ -227,7 +215,7 @@ impl Core {
                     serde_json::json!({ "phase": "skipped", "reason": reason, "told": first }),
                 );
                 if first {
-                    let notice = format!("[No snapshot was taken, so this turn cannot be rolled back: {reason}]\n\n");
+                    let notice = format!("{}\n\n", no_snapshot_notice(&reason));
                     self.emit_chunk(emitter, session, &notice).await;
                 }
                 None

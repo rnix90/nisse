@@ -159,8 +159,8 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 - A settings file that is missing or cannot be used is said at the top ("these are the defaults" or the reason, and that
   saving replaces it and keeps the old one as .bak).
 - Plain words about terminal sessions: Claude Code sessions started in a terminal are recorded in the local audit log (marked
-  terminal) but never limited, and deleting `/etc/claude-code/managed-settings.json` (which holds only nisse's two audit hooks)
-  stops the recording. Checked against the RPM test (N-226).
+  terminal) and snapshotted before each message (N-306b) but never limited, and deleting `/etc/claude-code/managed-settings.json`
+  (which holds only nisse's audit and snapshot hooks) stops both. Checked against the RPM test (N-226, N-306b).
 
 ## Audit view (N-217)
 

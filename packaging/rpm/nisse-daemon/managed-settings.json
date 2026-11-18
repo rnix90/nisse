@@ -1,15 +1,52 @@
 {
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/nisse-turn-hook",
+            "timeout": 90
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "*",
-        "hooks": [{ "type": "command", "command": "/usr/bin/nisse-audit-hook --managed" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/nisse-audit-hook --managed"
+          },
+          {
+            "type": "command",
+            "command": "/usr/bin/nisse-turn-hook",
+            "timeout": 30
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "*",
-        "hooks": [{ "type": "command", "command": "/usr/bin/nisse-audit-hook --managed" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/nisse-audit-hook --managed"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/nisse-turn-hook",
+            "timeout": 90
+          }
+        ]
       }
     ]
   }

@@ -55,7 +55,10 @@ import json, sys
 managed, daemon, schema = (json.load(open(p)) for p in sys.argv[1:4])
 assert set(managed) == {"hooks"}, "managed settings hold only hooks"
 for e in ("PreToolUse", "PostToolUse"):
-    assert [h["command"] for g in managed["hooks"][e] for h in g["hooks"]] == ["/usr/bin/nisse-audit-hook --managed"]
+    cmds = [h["command"] for g in managed["hooks"][e] for h in g["hooks"]]
+    assert cmds[0] == "/usr/bin/nisse-audit-hook --managed", cmds   # N-306b added the turn snapshot hook after it on PreToolUse
+assert {e: [h["command"] for g in managed["hooks"][e] for h in g["hooks"]] for e in ("UserPromptSubmit", "Stop")} == {
+    "UserPromptSubmit": ["/usr/bin/nisse-turn-hook"], "Stop": ["/usr/bin/nisse-turn-hook"]}
 pre = [h for g in daemon["hooks"]["PreToolUse"] for h in g["hooks"]]
 assert any(h["command"] == "/usr/bin/nisse-guard-hook" and h["timeout"] >= 1200 for h in pre), "the guardrail hold is in the daemon settings"
 assert {"Session", "Approval", "AuditRecord", "Event", "EventsPage", "Device", "SignedRequest"} <= set(schema["definitions"])

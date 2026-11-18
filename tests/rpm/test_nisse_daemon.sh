@@ -40,15 +40,22 @@ PY
 # N-226: audit every claude run on the machine (terminal sessions too), but never limit one.
 printf '%s\n' "$files" | grep -qxF "/etc/claude-code/managed-settings.json" || fail "RPM lacks /etc/claude-code/managed-settings.json"
 managed="$(member etc/claude-code/managed-settings.json)"
-python3 - "$managed" <<'PY' || fail "managed settings must hold exactly the two --managed audit hooks and nothing else"
+python3 - "$managed" <<'PY' || fail "managed settings must hold only the --managed audit hooks and the turn snapshot hook (N-306b)"
 import json, sys
 d = json.loads(sys.argv[1])
 assert set(d) == {"hooks"}, "only hooks may be set: %s" % sorted(d)   # no allowManagedHooksOnly, no permissions
-assert set(d["hooks"]) == {"PreToolUse", "PostToolUse"}, sorted(d["hooks"])
-for event, groups in d["hooks"].items():
-    cmds = [h["command"] for g in groups for h in g["hooks"]]
-    assert cmds == ["/usr/bin/nisse-audit-hook --managed"], (event, cmds)
+assert set(d["hooks"]) == {"PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop"}, sorted(d["hooks"])
+def cmds(event):
+    return [h["command"] for g in d["hooks"][event] for h in g["hooks"]]
+audit, turn = "/usr/bin/nisse-audit-hook --managed", "/usr/bin/nisse-turn-hook"
+assert cmds("PreToolUse") == [audit, turn], cmds("PreToolUse")      # the audit record first, then the turn's note of a mutating tool
+assert cmds("PostToolUse") == [audit], cmds("PostToolUse")
+assert cmds("UserPromptSubmit") == [turn] and cmds("Stop") == [turn], (cmds("UserPromptSubmit"), cmds("Stop"))
+# a hook that times out is only an error, but a short timeout could skip a slow snapshot: 90 s covers the helper's 60 s limit
+for event in ("UserPromptSubmit", "Stop"):
+    assert all(h.get("timeout", 600) >= 90 for g in d["hooks"][event] for h in g["hooks"]), event
 PY
+printf '%s\n' "$files" | grep -qxF /usr/bin/nisse-turn-hook || fail "RPM lacks /usr/bin/nisse-turn-hook"
 # N-223: the guardrail never goes into the machine-wide file, so a terminal session is never held or blocked.
 ! grep -q 'guard' <<< "$managed" || fail "managed settings must not hold the guardrail hook (terminal sessions are never limited)"
 grep -q 'allowManagedHooksOnly' <<< "$managed" && fail "managed settings must not set allowManagedHooksOnly (it would switch off the daemon's own hook)"
