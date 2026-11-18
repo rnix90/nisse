@@ -1,0 +1,330 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-boot: the boot-time side of nisse's rollback net (ledger N-307).
+#
+#   nisse-boot sync                  write the "nisse snapshots" boot menu (the newest snapshots that can boot)
+#   nisse-boot arm [--tries N] SNAP  boot snapshot SNAP instead if the next N boots never finish (default 3)
+#   nisse-boot clear                 the system is healthy: disarm, and tell GRUB the boot succeeded
+#   nisse-boot status                what is armed (key=value lines)
+#   nisse-boot fixenv                remove env_block from the GRUB environment so GRUB can save its variables
+#   nisse-boot reconcile             drop an arm that GRUB no longer has (a fallback boot runs a read-only snapshot and
+#                                    cannot remove the real root's state file; nisse-boot clear there only disarms GRUB)
+#
+# How it works (every part checked on an installed system, docs/boot-recovery.md):
+#   * Fedora's GRUB counts boot_counter down on every boot that never set boot_success (its 08_fallback_counting snippet) and
+#     at 0 would pick the second menu entry. Our 09_nisse_fallback snippet picks the entry named in nisse_fallback instead,
+#     the "nisse rollback boot" entry that 11_nisse_snapshots defines from /boot/grub2/nisse-rollback.cfg.
+#   * The snapshot entries are NOT BootLoaderSpec files: grub2-mkconfig rewrites the options of every file in
+#     /boot/loader/entries. They are in /boot/grub2/nisse-boot.cfg, which only this tool writes, atomically and only after
+#     grub2-script-check accepts it.
+#   * A snapshot is only bootable with the kernel whose modules it holds, so an entry pins that kernel, and a snapshot whose
+#     kernel has left /boot is not offered (booting a newer kernel against older modules ends in emergency mode).
+#
+# Test overrides (never set in production): NISSE_BOOT_DIR, NISSE_SNAPSHOTS_ROOT, NISSE_STATE_DIR, NISSE_SNAPPER,
+# NISSE_SNAPPER_CONFDIR, NISSE_GRUB_EDITENV, NISSE_SCRIPT_CHECK, NISSE_SYNC, NISSE_CMDLINE_FILE, NISSE_FSROOT,
+# NISSE_BOOT_FSTYPE, NISSE_ROOT_FSTYPE.
+set -u
+
+boot="${NISSE_BOOT_DIR:-/boot}"
+snaps="${NISSE_SNAPSHOTS_ROOT:-/.snapshots}"
+state="${NISSE_STATE_DIR:-/var/lib/nisse/boot}"
+snapper="${NISSE_SNAPPER:-/usr/bin/snapper}"
+confdir="${NISSE_SNAPPER_CONFDIR:-/etc/snapper/configs}"
+cfg=root
+editenv="${NISSE_GRUB_EDITENV:-/usr/bin/grub2-editenv}"
+check="${NISSE_SCRIPT_CHECK:-/usr/bin/grub2-script-check}"
+syncbin="${NISSE_SYNC:-sync}"
+cmdline_file="${NISSE_CMDLINE_FILE:-/proc/cmdline}"
+max_entries=10
+default_tries=3
+
+menu_file="$boot/grub2/nisse-boot.cfg"
+rollback_file="$boot/grub2/nisse-rollback.cfg"
+armed_file="$state/armed"
+
+die() {
+    echo "nisse-boot: $*" >&2
+    exit 1
+}
+
+is_number() {
+    case "$1" in
+        '' | *[!0-9]*) return 1 ;;
+    esac
+    return 0
+}
+
+btrfs_root() {
+    fstype="${NISSE_ROOT_FSTYPE:-$(findmnt -no FSTYPE / 2>/dev/null)}"
+    [ "$fstype" = btrfs ] && [ -f "$confdir/$cfg" ]
+}
+
+# The part of the root subvolume's path above the snapshots ("root" on a standard nisse install), also when the machine is
+# running from a snapshot (then FSROOT is root/.snapshots/N/snapshot).
+subvol_prefix() {
+    fsroot="${NISSE_FSROOT:-$(findmnt -no FSROOT / 2>/dev/null)}"
+    fsroot="${fsroot#/}"
+    fsroot="${fsroot%%/.snapshots/*}"
+    [ -n "$fsroot" ] || return 1
+    printf '%s\n' "$fsroot"
+}
+
+# The newest kernel in snapshot $1 that /boot still has (kernel and initramfs both).
+kernel_for() {
+    modules="$snaps/$1/snapshot/usr/lib/modules"
+    [ -d "$modules" ] || return 1
+    for v in $(ls -1 "$modules" 2>/dev/null | sort -rV); do
+        if [ -e "$boot/vmlinuz-$v" ] && [ -e "$boot/initramfs-$v.img" ]; then
+            printf '%s\n' "$v"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# The running kernel command line with the root subvolume replaced by snapshot $1's.
+options_for() {
+    path="$(subvol_prefix)/.snapshots/$1/snapshot" || return 1
+    out=""
+    have=0
+    set -f
+    for tok in $(tr -s ' \t\n' ' ' < "$cmdline_file"); do
+        case "$tok" in
+            BOOT_IMAGE=* | initrd=*) continue ;;
+            rootflags=*)
+                flags="${tok#rootflags=}"
+                new="subvol=$path"
+                oldifs="$IFS"
+                IFS=,
+                for f in $flags; do
+                    case "$f" in
+                        subvol=* | subvolid=*) ;;
+                        *) new="$new,$f" ;;
+                    esac
+                done
+                IFS="$oldifs"
+                tok="rootflags=$new"
+                have=1
+                ;;
+        esac
+        out="$out $tok"
+    done
+    set +f
+    [ "$have" = 1 ] || out="$out rootflags=subvol=$path"
+    printf '%s\n' "${out# }"
+}
+
+snapshot_rows() {
+    "$snapper" --no-dbus -c "$cfg" --csvout list --columns number,date,description 2>/dev/null | tail -n +2
+}
+
+have_snapshot() {
+    snapshot_rows | while IFS=, read -r num rest; do
+        [ "$num" = "$1" ] && echo yes
+    done | grep -q yes
+}
+
+# Move $1 (a finished temporary file) over $2 atomically, after the syntax check.
+put_in_place() {
+    tmp="$1"
+    target="$2"
+    if [ -x "$check" ]; then
+        if ! "$check" "$tmp" >/dev/null 2>&1; then
+            rm -f "$tmp"
+            return 1
+        fi
+    fi
+    if [ -f "$target" ] && cmp -s "$tmp" "$target"; then
+        rm -f "$tmp"
+        return 0
+    fi
+    "$syncbin"
+    mv -f "$tmp" "$target" || {
+        rm -f "$tmp"
+        return 1
+    }
+    "$syncbin"
+    return 0
+}
+
+plain() {
+    printf '%s' "$1" | tr -cd 'A-Za-z0-9 ._:+/-' | cut -c1-40
+}
+
+cmd_sync() {
+    if ! btrfs_root; then
+        rm -f "$menu_file"
+        return 0
+    fi
+    prefix="$(subvol_prefix)" || die "cannot tell which subvolume holds the root file system"
+    mkdir -p "$boot/grub2" || die "cannot write to $boot/grub2"
+    tmp="$menu_file.new"
+    {
+        echo "# written by nisse-boot - do not edit"
+        count=0
+        snapshot_rows | sort -t, -k1,1 -rn | while IFS=, read -r num date desc; do
+            [ "$num" = 0 ] && continue
+            is_number "$num" || continue
+            kver="$(kernel_for "$num")" || continue
+            opts="$(options_for "$num")" || continue
+            title="#$num $(printf '%s' "$date" | cut -c1-16) $(plain "$desc")"
+            printf "menuentry '%s' --id nisse-snap-%s {\n" "$title" "$num"
+            printf '  insmod gzio\n'
+            printf '  linux /vmlinuz-%s %s\n' "$kver" "$opts"
+            printf '  initrd /initramfs-%s.img\n' "$kver"
+            printf '}\n'
+        done | awk -v max="$max_entries" '/^menuentry /{n++} n <= max {print}'
+    } > "$tmp" || die "cannot write $tmp"
+    if ! grep -q '^menuentry ' "$tmp"; then
+        rm -f "$tmp" "$menu_file"
+        return 0
+    fi
+    put_in_place "$tmp" "$menu_file" || die "the new snapshot menu failed grub2-script-check, the old one stays"
+}
+
+cmd_arm() {
+    tries="$default_tries"
+    snap=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --tries)
+                [ $# -ge 2 ] || die "--tries needs a number from 1 to 9"
+                tries="$2"
+                shift 2
+                ;;
+            -*) die "unknown option: $1" ;;
+            *)
+                [ -z "$snap" ] || die "give one snapshot number"
+                snap="$1"
+                shift
+                ;;
+        esac
+    done
+    case "$tries" in
+        [1-9]) ;;
+        *) die "--tries must be a number from 1 to 9, not '$tries'" ;;
+    esac
+    [ -n "$snap" ] || die "usage: nisse-boot arm [--tries N] SNAPSHOT"
+    is_number "$snap" || die "the snapshot must be a number, not '$snap'"
+    [ "$snap" -gt 0 ] || die "snapshot 0 is the running system, pick a real snapshot"
+    btrfs_root || die "this system has no btrfs root with a snapper config"
+    have_snapshot "$snap" || die "there is no snapshot $snap"
+    kver="$(kernel_for "$snap")" || die "snapshot $snap has no kernel that is still in $boot, so it could not boot (a newer kernel against its older modules ends in emergency mode)"
+    opts="$(options_for "$snap")" || die "cannot work out the root command line"
+
+    mkdir -p "$boot/grub2" "$state" || die "cannot create $state"
+    tmp="$rollback_file.new"
+    {
+        echo "# written by nisse-boot - do not edit"
+        printf 'set nisse_rb_linux="/vmlinuz-%s"\n' "$kver"
+        printf 'set nisse_rb_options="%s"\n' "$opts"
+        printf 'set nisse_rb_initrd="/initramfs-%s.img"\n' "$kver"
+    } > "$tmp" || die "cannot write $tmp"
+    put_in_place "$tmp" "$rollback_file" || die "the rollback entry failed grub2-script-check, nothing is armed"
+
+    previous=""
+    [ -f "$armed_file" ] && previous="$(cat "$armed_file" 2>/dev/null)"
+    # keep the snapshot out of every cleanup while it is the way back
+    "$snapper" --no-dbus -c "$cfg" modify --cleanup-algorithm "" "$snap" >/dev/null 2>&1 || {
+        rm -f "$rollback_file"
+        die "cannot protect snapshot $snap from cleanup, nothing is armed"
+    }
+    if [ -n "$previous" ] && [ "$previous" != "$snap" ] && is_number "$previous"; then
+        "$snapper" --no-dbus -c "$cfg" modify --cleanup-algorithm number "$previous" >/dev/null 2>&1
+    fi
+    printf '%s\n' "$snap" > "$armed_file.new" && mv -f "$armed_file.new" "$armed_file" || die "cannot write $armed_file"
+    # GRUB is armed last: from here on a boot that does not finish counts down
+    "$editenv" - set "boot_counter=$tries" boot_success=0 nisse_fallback=nisse-rollback || {
+        rm -f "$rollback_file" "$armed_file"
+        die "grub2-editenv failed, nothing is armed"
+    }
+    "$syncbin"
+    echo "nisse-boot: armed: snapshot $snap boots if $tries boots in a row do not finish"
+}
+
+cmd_clear() {
+    previous=""
+    [ -f "$armed_file" ] && previous="$(cat "$armed_file" 2>/dev/null)"
+    "$editenv" - unset boot_counter nisse_fallback || die "grub2-editenv failed"
+    "$editenv" - set boot_success=1 || die "grub2-editenv failed"
+    # On a fallback boot the running system is a read-only snapshot: the state files and snapper are out of reach there.
+    # GRUB is already disarmed, and the next normal boot's nisse-boot reconcile finishes the job.
+    rm -f "$rollback_file" 2>/dev/null
+    if [ -n "$previous" ] && is_number "$previous"; then
+        "$snapper" --no-dbus -c "$cfg" modify --cleanup-algorithm number "$previous" >/dev/null 2>&1
+    fi
+    rm -f "$armed_file" 2>/dev/null
+    "$syncbin"
+    if [ -n "$previous" ]; then
+        echo "nisse-boot: disarmed (snapshot $previous is back under normal cleanup); the boot is marked good"
+    else
+        echo "nisse-boot: not armed; the boot is marked good"
+    fi
+}
+
+cmd_reconcile() {
+    [ -f "$armed_file" ] || return 0
+    [ -z "$(env_value boot_counter)" ] || return 0
+    previous="$(cat "$armed_file" 2>/dev/null)"
+    rm -f "$rollback_file" "$armed_file"
+    if [ -n "$previous" ] && is_number "$previous"; then
+        "$snapper" --no-dbus -c "$cfg" modify --cleanup-algorithm number "$previous" >/dev/null 2>&1
+    fi
+    "$syncbin"
+    echo "nisse-boot: GRUB is no longer armed, so the arm for snapshot ${previous:-?} is dropped"
+}
+
+env_value() {
+    "$editenv" list 2>/dev/null | sed -n "s/^$1=//p" | tail -1
+}
+
+cmd_status() {
+    snap=""
+    [ -f "$armed_file" ] && snap="$(cat "$armed_file" 2>/dev/null)"
+    counter="$(env_value boot_counter)"
+    if [ -n "$snap" ]; then
+        echo "armed=yes"
+        echo "snapshot=$snap"
+    else
+        echo "armed=no"
+    fi
+    case "$counter" in
+        '') ;;
+        -1) echo "fell-back=yes" ;;
+        *) echo "tries-left=$counter" ;;
+    esac
+    echo "boot-success=$(env_value boot_success)"
+}
+
+cmd_fixenv() {
+    [ -n "$(env_value env_block)" ] || return 0
+    fstype="${NISSE_BOOT_FSTYPE:-$(findmnt -no FSTYPE "$boot" 2>/dev/null)}"
+    case "$fstype" in
+        ext2 | ext3 | ext4 | xfs | vfat) ;;
+        *)
+            echo "nisse-boot: leaving env_block alone: $boot is '$fstype'" >&2
+            return 0
+            ;;
+    esac
+    # With env_block set GRUB writes its variables (boot_counter, next_entry, boot_success) to that raw block instead of the
+    # grubenv file, so none of them is ever saved. Checked: next_entry was never cleared and boot counting never counted.
+    "$editenv" - unset env_block || die "grub2-editenv failed"
+    "$syncbin"
+    echo "nisse-boot: removed env_block from the GRUB environment"
+}
+
+case "${1:-}" in
+    sync) cmd_sync ;;
+    arm)
+        shift
+        cmd_arm "$@"
+        ;;
+    clear) cmd_clear ;;
+    status) cmd_status ;;
+    fixenv) cmd_fixenv ;;
+    reconcile) cmd_reconcile ;;
+    *)
+        echo "usage: nisse-boot sync | arm [--tries N] SNAPSHOT | clear | status | fixenv | reconcile" >&2
+        exit 2
+        ;;
+esac

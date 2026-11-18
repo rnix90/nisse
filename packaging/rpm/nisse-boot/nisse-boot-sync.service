@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh the nisse snapshots boot menu
+After=local-fs.target
+RequiresMountsFor=/boot
+ConditionKernelCommandLine=!rd.live.image
+ConditionPathExists=/etc/snapper/configs/root
+
+[Service]
+Type=oneshot
+# A path unit misses what happens while its service runs, and snapshots come in quick pairs: wait for the burst to end, then
+# list (seen in the end-to-end test: the second snapshot of two made together was missing from the menu)
+ExecStartPre=/usr/bin/sleep 3
+ExecStart=/usr/bin/nisse-boot sync

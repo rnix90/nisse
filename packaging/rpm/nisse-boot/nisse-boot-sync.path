@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch the snapshots folder to keep the nisse snapshots boot menu current
+ConditionKernelCommandLine=!rd.live.image
+
+[Path]
+PathChanged=/.snapshots
+
+[Install]
+WantedBy=multi-user.target

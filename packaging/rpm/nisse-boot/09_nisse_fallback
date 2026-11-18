@@ -1,0 +1,17 @@
+#!/usr/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse: where a counted boot failure falls back to (ledger N-307).
+#
+# Fedora's 08_fallback_counting counts boot_counter down on every boot that did not finish (boot_success=0) and, when it
+# reaches 0, sets default=1 (the second menu entry: the rollback deployment on an ostree system). On nisse the second entry
+# is just an older kernel on the same broken root, so once the countdown has ended this picks the entry named in
+# nisse_fallback instead (the "nisse rollback boot" entry that 11_nisse_snapshots defines), and names the first menu entry
+# as GRUB's own fallback in case that entry cannot start (a missing kernel was checked: the machine boots normally).
+# Nothing happens unless the countdown has ended and nisse-boot armed a fallback. Keep it after 08_fallback_counting and
+# before 10_reset_boot_success: both read boot_success as the previous boot left it.
+cat << 'EOF'
+if [ "${boot_counter}" = "-1" -a "${boot_success}" = "0" -a -n "${nisse_fallback}" ]; then
+  set default="${nisse_fallback}"
+  set fallback=0
+fi
+EOF

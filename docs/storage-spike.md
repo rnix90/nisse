@@ -143,6 +143,9 @@ Recorded through three questions, each answered as the first recommended option 
    and initramfs in `/boot`; the safe-apply rollback in the design must be tested against exactly that case (N-307 boot into a snapshot, N-308 and N-310
    safe-apply and watchdog rollback), and it may need `/boot` handled at install time (for example kernel files kept in `root`, or a post-rollback
    boot-entry fix). Not verified either way; this is a spike finding, not a conclusion.
+   **Checked in N-307 (`docs/boot-recovery.md`):** a snapshot boots only with the kernel whose modules it holds (the newer kernel
+   against older modules drops to emergency mode); boot entries pin that kernel and a snapshot whose kernel has left `/boot` is
+   not offered. `snapper rollback` does not work on this layout as is (N-310).
 2. **`snapper` is not in the image** (`rpm -q snapper` is empty in the ISO root). It is in the Fedora 44 repository
    (`snapper-0.13.0-3.fc44`, also `btrfs-assistant`). Adding it is N-305.
 3. **Bootloader directory.** `base_profile = fedora` keeps `efi_dir = fedora`. Fedora's signed shim and grub are installed under

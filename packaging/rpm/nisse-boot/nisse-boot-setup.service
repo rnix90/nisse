@@ -1,0 +1,14 @@
+[Unit]
+Description=nisse boot recovery: GRUB environment, snippets and snapshot menu
+Documentation=file:///usr/share/doc/nisse-boot/boot-recovery.md
+After=local-fs.target
+RequiresMountsFor=/boot
+ConditionKernelCommandLine=!rd.live.image
+ConditionPathExists=/boot/grub2
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nisse/nisse-boot-setup
+
+[Install]
+WantedBy=multi-user.target

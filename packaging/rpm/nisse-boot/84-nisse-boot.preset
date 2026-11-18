@@ -1,0 +1,4 @@
+# nisse boot recovery: the GRUB environment, snippets and snapshot menu are set up on every boot, and the menu follows the
+# snapshots folder.
+enable nisse-boot-setup.service
+enable nisse-boot-sync.path

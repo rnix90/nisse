@@ -291,6 +291,21 @@ done
 [ -e "$root/etc/snapper/configs/root" ] && fail "the image ships a snapper root config (it must be made at first boot on the installed btrfs root)"
 echo "snapshots: nisse-snapshots, snapper and the dnf5 hook are in the image; no timed snapshots; no root config until first boot"
 
+# Boot recovery (ledger N-307): the nisse-boot package, its two GRUB snippets, units and preset are in the image, and the
+# image ships no env_block-fixing result of its own (the setup service removes env_block on every boot of an installed system).
+case "$(rpmq -q nisse-boot 2>/dev/null)" in nisse-boot-*) ;; *) fail "nisse-boot is not installed in the image" ;; esac
+for p in grub2-tools grub2-tools-minimal; do rpmq -q "$p" >/dev/null 2>&1 || fail "$p is not installed (nisse-boot needs it)"; done
+for f in /usr/bin/nisse-boot /usr/libexec/nisse/nisse-boot-setup /etc/grub.d/09_nisse_fallback /etc/grub.d/11_nisse_snapshots          /usr/lib/systemd/system/nisse-boot-setup.service /usr/lib/systemd/system/nisse-boot-sync.path /usr/lib/systemd/user/grub-boot-success.service.d/10-nisse-armed.conf; do
+    [ -e "$root$f" ] || fail "$f missing from the image"
+done
+[ -x "$root/usr/bin/nisse-boot" ] && [ -x "$root/etc/grub.d/09_nisse_fallback" ] && [ -x "$root/etc/grub.d/11_nisse_snapshots" ] || fail "nisse-boot or a GRUB snippet is not executable"
+for unit in nisse-boot-setup.service nisse-boot-sync.path; do
+    state="$(sudo systemctl --root="$merged" is-enabled "$unit" 2>/dev/null || true)"
+    case "$state" in enabled | enabled-runtime) ;; *) fail "$unit is '$state' after the image applies its presets, expected enabled" ;; esac
+done
+[ -e "$root/boot/grub2/nisse-boot.cfg" ] && fail "the image ships a snapshot menu file (it is written on an installed btrfs system)"
+echo "boot recovery: nisse-boot, the GRUB snippets and the units are in the image; no snapshot menu until an installed system makes one"
+
 # nisse's sudo policy (ledger N-306a): the package is in the image in its default, full mode (wheel runs sudo with no
 # password, the AI works with no interruptions), the sudoers drop-in is the mode sudo requires (0440), and the shim and
 # the password popup helper are there for limited mode.
