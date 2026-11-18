@@ -103,6 +103,16 @@ for laf in org.nisse.desktop org.nisse.desktop.light; do
         || fail "$laf does not default to the nisse wallpaper (Image=nisse under [Wallpaper])"
 done
 
+# The nisse cursor theme (N-408): the two logo cursors replaced, everything else inherited from Breeze, and the default in both looks.
+cth="$root/usr/share/icons/nisse_cursors"
+grep -qx 'Inherits=breeze_cursors' "$cth/index.theme" || fail "nisse_cursors must inherit breeze_cursors"
+[ -f "$cth/cursors/x-cursor" ] && [ -f "$cth/cursors/wayland-cursor" ] || fail "nisse_cursors lacks x-cursor or wayland-cursor"
+[ -d "$root/usr/share/icons/breeze_cursors/cursors" ] || fail "breeze_cursors is missing (nisse_cursors inherits it)"
+for laf in org.nisse.desktop org.nisse.desktop.light; do
+    grep -qx 'cursorTheme=nisse_cursors' "$root/usr/share/plasma/look-and-feel/$laf/contents/defaults" \
+        || fail "$laf does not default to the nisse_cursors cursor theme"
+done
+
 # The live session itself: livesys creates the live user and sets up autologin; without these units the ISO boots to
 # a login prompt instead of the desktop (Fedora enables them through its own preset file, which nisse-release replaced).
 for u in livesys.service livesys-late.service; do

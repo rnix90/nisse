@@ -3,13 +3,14 @@
 
 Name:           nisse-lookandfeel
 Version:        0.2
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        The nisse global themes and the system defaults for new users
 License:        GPL-2.0-or-later
 BuildArch:      noarch
 Requires:       nisse-theme = %{version}
 Requires:       plasma-workspace
 Requires:       nisse-wallpaper
+Requires:       nisse-cursors
 
 %description
 The nisse global themes for Plasma: nisse (the Ember dark desktop, the default)
@@ -46,6 +47,9 @@ install -pm 0644 %{nisse_root}/assets/theme/xdg/kdeglobals %{buildroot}%{_syscon
 %config(noreplace) %{_sysconfdir}/xdg/kdeglobals
 
 %changelog
+* Tue Nov 17 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-3
+- Both looks default to the nisse cursor theme (requires nisse-cursors)
+
 * Mon Nov 16 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-2
 - Both looks default to the nisse wallpaper (requires nisse-wallpaper)
 

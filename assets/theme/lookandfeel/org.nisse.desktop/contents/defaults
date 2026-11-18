@@ -14,7 +14,7 @@ name=default
 Image=nisse
 
 [kcminputrc][Mouse]
-cursorTheme=breeze_cursors
+cursorTheme=nisse_cursors
 
 [kwinrc][org.kde.kdecoration2]
 library=org.kde.breeze

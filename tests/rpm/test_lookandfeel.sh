@@ -58,7 +58,7 @@ for f in "$dark" "$light"; do
     want "$f" 'kwinrc][org.kde.kdecoration2' library org.kde.breeze
     want "$f" 'kwinrc][org.kde.kdecoration2' theme Breeze
     want "$f" 'ksplashrc][KSplash' Theme org.kde.breeze.desktop
-    want "$f" 'kcminputrc][Mouse' cursorTheme breeze_cursors
+    want "$f" 'kcminputrc][Mouse' cursorTheme nisse_cursors
 done
 for n in NisseEmber NisseEmberLight; do
     [ -f "assets/theme/color-schemes/$n.colors" ] || fail "defaults name scheme $n but assets/theme/color-schemes/$n.colors is missing"
@@ -69,6 +69,8 @@ want "$dark"  Wallpaper Image nisse
 want "$light" Wallpaper Image nisse
 rpm -qp --requires "$rpm_path" | grep -q nisse-wallpaper || fail "nisse-lookandfeel must require nisse-wallpaper (the default wallpaper it names)"
 echo "ok   both looks default to the nisse wallpaper"
+rpm -qp --requires "$rpm_path" | grep -q 'nisse-cursors' || fail "nisse-lookandfeel must require nisse-cursors (the default cursor theme it names)"
+echo "ok   both looks default to the nisse cursors"
 
 # the system default for every new user
 g="$scratch/etc/xdg/kdeglobals"
