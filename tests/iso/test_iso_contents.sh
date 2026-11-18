@@ -288,4 +288,19 @@ done
 [ -e "$root/etc/snapper/configs/root" ] && fail "the image ships a snapper root config (it must be made at first boot on the installed btrfs root)"
 echo "snapshots: nisse-snapshots, snapper and the dnf5 hook are in the image; no timed snapshots; no root config until first boot"
 
+# nisse's sudo policy (ledger N-306a): the package is in the image in its default, full mode (wheel runs sudo with no
+# password, the AI works with no interruptions), the sudoers drop-in is the mode sudo requires (0440), and the shim and
+# the password popup helper are there for limited mode.
+case "$(rpmq -q nisse-sudo 2>/dev/null)" in nisse-sudo-*) ;; *) fail "nisse-sudo is not installed in the image" ;; esac
+grep -qx '%wheel ALL=(ALL) NOPASSWD: ALL' "$root/etc/sudoers.d/50-nisse-sudo" || fail "the image's sudo policy is not full mode (wheel passwordless)"
+[ "$(stat -c %a "$root/etc/sudoers.d/50-nisse-sudo")" = 440 ] || fail "the sudoers drop-in is not mode 0440 (sudo would ignore it)"
+[ "$(cat "$root/etc/nisse/sudo-mode")" = full ] || fail "the image's sudo mode file does not say full"
+for f in /usr/libexec/nisse/shims/sudo /usr/libexec/nisse/nisse-askpass /usr/share/nisse/sudo/sudoers-full /usr/share/nisse/sudo/sudoers-limited; do
+    [ -f "$root$f" ] || fail "$f missing from the image"
+done
+[ -x "$root/usr/libexec/nisse/shims/sudo" ] && [ -x "$root/usr/libexec/nisse/nisse-askpass" ] || fail "the sudo shim or the popup helper is not executable"
+[ -f "$root/usr/bin/kdialog" ] || fail "kdialog is not in the image (the limited-mode password popup needs it)"
+grep -q 'UserGroups=.*wheel' "$root/etc/xdg/plasmasetuprc" || fail "the first-run user setup does not put the new user in wheel (the sudo policy is for wheel)"
+echo "sudo: nisse-sudo in full mode, shim and popup helper installed, first-run users join wheel"
+
 echo "PASS: ISO contents ($iso), Qt $qt"

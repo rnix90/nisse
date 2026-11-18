@@ -1,0 +1,17 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-askpass PROMPT
+# The password popup for sudo (sudo -A with SUDO_ASKPASS pointing here): a KDE password box. Prints the typed password on
+# standard output. A cancelled box, a missing kdialog or no answer within five minutes is a failure, which sudo reports as
+# "no password was provided" to the AI, so a turn is never stuck for ever on a popup nobody sees.
+#
+# Test overrides (never set in production): NISSE_KDIALOG, NISSE_ASKPASS_TIMEOUT (seconds).
+prompt="${1:-Administrator password}"
+kdialog="${NISSE_KDIALOG:-kdialog}"
+seconds="${NISSE_ASKPASS_TIMEOUT:-300}"
+
+if ! command -v "$kdialog" > /dev/null 2>&1; then
+    echo "nisse-askpass: kdialog is not installed, so there is nowhere to ask for the password" >&2
+    exit 1
+fi
+exec timeout "$seconds" "$kdialog" --title "nisse: administrator password" --password "$prompt"

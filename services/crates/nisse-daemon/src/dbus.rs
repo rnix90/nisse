@@ -128,6 +128,8 @@ struct Core {
     snapshots: Option<Arc<dyn SnapshotTool>>,
     /// The sessions already told that a turn could not be snapshotted, so the notice is not repeated every turn.
     snapshot_told: Arc<std::sync::Mutex<HashSet<String>>>,
+    /// Where the nisse sudo shim lives; sessions find it first on their PATH when it is installed (N-306a).
+    sudo_shim_dir: PathBuf,
 }
 
 impl Core {
@@ -334,6 +336,7 @@ impl Daemon {
                 config_error: Arc::new(std::sync::Mutex::new(None)),
                 snapshots: None,
                 snapshot_told: Arc::new(std::sync::Mutex::new(HashSet::new())),
+                sudo_shim_dir: PathBuf::from(crate::sudo::DEFAULT_SHIM_DIR),
             },
         }
     }
@@ -474,6 +477,12 @@ impl Daemon {
     /// A handle that can read `claude -p /usage` and record it, for the code that does so at the daemon's start.
     pub fn usage_refresher(&self) -> UsageRefresher {
         UsageRefresher(self.core.clone())
+    }
+
+    /// Names another directory for the nisse sudo shim (tests use a scratch one).
+    pub fn with_sudo_shim_dir(mut self, dir: PathBuf) -> Daemon {
+        self.core.sudo_shim_dir = dir;
+        self
     }
 
     /// Takes a snapshot pair around every turn (N-306): before it starts, and after it ends if it changed anything.
@@ -845,7 +854,15 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
     let request = RunRequest {
         session_id: session_id.to_string(),
         prompt: text,
-        env: claude_env(backend),
+        env: {
+            let mut env = claude_env(backend);
+            // In nisse's limited sudo mode a session's sudo asks through a popup (N-306a): its shell finds the shim first.
+            env.extend(crate::sudo::session_env(
+                &core.sudo_shim_dir,
+                std::env::var("PATH").ok().as_deref(),
+            ));
+            env
+        },
         resume: started,
         authority: config.authority,
         // Every turn carries the queue: supervised turns ask through it for the CLI's own permission prompts, and the

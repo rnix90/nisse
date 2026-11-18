@@ -19,7 +19,7 @@ rpm -qp --requires "$rpmf" | grep -q 'nisse-release-common' || fail "nisse-daemo
 # N-306: the daemon takes a snapshot pair around each AI turn through sudo and the nisse-snapshots helper (a soft dependency:
 # without them a turn still runs and the audit log says why there is no snapshot)
 recs="$(rpm -qp --recommends "$rpmf")"
-for r in nisse-snapshots sudo; do grep -qx "$r" <<< "$recs" || fail "nisse-daemon must recommend $r"; done
+for r in nisse-snapshots sudo nisse-sudo; do grep -qx "$r" <<< "$recs" || fail "nisse-daemon must recommend $r"; done
 member usr/share/nisse/claude-settings.json | grep -q '/usr/bin/nisse-audit-hook' || fail "settings must register nisse-audit-hook"
 settings="$(member usr/share/nisse/claude-settings.json)"
 for event in PreToolUse PostToolUse; do

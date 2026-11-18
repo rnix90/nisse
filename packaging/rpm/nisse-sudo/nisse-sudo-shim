@@ -1,0 +1,27 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The "sudo" that AI sessions started by the nisse daemon find first on their PATH (installed as
+# /usr/libexec/nisse/shims/sudo). In limited mode a sudo with no terminal, which is what an AI session's shell is, must ask
+# through the password popup, and sudo only uses a popup helper when told with -A. In full mode, or with a terminal, it
+# is exactly sudo.
+#
+# Test overrides (never set in production): NISSE_REAL_SUDO, NISSE_SUDO_MODE_FILE, NISSE_SUDO_SHIM_TTY (yes or no).
+real="${NISSE_REAL_SUDO:-/usr/bin/sudo}"
+modefile="${NISSE_SUDO_MODE_FILE:-/etc/nisse/sudo-mode}"
+
+mode=""
+[ -f "$modefile" ] && read -r mode < "$modefile"
+
+if [ "$mode" = limited ]; then
+    case "${NISSE_SUDO_SHIM_TTY:-auto}" in
+        yes) tty=yes ;;
+        no) tty=no ;;
+        *) if ( : < /dev/tty ) 2> /dev/null; then tty=yes; else tty=no; fi ;;
+    esac
+    if [ "$tty" = no ]; then
+        SUDO_ASKPASS="${SUDO_ASKPASS:-/usr/libexec/nisse/nisse-askpass}"
+        export SUDO_ASKPASS
+        exec "$real" -A "$@"
+    fi
+fi
+exec "$real" "$@"

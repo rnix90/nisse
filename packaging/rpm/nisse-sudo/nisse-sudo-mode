@@ -1,0 +1,55 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-sudo-mode [status | full | limited]
+# Shows or switches nisse's sudo policy (N-306a). Run it as root (sudo nisse-sudo-mode limited).
+#   full     everyone in wheel runs anything without a password (the default)
+#   limited  only the nisse snapshot helper is passwordless; other sudo asks for the password, with a popup when an AI
+#            session asks (see the nisse-sudo shim)
+# The new sudoers drop-in is checked with visudo before it replaces the old one, so a mistake can never lock everyone out of
+# sudo: a rejected file changes nothing.
+#
+# Test overrides (never set in production): NISSE_SUDO_TEMPLATES, NISSE_SUDOERS_DROPIN, NISSE_SUDO_MODE_FILE, NISSE_VISUDO.
+set -u
+
+templates="${NISSE_SUDO_TEMPLATES:-/usr/share/nisse/sudo}"
+dropin="${NISSE_SUDOERS_DROPIN:-/etc/sudoers.d/50-nisse-sudo}"
+modefile="${NISSE_SUDO_MODE_FILE:-/etc/nisse/sudo-mode}"
+visudo="${NISSE_VISUDO:-visudo}"
+
+current() {
+    if [ ! -f "$modefile" ]; then echo full; return; fi
+    read -r word < "$modefile" || word=""
+    case "$word" in full | limited) echo "$word" ;; *) echo unknown ;; esac
+}
+
+case "${1:-status}" in
+    status) current; exit 0 ;;
+    full | limited) mode="$1" ;;
+    *) echo "usage: nisse-sudo-mode [status | full | limited]" >&2; exit 2 ;;
+esac
+
+template="$templates/sudoers-$mode"
+if [ ! -f "$template" ]; then echo "nisse-sudo-mode: $template is missing" >&2; exit 1; fi
+
+# sudo ignores file names with a dot, so the temporary files here are never read as policy.
+tmp="$(dirname "$dropin")/.nisse-sudo.$$"
+tmpmode="$(dirname "$modefile")/.sudo-mode.$$"
+trap 'rm -f "$tmp" "$tmpmode"' EXIT
+
+cp "$template" "$tmp" && chmod 0440 "$tmp" || { echo "nisse-sudo-mode: cannot write next to $dropin" >&2; exit 1; }
+if ! "$visudo" -cf "$tmp" > /dev/null 2>&1; then
+    echo "nisse-sudo-mode: visudo rejected $template; nothing was changed" >&2
+    exit 1
+fi
+
+mkdir -p "$(dirname "$modefile")"
+echo "$mode" > "$tmpmode" && chmod 0644 "$tmpmode" || { echo "nisse-sudo-mode: cannot write $modefile" >&2; exit 1; }
+old="$(current)"
+mv -f "$tmpmode" "$modefile" || exit 1
+if ! mv -f "$tmp" "$dropin"; then
+    echo "$old" > "$modefile"
+    echo "nisse-sudo-mode: cannot replace $dropin" >&2
+    exit 1
+fi
+echo "nisse sudo mode: $mode"
+exit 0

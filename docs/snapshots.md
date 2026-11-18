@@ -56,8 +56,8 @@ The nisse daemon takes the same kind of pair around each AI turn (one message th
    else keeps the pair, `Bash` always (it can be `ls` or `rm -rf`), and so does any tool the list has never heard of
    (MCP tools included): a wrong guess only keeps a pair.
 2. **sudo.** The daemon is a user service and snapshots are root's, so it runs `sudo -n /usr/libexec/nisse/nisse-snapshot-batch`.
-   nisse is meant to be passwordless for its user; that sudo policy is not built yet (see the follow-ups below), and until
-   it is, `sudo -n` fails with "a password is required" and the daemon says so. I verified the alternative (snapper's own
+   nisse is passwordless for its user by default (`docs/sudo.md`, N-306a); in the optional limited mode the helper is
+   the one thing that stays passwordless, and if sudo ever asks for a password the daemon says so. I verified the alternative (snapper's own
    `ALLOW_GROUPS=wheel`, which lets a wheel user take snapshots with no sudo) in `tools/spike/snapper_user_spike.sh`; it
    works and is the way back if the sudo policy changes.
 3. **No snapshot, the turn still runs.** Live media and a non-btrfs root (the helper exits 10) are only audited. A real

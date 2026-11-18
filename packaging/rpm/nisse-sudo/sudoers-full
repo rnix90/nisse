@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse sudo mode FULL (the default). Everyone in the wheel group, which includes the first user the installer makes,
+# runs any command as any user without a password. The AI works with no interruptions; so does any other program running
+# as that user. Switch with: sudo nisse-sudo-mode limited
+%wheel ALL=(ALL) NOPASSWD: ALL

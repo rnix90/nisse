@@ -11,4 +11,5 @@ pub mod remote;
 pub mod runner;
 pub mod snapshots;
 pub mod state;
+pub mod sudo;
 pub mod usage;

@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# rpmlint filter for the nisse-sudo test: sudo refuses a sudoers file that is readable by others, so 0440 is required.
+addFilter(r"non-readable /etc/sudoers.d/50-nisse-sudo")
