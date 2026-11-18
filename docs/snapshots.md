@@ -45,6 +45,56 @@ is wired. The root layout it sits on is `docs/storage-spike.md` (N-302).
 | `tests/e2e/test_snapshots_dnf_hook.sh` | build VM (sudo) | dnf5 calls a hook once before and once after install and remove, in order |
 | `tests/iso/test_iso_contents.sh` | ISO rebuild | the package, snapper, the actions plugin and the presets are in the image; no root config ships; no timed snapshots |
 
+## A snapshot pair around every AI turn (N-306)
+
+The nisse daemon takes the same kind of pair around each AI turn (one message through Claude Code). Decisions (Bert,
+2026-11-18):
+
+1. **A batch is a turn.** The pre snapshot is taken before the CLI starts and the post snapshot when it ends. The daemon
+   watches the turn's stream for tool calls: a turn that called only Read, Glob, Grep, LS, WebFetch, WebSearch, TodoWrite,
+   ToolSearch or AskUserQuestion has its pre snapshot removed at once, so chat does not use up the 20-pair limit. Anything
+   else keeps the pair, `Bash` always (it can be `ls` or `rm -rf`), and so does any tool the list has never heard of
+   (MCP tools included): a wrong guess only keeps a pair.
+2. **sudo.** The daemon is a user service and snapshots are root's, so it runs `sudo -n /usr/libexec/nisse/nisse-snapshot-batch`.
+   nisse is meant to be passwordless for its user; that sudo policy is not built yet (see the follow-ups below), and until
+   it is, `sudo -n` fails with "a password is required" and the daemon says so. I verified the alternative (snapper's own
+   `ALLOW_GROUPS=wheel`, which lets a wheel user take snapshots with no sudo) in `tools/spike/snapper_user_spike.sh`; it
+   works and is the way back if the sudo policy changes.
+3. **No snapshot, the turn still runs.** Live media and a non-btrfs root (the helper exits 10) are only audited. A real
+   failure (no sudo rights, under 10% free, snapper error) is audited and the chat gets one plain line per session:
+   `[No snapshot was taken, so this turn cannot be rolled back: <reason>]`.
+
+**The helper.** `nisse-snapshot-batch pre SESSION | post PRE SESSION | drop PRE [POST]` runs as root, so it checks its
+arguments before anything else (numbers are digits, the session id is letters, digits and dashes) and `drop` refuses any
+snapshot that is not a lone pre or a pre/post pair this helper made (userdata `nisse=ai-batch`). Snapshots are number-tagged
+with userdata `nisse=ai-batch,session=<id>`, so snapper's hourly cleanup, the 20-pair limit and the daily 14-day prune
+treat them like the package pairs.
+
+**Audit log.** Records of kind `snapshot`, actor `daemon`, with the session id:
+
+| `detail.phase` | When | Other fields |
+|---|---|---|
+| `pre` | the pre snapshot exists | `snapshot` |
+| `post` | the turn changed things | `pre`, `snapshot` (both ids in one record) |
+| `dropped` | the turn only read things | `pre`, `reason` |
+| `skipped` | no snapshot could be taken | `reason`, `told` (whether the chat was told) |
+| `post-failed`, `drop-failed` | the helper failed after the turn | `pre`, `error` |
+
+A turn that is cancelled still gets a post snapshot (it may have changed things whose tool call was never read).
+
+**Settings (daemon environment):** `NISSE_NO_SNAPSHOTS=1` turns it off, `NISSE_SNAPSHOT_BATCH` names another helper,
+`NISSE_SNAPSHOT_SUDO=0` runs the helper without sudo. The fake runner (`NISSE_FAKE_RUNNER=1`) never snapshots.
+
+**Not covered:** `claude` runs a person starts in a terminal and sessions of the remote-access server are not turns of
+this daemon, so they get no snapshot pair (a follow-up task is in the ledger).
+
+| Test | Where it runs | What it proves |
+|---|---|---|
+| `tests/shell/test_snapshot_scripts.sh` | anywhere | the helper against a fake snapper: answers, exit codes, argument checks, what `drop` refuses |
+| `services/crates/nisse-daemon/tests/snapshots.rs` | build VM (cargo) | tool classification, the stream parser, the helper's exit codes, and the daemon around a turn: order, read-only drop, quiet skip, one notice per session, cancel, concurrent sessions |
+| `tests/e2e/test_snapshots_btrfs.sh` | build VM (sudo) | the helper on the real snapper: pre, post and drop, and a foreign pair refused |
+| `tests/e2e/test_daemon_snapshots.sh` | build VM (sudo, cargo) | the daemon code with the real helper, real `sudo -n` and real snapper on a loop btrfs |
+
 ## Not yet verified
 
 - A real package install on an installed btrfs nisse system taking a real pair through dnf5 (the install-to-disk
@@ -52,3 +102,5 @@ is wired. The root layout it sits on is `docs/storage-spike.md` (N-302).
 - That `snapper create-config /` works on the installer's `root` subvolume layout at first boot (same queue).
 - Discover (PackageKit or dnf5daemon) transactions run the same actions plugin: unchecked.
 - `/boot` is outside the snapshots (N-307 to N-310).
+- An AI turn on an installed btrfs nisse system taking a real pair through the packaged daemon and `sudo` (the install-to-disk
+  harness, then a message to the panel); queued with the next ISO rebuild.

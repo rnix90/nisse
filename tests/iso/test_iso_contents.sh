@@ -272,7 +272,7 @@ echo "terminal: the nisse scheme and profile are the Konsole default"
 # makes it at first boot of an installed btrfs system only.
 case "$(rpmq -q nisse-snapshots 2>/dev/null)" in nisse-snapshots-*) ;; *) fail "nisse-snapshots is not installed in the image" ;; esac
 for p in snapper libdnf5-plugin-actions btrfs-progs; do rpmq -q "$p" >/dev/null 2>&1 || fail "$p is not installed (nisse-snapshots needs it)"; done
-for f in /usr/libexec/nisse/nisse-snapshot-hook /usr/libexec/nisse/nisse-snapshot-setup /usr/libexec/nisse/nisse-snapshot-prune          /usr/share/nisse/snapshots/root.conf /etc/dnf/libdnf5-plugins/actions.d/nisse-snapshots.actions; do
+for f in /usr/libexec/nisse/nisse-snapshot-hook /usr/libexec/nisse/nisse-snapshot-setup /usr/libexec/nisse/nisse-snapshot-prune /usr/libexec/nisse/nisse-snapshot-batch         /usr/share/nisse/snapshots/root.conf /etc/dnf/libdnf5-plugins/actions.d/nisse-snapshots.actions; do
     [ -f "$root$f" ] || fail "$f missing from the image"
 done
 [ -x "$root/usr/libexec/nisse/nisse-snapshot-hook" ] || fail "the snapshot hook is not executable"

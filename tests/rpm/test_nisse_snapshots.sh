@@ -10,7 +10,7 @@ rpmf="$(ls -v out/rpmbuild/RPMS/noarch/nisse-snapshots-[0-9]*.rpm 2>/dev/null | 
 member() { rpm2cpio "$rpmf" | cpio -i --to-stdout --quiet "./$1"; }
 
 files="$(rpm -qlp "$rpmf")"
-for f in /usr/libexec/nisse/nisse-snapshot-hook /usr/libexec/nisse/nisse-snapshot-setup /usr/libexec/nisse/nisse-snapshot-prune \
+for f in /usr/libexec/nisse/nisse-snapshot-hook /usr/libexec/nisse/nisse-snapshot-setup /usr/libexec/nisse/nisse-snapshot-prune /usr/libexec/nisse/nisse-snapshot-batch \
          /usr/share/nisse/snapshots/root.conf /etc/dnf/libdnf5-plugins/actions.d/nisse-snapshots.actions \
          /usr/lib/systemd/system/nisse-snapshot-setup.service /usr/lib/systemd/system/nisse-snapshot-prune.service \
          /usr/lib/systemd/system/nisse-snapshot-prune.timer /usr/lib/systemd/system-preset/83-nisse-snapshots.preset; do
@@ -25,7 +25,7 @@ done
 
 # The scripts are executable.
 modes="$(rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpmf")"
-for s in nisse-snapshot-hook nisse-snapshot-setup nisse-snapshot-prune; do
+for s in nisse-snapshot-hook nisse-snapshot-setup nisse-snapshot-prune nisse-snapshot-batch; do
     grep -q "^-rwxr-xr-x /usr/libexec/nisse/$s\$" <<< "$modes" || fail "$s must be mode 0755"
 done
 

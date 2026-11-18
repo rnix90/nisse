@@ -83,10 +83,14 @@ fn an_error_result_becomes_an_error_event() {
 }
 
 #[test]
-fn tool_use_content_is_not_shown_as_text() {
+fn tool_use_content_is_a_tool_use_event_and_never_text() {
     let line =
         r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash"},{"type":"text","text":"ok"}]}}"#;
-    assert_eq!(parse_line(line), vec![RunEvent::Text("ok".into())]);
+    // The tool call is reported by name for the snapshot logic (N-306); the person only ever sees the text.
+    assert_eq!(
+        parse_line(line),
+        vec![RunEvent::ToolUse("Bash".into()), RunEvent::Text("ok".into())]
+    );
 }
 
 #[test]

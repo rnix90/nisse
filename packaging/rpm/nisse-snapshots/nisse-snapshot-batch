@@ -1,0 +1,107 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-snapshot-batch pre SESSION | post PRE SESSION | drop PRE [POST]
+# The snapshot pair around one AI turn (N-306). The nisse daemon runs it as root through sudo, once before a turn
+# starts (pre), once after it ends (post), and again to remove the snapshots when the turn only read things (drop: a lone PRE, or a PRE and its POST).
+# Because it runs as root, every argument is checked before anything else happens: numbers are digits only, the session
+# id is letters, digits and dashes only, and drop refuses any snapshot that is not an AI batch pair made by this script.
+#
+# Answers, on standard output:  pre=N   post=N   skip=TEXT   error=TEXT
+# Exit status: 0 done; 1 snapper failed or refused (error=); 2 bad arguments (nothing was run);
+#              10 nothing to snapshot here: not btrfs, or no snapper root config (live media): quiet, never worth telling a person;
+#              11 not taken because the disk is nearly full (skip=): worth telling a person.
+#
+# Test overrides (never set in production): NISSE_SNAPPER, NISSE_SNAPPER_CONFDIR, NISSE_ROOT_FSTYPE, NISSE_FREE_PERCENT,
+# NISSE_SNAPSHOT_CONFIG, NISSE_MIN_FREE_PERCENT.
+set -u
+
+snapper="${NISSE_SNAPPER:-/usr/bin/snapper}"
+confdir="${NISSE_SNAPPER_CONFDIR:-/etc/snapper/configs}"
+cfg="${NISSE_SNAPSHOT_CONFIG:-root}"
+min_free="${NISSE_MIN_FREE_PERCENT:-10}"
+
+usage() { echo "usage: nisse-snapshot-batch pre SESSION | post PRE SESSION | drop PRE [POST]" >&2; exit 2; }
+is_number() { case "$1" in '' | *[!0-9]*) return 1 ;; esac; [ "${#1}" -le 9 ]; }
+is_session() { case "$1" in '' | *[!A-Za-z0-9-]*) return 1 ;; esac; [ "${#1}" -le 64 ]; }
+
+mode="${1:-}"
+case "$mode" in
+    pre) [ "$#" = 2 ] && is_session "$2" || usage; session="$2" ;;
+    post) [ "$#" = 3 ] && is_number "$2" && is_session "$3" || usage; pre="$2"; session="$3" ;;
+    drop)
+        case "$#" in
+            2) is_number "$2" || usage; pre="$2"; post="" ;;
+            3) is_number "$2" && is_number "$3" || usage; pre="$2"; post="$3" ;;
+            *) usage ;;
+        esac ;;
+    *) usage ;;
+esac
+
+# Only a btrfs root with the snapper root config can be snapshotted (live media and other filesystems cannot).
+fstype="${NISSE_ROOT_FSTYPE:-$(stat -f -c %T / 2>/dev/null)}"
+if [ "$fstype" != btrfs ]; then echo "skip=the root is $fstype, not btrfs"; exit 10; fi
+if [ ! -f "$confdir/$cfg" ]; then echo "skip=there is no snapshot configuration for the root"; exit 10; fi
+
+case "$mode" in
+    pre)
+        free="${NISSE_FREE_PERCENT:-}"
+        if [ -z "$free" ]; then
+            set -- $(stat -f -c '%a %b' / 2>/dev/null)
+            [ "${2:-0}" -gt 0 ] 2>/dev/null && free=$(($1 * 100 / $2))
+        fi
+        if [ -n "$free" ] && [ "$free" -lt "$min_free" ]; then
+            echo "skip=only ${free}% free on the disk (snapshots need at least ${min_free}%)"
+            exit 11
+        fi
+        num="$("$snapper" --no-dbus -c "$cfg" create -t pre -p -c number -d "AI turn: before" -u "nisse=ai-batch,session=$session")" || {
+            echo "error=snapper could not take the snapshot"
+            exit 1
+        }
+        case "$num" in '' | *[!0-9]*) echo "error=snapper answered '$num' instead of a snapshot number"; exit 1 ;; esac
+        echo "pre=$num"
+        ;;
+    post)
+        num="$("$snapper" --no-dbus -c "$cfg" create -t post --pre-number "$pre" -p -c number -d "AI turn: after" -u "nisse=ai-batch,session=$session")" || {
+            echo "error=snapper could not take the post snapshot paired with $pre"
+            exit 1
+        }
+        case "$num" in '' | *[!0-9]*) echo "error=snapper answered '$num' instead of a snapshot number"; exit 1 ;; esac
+        echo "post=$num"
+        ;;
+    drop)
+        # The userdata column holds "key=value, key=value"; with a ";" separator snapper prints it unquoted.
+        rows="$("$snapper" --no-dbus -c "$cfg" --csvout --separator ';' list --columns number,type,pre-number,userdata)" || {
+            echo "error=snapper could not list the snapshots"
+            exit 1
+        }
+        pre_ok=no; post_ok=no; paired=no
+        while IFS=';' read -r n t p u; do
+            [ "$t" = post ] && [ "$p" = "$pre" ] && paired=yes
+            case "$u" in *nisse=ai-batch*) ;; *) continue ;; esac
+            [ "$n" = "$pre" ] && [ "$t" = pre ] && pre_ok=yes
+            [ -n "$post" ] && [ "$n" = "$post" ] && [ "$t" = post ] && [ "$p" = "$pre" ] && post_ok=yes
+        done <<EOF
+$rows
+EOF
+        if [ -z "$post" ]; then
+            # a lone pre snapshot: ours, and nothing paired with it
+            if [ "$pre_ok" != yes ] || [ "$paired" = yes ]; then
+                echo "error=$pre is not a lone AI batch snapshot; nothing was deleted"
+                exit 1
+            fi
+            set -- "$pre"
+        else
+            if [ "$pre_ok" != yes ] || [ "$post_ok" != yes ]; then
+                echo "error=$pre and $post are not an AI batch pair; nothing was deleted"
+                exit 1
+            fi
+            set -- "$pre" "$post"
+        fi
+        "$snapper" --no-dbus -c "$cfg" delete "$@" || {
+            echo "error=snapper could not delete $*"
+            exit 1
+        }
+        echo "dropped=$*"
+        ;;
+esac
+exit 0

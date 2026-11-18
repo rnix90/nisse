@@ -31,6 +31,9 @@ pub enum RunEvent {
     RateLimit(RateLimit),
     /// What the turn used (N-214).
     Tokens(TokenUse),
+    /// The AI is calling a tool (by name). The daemon uses it to tell a turn that changed things from one that only read
+    /// (N-306); it is not shown to the person.
+    ToolUse(String),
 }
 
 /// Where a supervised run sends the CLI's permission prompts: the approvals queue (N-203).
@@ -109,9 +112,11 @@ pub fn parse_line(line: &str) -> Vec<RunEvent> {
             .as_array()
             .into_iter()
             .flatten()
-            .filter(|item| item["type"] == "text")
-            .filter_map(|item| item["text"].as_str())
-            .map(|text| RunEvent::Text(text.to_string()))
+            .filter_map(|item| match item["type"].as_str() {
+                Some("text") => item["text"].as_str().map(|text| RunEvent::Text(text.to_string())),
+                Some("tool_use") => item["name"].as_str().map(|name| RunEvent::ToolUse(name.to_string())),
+                _ => None,
+            })
             .collect(),
         Some("system") if value["subtype"] == "init" => vec![RunEvent::Started],
         Some("system") if value["subtype"] == "permission_denied" => {

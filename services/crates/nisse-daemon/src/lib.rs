@@ -9,5 +9,6 @@ pub mod events;
 pub mod killswitch;
 pub mod remote;
 pub mod runner;
+pub mod snapshots;
 pub mod state;
 pub mod usage;

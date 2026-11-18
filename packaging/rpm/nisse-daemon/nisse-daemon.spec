@@ -5,7 +5,7 @@
 
 Name:           nisse-daemon
 Version:        0.1
-Release:        19%{?dist}
+Release:        20%{?dist}
 Summary:        nisse daemon: AI sessions for the nisse panel
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
@@ -13,6 +13,8 @@ BuildRequires:  gcc
 BuildRequires:  systemd-rpm-macros
 Requires:       dbus-common
 Requires:       nisse-release-common
+Recommends:     nisse-snapshots
+Recommends:     sudo
 
 Source1:        nisse-daemon.service
 Source2:        org.nisse.Daemon1.service
@@ -64,6 +66,9 @@ install -Dpm 0644 %{nisse_root}/services/crates/nisse-proto/schema/daemon-protoc
 %config(noreplace) %{_sysconfdir}/claude-code/managed-settings.json
 
 %changelog
+* Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-20
+- A snapshot pair around every AI turn through nisse-snapshot-batch and sudo: pre before the turn, post after one that changed things, the pair removed after a turn that only read; both ids in the audit log (N-306)
+
 * Sat Nov 14 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-19
 - Device pairing: StartPairing, CompletePairing, ListDevices, RevokeDevice and signed DeviceCall (Ed25519), kept in devices.json
 

@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use nisse_daemon::dbus::Daemon;
 use nisse_daemon::runner::{default_settings_path, AgentRunner, ClaudeCliRunner, FakeRunner};
+use nisse_daemon::snapshots::ScriptSnapshots;
 
 #[tokio::main]
 async fn main() -> zbus::Result<()> {
@@ -24,7 +25,7 @@ async fn main() -> zbus::Result<()> {
         Arc::new(runner)
     };
     let sessions_file = nisse_daemon::state::default_state_path();
-    let daemon = Daemon::new(
+    let mut daemon = Daemon::new(
         runner,
         nisse_config::default_config_path(),
         nisse_audit::default_log_path(),
@@ -36,6 +37,16 @@ async fn main() -> zbus::Result<()> {
     .with_killswitch_file(sessions_file.with_file_name("killswitch.json"))
     .with_events_dir(sessions_file.with_file_name("events"))
     .with_devices_file(nisse_daemon::devices::devices_path_beside(&sessions_file));
+    // The rollback net (N-306): a snapshot pair around each AI turn. Off for the fake runner (development) and when
+    // NISSE_NO_SNAPSHOTS=1; NISSE_SNAPSHOT_BATCH names another helper and NISSE_SNAPSHOT_SUDO=0 runs it without sudo.
+    if std::env::var("NISSE_FAKE_RUNNER").as_deref() != Ok("1")
+        && std::env::var("NISSE_NO_SNAPSHOTS").as_deref() != Ok("1")
+    {
+        daemon = daemon.with_snapshots(Arc::new(ScriptSnapshots::from_settings(
+            std::env::var("NISSE_SNAPSHOT_BATCH").ok().as_deref(),
+            std::env::var("NISSE_SNAPSHOT_SUDO").ok().as_deref(),
+        )));
+    }
     daemon.sweep_orphan_events().await;
     let approvals = daemon.approvals();
     let usage = daemon.usage();

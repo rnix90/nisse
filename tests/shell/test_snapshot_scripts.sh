@@ -8,6 +8,7 @@ dir="$PWD/packaging/rpm/nisse-snapshots"
 hook="$dir/nisse-snapshot-hook"
 setup="$dir/nisse-snapshot-setup"
 prune="$dir/nisse-snapshot-prune"
+batch="$dir/nisse-snapshot-batch"
 failures=0
 ok() { echo "ok   $*"; }
 bad() { echo "FAIL $*"; failures=$((failures + 1)); }
@@ -30,7 +31,7 @@ fresh() {
 # fake snapper: record the call, then answer. STUB_FAIL=<verb> makes that verb exit 1.
 echo "$@" >> "$STUB_DIR/calls"
 while [ "${1#-}" != "$1" ]; do
-    case "$1" in -c) shift ;; esac
+    case "$1" in -c | --separator) shift ;; esac
     shift
 done
 verb="$1"; shift
@@ -165,8 +166,96 @@ sh "$prune" >/dev/null 2>&1
 has_call ' delete 3 4' || has_call ' delete 4 3' && ok "prune: the age limit is NISSE_SNAPSHOT_MAX_AGE_DAYS" || bad "prune: age override ignored: $(cat "$work/calls")"
 unset NISSE_SNAPSHOT_MAX_AGE_DAYS NISSE_NOW
 
+# ---- batch: the snapshot pair around one AI turn (the daemon runs it through sudo, so its arguments are checked strictly)
+sess=0d9b6f0e-1c2a-4f10-9d3e-5b7c8a9d0e11
+fresh; touch "$work/confdir/root"
+out="$(sh "$batch" pre "$sess" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && [ "$out" = "pre=41" ] && ok "batch pre: exit 0 and prints pre=41" || bad "batch pre: rc=$rc out=$out"
+has_call "create -t pre -p -c number -d AI turn: before -u nisse=ai-batch,session=$sess" && ok "batch pre: a number-tagged pre snapshot with the session in its userdata" || bad "batch pre: call was $(cat "$work/calls")"
+has_call '--no-dbus -c root' && ok "batch pre: talks to snapper directly" || bad "batch pre: not --no-dbus"
+
+fresh; touch "$work/confdir/root"; NISSE_ROOT_FSTYPE=ext4 sh "$batch" pre "$sess" > "$work/out" 2>&1; rc=$?
+[ "$rc" = 10 ] && grep -q '^skip=' "$work/out" && [ ! -s "$work/calls" ] && ok "batch pre on a non-btrfs root: quiet skip (exit 10)" || bad "batch pre ext4: rc=$rc out=$(cat "$work/out")"
+fresh; sh "$batch" pre "$sess" > "$work/out" 2>&1; rc=$?
+[ "$rc" = 10 ] && grep -q '^skip=' "$work/out" && [ ! -s "$work/calls" ] && ok "batch pre without a root config: quiet skip (exit 10)" || bad "batch pre no config: rc=$rc"
+fresh; touch "$work/confdir/root"; NISSE_FREE_PERCENT=5 sh "$batch" pre "$sess" > "$work/out" 2>&1; rc=$?
+[ "$rc" = 11 ] && grep -q '^skip=.*5% free' "$work/out" && [ ! -s "$work/calls" ] && ok "batch pre with under 10% free: loud skip (exit 11) with the reason" || bad "batch pre low space: rc=$rc out=$(cat "$work/out")"
+fresh; touch "$work/confdir/root"; STUB_FAIL=create sh "$batch" pre "$sess" > "$work/out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q '^error=' "$work/out" && ok "batch pre when snapper fails: exit 1 with error=" || bad "batch pre snapper fails: rc=$rc"
+fresh; touch "$work/confdir/root"; STUB_BAD_NUMBER=1 sh "$batch" pre "$sess" > "$work/out" 2>&1; rc=$?
+[ "$rc" = 1 ] && ok "batch pre with a non-numeric answer: exit 1" || bad "batch pre bad number: rc=$rc"
+for badsess in 'a;b' 'a b' '$(id)' '../x' '' "$(printf 'x%.0s' $(seq 1 70))"; do
+    fresh; touch "$work/confdir/root"; sh "$batch" pre "$badsess" >/dev/null 2>&1; rc=$?
+    [ "$rc" = 2 ] && [ ! -s "$work/calls" ] && ok "batch pre rejects the session id '$(printf %.12s "$badsess")' (exit 2, snapper not called)" || bad "batch pre accepted a bad session id '$badsess' (rc=$rc)"
+done
+
+fresh; touch "$work/confdir/root"; echo 42 > "$work/next"
+out="$(sh "$batch" post 41 "$sess" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && [ "$out" = "post=42" ] && ok "batch post: exit 0 and prints post=42" || bad "batch post: rc=$rc out=$out"
+has_call "create -t post --pre-number 41 -p -c number -d AI turn: after -u nisse=ai-batch,session=$sess" && ok "batch post: pairs with the pre snapshot and keeps the userdata" || bad "batch post: call was $(cat "$work/calls")"
+fresh; touch "$work/confdir/root"; STUB_FAIL=create sh "$batch" post 41 "$sess" > "$work/out" 2>&1; rc=$?
+[ "$rc" = 1 ] && grep -q '^error=' "$work/out" && ok "batch post when snapper fails: exit 1 with error=" || bad "batch post snapper fails: rc=$rc"
+for badnum in 'x' '4 1' '41;id' '' '1234567890123'; do
+    fresh; touch "$work/confdir/root"; sh "$batch" post "$badnum" "$sess" >/dev/null 2>&1; rc=$?
+    [ "$rc" = 2 ] && [ ! -s "$work/calls" ] && ok "batch post rejects the pre number '$badnum'" || bad "batch post accepted a bad pre number '$badnum' (rc=$rc)"
+done
+
+fresh; touch "$work/confdir/root"
+printf 'number;type;pre-number;userdata
+0;single;;
+41;pre;;nisse=ai-batch, session=%s
+42;post;41;nisse=ai-batch, session=%s
+' "$sess" "$sess" > "$work/list"
+sh "$batch" drop 41 42 >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && has_call ' delete 41 42' && ok "batch drop: deletes our paired snapshots" || bad "batch drop: rc=$rc calls=$(cat "$work/calls")"
+fresh; touch "$work/confdir/root"
+printf 'number;type;pre-number;userdata
+0;single;;
+41;pre;;
+42;post;41;
+' > "$work/list"
+sh "$batch" drop 41 42 >/dev/null 2>&1; rc=$?
+[ "$rc" = 1 ] && ! has_call ' delete ' && ok "batch drop refuses snapshots that are not nisse AI batches" || bad "batch drop deleted a foreign pair (rc=$rc)"
+fresh; touch "$work/confdir/root"
+printf 'number;type;pre-number;userdata
+0;single;;
+41;pre;;nisse=ai-batch
+42;post;40;nisse=ai-batch
+' > "$work/list"
+sh "$batch" drop 41 42 >/dev/null 2>&1; rc=$?
+[ "$rc" = 1 ] && ! has_call ' delete ' && ok "batch drop refuses a post that is not paired with that pre" || bad "batch drop deleted an unpaired post (rc=$rc)"
+# a read-only turn only ever has its pre snapshot: drop PRE alone removes it, if it is ours and nothing is paired with it
+fresh; touch "$work/confdir/root"
+printf 'number;type;pre-number;userdata
+0;single;;
+41;pre;;nisse=ai-batch, session=%s
+' "$sess" > "$work/list"
+sh "$batch" drop 41 >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && has_call ' delete 41' && ! has_call ' delete 41 ' && ok "batch drop PRE: deletes a lone pre snapshot of ours" || bad "batch drop PRE: rc=$rc calls=$(cat "$work/calls")"
+fresh; touch "$work/confdir/root"
+printf 'number;type;pre-number;userdata
+0;single;;
+41;pre;;nisse=ai-batch
+42;post;41;nisse=ai-batch
+' > "$work/list"
+sh "$batch" drop 41 >/dev/null 2>&1; rc=$?
+[ "$rc" = 1 ] && ! has_call ' delete ' && ok "batch drop PRE: refuses a pre that already has a post" || bad "batch drop PRE deleted a paired pre (rc=$rc)"
+fresh; touch "$work/confdir/root"
+printf 'number;type;pre-number;userdata
+0;single;;
+41;pre;;
+' > "$work/list"
+sh "$batch" drop 41 >/dev/null 2>&1; rc=$?
+[ "$rc" = 1 ] && ! has_call ' delete ' && ok "batch drop PRE: refuses a pre that is not an AI batch" || bad "batch drop PRE deleted a foreign pre (rc=$rc)"
+fresh; touch "$work/confdir/root"; sh "$batch" drop >/dev/null 2>&1; rc=$?
+[ "$rc" = 2 ] && ok "batch drop with no number is a usage error (exit 2)" || bad "batch drop with no number: rc=$rc"
+fresh; touch "$work/confdir/root"; sh "$batch" drop 41 x >/dev/null 2>&1; rc=$?
+[ "$rc" = 2 ] && ok "batch drop rejects a bad second number (exit 2)" || bad "batch drop with a bad post number: rc=$rc"
+fresh; touch "$work/confdir/root"; sh "$batch" sideways >/dev/null 2>&1; rc=$?
+[ "$rc" = 2 ] && ok "batch: unknown mode is a usage error (2)" || bad "batch: unknown mode rc=$rc"
+
 # ---- every script is ASCII, executable text with an SPDX header
-for f in "$hook" "$setup" "$prune"; do
+for f in "$hook" "$setup" "$prune" "$batch"; do
     if LC_ALL=C grep -q '[^ -~	]' "$f"; then bad "$(basename "$f") has non-ASCII"; else ok "$(basename "$f") is ASCII"; fi
     head -3 "$f" | grep -q 'SPDX-License-Identifier: GPL-2.0-or-later' && ok "$(basename "$f") has the SPDX header" || bad "$(basename "$f") lacks the SPDX header"
     sh -n "$f" 2>/dev/null && ok "$(basename "$f") parses" || bad "$(basename "$f") has a syntax error"

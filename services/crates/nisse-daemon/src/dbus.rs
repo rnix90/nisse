@@ -4,8 +4,9 @@
 //! Each session runs one turn at a time: a message that arrives while a turn is running is queued and runs after it.
 //! `Cancel` aborts the running turn (dropping the runner future, which kills the CLI) and drops the queue.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use nisse_audit::{now_rfc3339, AuditLog, AuditRecord};
@@ -22,6 +23,7 @@ use crate::events::EventLog;
 use crate::killswitch::KillSwitch;
 use crate::remote::{RemoteAccess, RemoteOptions};
 use crate::runner::{AgentRunner, ApprovalHook, RunEvent, RunRequest};
+use crate::snapshots::{is_read_only_tool, NoSnapshot, SnapshotTool};
 use crate::state::{Keep, SessionStore};
 use crate::usage::{parse_usage_text, UsageTracker};
 use nisse_proto::{EventKind, Session};
@@ -36,6 +38,63 @@ struct RunState {
     abort: Option<AbortHandle>,
     /// Bumped on every start and cancel so a driver that was cancelled never touches newer state.
     generation: u64,
+}
+
+/// The snapshot pair of one turn (N-306). `finish` closes it with the turn; a batch dropped without that (the turn was
+/// cancelled) is closed in the background, and always with a post snapshot, because a cancelled turn may have changed
+/// things whose tool event was never read.
+struct Batch {
+    core: Core,
+    tool: Arc<dyn SnapshotTool>,
+    session: String,
+    pre: u64,
+    /// Set when the turn calls a tool that can change the computer.
+    mutated: Arc<AtomicBool>,
+    finished: bool,
+}
+
+impl Batch {
+    /// A turn that changed things gets its post snapshot (both ids go in one audit record); a turn that only read gets its
+    /// pre snapshot removed again.
+    async fn close(core: &Core, tool: &Arc<dyn SnapshotTool>, session: &str, pre: u64, mutated: bool) {
+        let detail = if mutated {
+            match tool.post(session, pre).await {
+                Ok(post) => serde_json::json!({ "phase": "post", "pre": pre, "snapshot": post }),
+                Err(error) => serde_json::json!({ "phase": "post-failed", "pre": pre, "error": error }),
+            }
+        } else {
+            match tool.drop_pre(pre).await {
+                Ok(()) => serde_json::json!({
+                    "phase": "dropped", "pre": pre, "reason": "the turn used no tool that changes anything"
+                }),
+                Err(error) => serde_json::json!({ "phase": "drop-failed", "pre": pre, "error": error }),
+            }
+        };
+        core.audit(Some(session), "daemon", "snapshot", detail);
+    }
+
+    async fn finish(mut self) {
+        self.finished = true;
+        let mutated = self.mutated.load(Ordering::SeqCst);
+        Batch::close(&self.core, &self.tool, &self.session, self.pre, mutated).await;
+    }
+}
+
+impl Drop for Batch {
+    fn drop(&mut self) {
+        if self.finished {
+            return;
+        }
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            let (core, tool, session, pre) = (
+                self.core.clone(),
+                Arc::clone(&self.tool),
+                self.session.clone(),
+                self.pre,
+            );
+            handle.spawn(async move { Batch::close(&core, &tool, &session, pre, true).await });
+        }
+    }
 }
 
 /// Everything a turn needs; cheap to clone into the driver task.
@@ -65,6 +124,10 @@ struct Core {
     runs: Arc<Mutex<HashMap<String, RunState>>>,
     /// The config error already audited, so a file that stays broken is reported once, not on every call.
     config_error: Arc<std::sync::Mutex<Option<String>>>,
+    /// Takes the snapshot pair around each turn (N-306); `None` when the daemon was built without it.
+    snapshots: Option<Arc<dyn SnapshotTool>>,
+    /// The sessions already told that a turn could not be snapshotted, so the notice is not repeated every turn.
+    snapshot_told: Arc<std::sync::Mutex<HashSet<String>>>,
 }
 
 impl Core {
@@ -117,6 +180,57 @@ impl Core {
     async fn emit_done(&self, emitter: &SignalEmitter<'_>, session: &str) {
         self.emit_event(emitter, session, EventKind::Done).await;
         let _ = Daemon::session_done(emitter, session).await;
+    }
+
+    /// Takes the pre snapshot of a turn (N-306). `None`, with the turn going ahead, when there is none: a machine with
+    /// nothing to snapshot is only audited, a snapshot that should have worked is also told to the chat, once per session.
+    async fn begin_batch(&self, emitter: &SignalEmitter<'_>, session: &str) -> Option<Batch> {
+        let tool = self.snapshots.clone()?;
+        match tool.pre(session).await {
+            Ok(pre) => {
+                self.audit(
+                    Some(session),
+                    "daemon",
+                    "snapshot",
+                    serde_json::json!({ "phase": "pre", "snapshot": pre }),
+                );
+                Some(Batch {
+                    core: self.clone(),
+                    tool,
+                    session: session.to_string(),
+                    pre,
+                    mutated: Arc::new(AtomicBool::new(false)),
+                    finished: false,
+                })
+            }
+            Err(NoSnapshot::Unavailable(reason)) => {
+                self.audit(
+                    Some(session),
+                    "daemon",
+                    "snapshot",
+                    serde_json::json!({ "phase": "skipped", "reason": reason, "told": false }),
+                );
+                None
+            }
+            Err(NoSnapshot::Failed(reason)) => {
+                let first = self
+                    .snapshot_told
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .insert(session.to_string());
+                self.audit(
+                    Some(session),
+                    "daemon",
+                    "snapshot",
+                    serde_json::json!({ "phase": "skipped", "reason": reason, "told": first }),
+                );
+                if first {
+                    let notice = format!("[No snapshot was taken, so this turn cannot be rolled back: {reason}]\n\n");
+                    self.emit_chunk(emitter, session, &notice).await;
+                }
+                None
+            }
+        }
     }
 
     /// The line a refused send gets while the kill switch is on.
@@ -218,6 +332,8 @@ impl Daemon {
                 devices: Arc::new(DeviceRegistry::in_memory()),
                 runs: Arc::new(Mutex::new(HashMap::new())),
                 config_error: Arc::new(std::sync::Mutex::new(None)),
+                snapshots: None,
+                snapshot_told: Arc::new(std::sync::Mutex::new(HashSet::new())),
             },
         }
     }
@@ -358,6 +474,12 @@ impl Daemon {
     /// A handle that can read `claude -p /usage` and record it, for the code that does so at the daemon's start.
     pub fn usage_refresher(&self) -> UsageRefresher {
         UsageRefresher(self.core.clone())
+    }
+
+    /// Takes a snapshot pair around every turn (N-306): before it starts, and after it ends if it changed anything.
+    pub fn with_snapshots(mut self, tool: Arc<dyn SnapshotTool>) -> Daemon {
+        self.core.snapshots = Some(tool);
+        self
     }
 
     /// Replaces how a backend's reachability is checked (tests use a switchboard instead of the network).
@@ -717,6 +839,9 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
     }
     let backend = &resolved.backend;
     let backend_name = backend.name.clone();
+    // The rollback net (N-306): a snapshot before the AI can change anything. The turn runs whether or not one exists.
+    let batch = core.begin_batch(emitter, session_id).await;
+    let mutated = batch.as_ref().map(|b| Arc::clone(&b.mutated));
     let request = RunRequest {
         session_id: session_id.to_string(),
         prompt: text,
@@ -751,6 +876,13 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
                     core.emit_error(emitter, session_id, &message).await;
                 }
                 RunEvent::Done => saw_done = true,
+                RunEvent::ToolUse(name) => {
+                    if !is_read_only_tool(&name) {
+                        if let Some(mutated) = &mutated {
+                            mutated.store(true, Ordering::SeqCst);
+                        }
+                    }
+                }
                 RunEvent::RateLimit(limits) => core.usage.record_rate_limit(limits, now_secs()),
                 RunEvent::Tokens(used) => core.usage.record_tokens(&backend_name, &used, now_secs()),
             }
@@ -761,6 +893,10 @@ async fn run_turn(core: &Core, emitter: &SignalEmitter<'static>, session_id: &st
         }
     };
     tokio::join!(produce, consume);
+    // Both snapshots exist before the turn's Done goes out, so a person who acts on Done finds the pair.
+    if let Some(batch) = batch {
+        batch.finish().await;
+    }
 }
 
 /// Runs `first`, then whatever was queued behind it, until the queue is empty or this driver is cancelled.

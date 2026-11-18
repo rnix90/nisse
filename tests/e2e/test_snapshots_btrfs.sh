@@ -73,5 +73,26 @@ grep -q ',number$' <<< "$left" && bad "prune: pairs older than 14 days are still
 grep -q ',single,' <<< "$left" && ok "prune: left the snapshot made by hand" || bad "prune: removed a snapshot nisse did not make"
 run env NISSE_NOW=$(date +%s) sh "$dir/nisse-snapshot-prune" >/dev/null 2>&1 && ok "prune: a second run with nothing old is exit 0" || bad "prune: second run failed"
 
+# ---- batch: the pair around one AI turn, and drop (the real csv format with its two-key userdata)
+sess=0d9b6f0e-1c2a-4f10-9d3e-5b7c8a9d0e11
+out="$(run sh "$dir/nisse-snapshot-batch" pre "$sess")"; rc=$?
+pre="${out#pre=}"
+[ "$rc" = 0 ] && [ "${pre:-x}" -eq "${pre:-y}" ] 2>/dev/null && ok "batch pre: took snapshot $pre" || bad "batch pre: rc=$rc out=$out"
+echo changed | sudo tee "$mnt/ai-file" >/dev/null
+out="$(run sh "$dir/nisse-snapshot-batch" post "$pre" "$sess")"; rc=$?
+post="${out#post=}"
+[ "$rc" = 0 ] && [ "$post" -gt "$pre" ] 2>/dev/null && ok "batch post: took snapshot $post paired with $pre" || bad "batch post: rc=$rc out=$out"
+rows="$(sudo snapper --no-dbus -c "$cfg" --csvout --separator ';' list --columns number,type,pre-number,cleanup,userdata)"
+grep -q "^$pre;pre;;number;nisse=ai-batch, session=$sess\$" <<< "$rows" && grep -q "^$post;post;$pre;number;nisse=ai-batch, session=$sess\$" <<< "$rows"     && ok "batch: the pair is number-tagged and carries nisse=ai-batch and the session" || bad "batch: the pair rows are $(grep -E "^($pre|$post);" <<< "$rows")"
+[ ! -e "$mnt/.snapshots/$pre/snapshot/ai-file" ] && [ -e "$mnt/.snapshots/$post/snapshot/ai-file" ] && ok "batch: pre has no ai-file, post has it" || sudo test ! -e "$mnt/.snapshots/$pre/snapshot/ai-file" && sudo test -e "$mnt/.snapshots/$post/snapshot/ai-file" && ok "batch: pre has no ai-file, post has it" || bad "batch: the pair does not bracket the change"
+run sh "$dir/nisse-snapshot-batch" drop "$pre" "$post" >/dev/null 2>&1 && ok "batch drop: exit 0" || bad "batch drop failed"
+rows="$(sudo snapper --no-dbus -c "$cfg" --csvout list --columns number)"
+grep -qx "$pre" <<< "$rows" || grep -qx "$post" <<< "$rows" && bad "batch drop: the pair is still there" || ok "batch drop: the pair is gone"
+# a pair nisse did not make is refused
+fp="$(sudo snapper --no-dbus -c "$cfg" create -t pre -p -c number -d "foreign")"
+fq="$(sudo snapper --no-dbus -c "$cfg" create -t post --pre-number "$fp" -p -c number -d "foreign post")"
+run sh "$dir/nisse-snapshot-batch" drop "$fp" "$fq" >/dev/null 2>&1 && bad "batch drop deleted a pair nisse did not make" || ok "batch drop refuses a pair nisse did not make"
+sudo snapper --no-dbus -c "$cfg" --csvout list --columns number | grep -qx "$fp" && ok "batch drop: the foreign pair is untouched" || bad "batch drop: the foreign pair was deleted"
+
 echo
 [ "$failures" = 0 ] && echo "PASS: snapshots on a real btrfs" || { echo "$failures failed"; exit 1; }
