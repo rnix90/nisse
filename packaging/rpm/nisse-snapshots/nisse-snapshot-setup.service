@@ -1,0 +1,12 @@
+[Unit]
+Description=Create the nisse snapshot configuration for the btrfs root
+After=local-fs.target
+ConditionPathExists=!/etc/snapper/configs/root
+ConditionKernelCommandLine=!rd.live.image
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nisse/nisse-snapshot-setup
+
+[Install]
+WantedBy=multi-user.target

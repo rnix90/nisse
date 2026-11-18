@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+# N-305: tests the three nisse-snapshots scripts (hook, setup, prune) against a fake snapper. No btrfs, no root.
+# The real snapper on a real btrfs is tests/e2e/test_snapshots_btrfs.sh (build VM).
+set -u
+cd "$(dirname "$0")/../.."
+dir="$PWD/packaging/rpm/nisse-snapshots"
+hook="$dir/nisse-snapshot-hook"
+setup="$dir/nisse-snapshot-setup"
+prune="$dir/nisse-snapshot-prune"
+failures=0
+ok() { echo "ok   $*"; }
+bad() { echo "FAIL $*"; failures=$((failures + 1)); }
+
+# A fresh sandbox: a fake snapper that records every call and answers from files, a config dir and a state dir.
+fresh() {
+    work="$(mktemp -d)"
+    mkdir -p "$work/state" "$work/confdir"
+    export NISSE_SNAPPER="$work/snapper"
+    export NISSE_STATE_DIR="$work/state"
+    export NISSE_SNAPPER_CONFDIR="$work/confdir"
+    export NISSE_ROOT_FSTYPE=btrfs
+    export NISSE_FREE_PERCENT=60
+    export NISSE_SNAPSHOT_TEMPLATE="$work/root.conf"
+    export TZ=UTC
+    printf 'TIMELINE_CREATE=no\nNUMBER_LIMIT=40\n' > "$work/root.conf"
+    echo 41 > "$work/next"
+    cat > "$work/snapper" <<'STUB'
+#!/bin/sh
+# fake snapper: record the call, then answer. STUB_FAIL=<verb> makes that verb exit 1.
+echo "$@" >> "$STUB_DIR/calls"
+while [ "${1#-}" != "$1" ]; do
+    case "$1" in -c) shift ;; esac
+    shift
+done
+verb="$1"; shift
+[ "${STUB_FAIL:-}" = "$verb" ] && exit 1
+case "$verb" in
+    create)
+        n=$(cat "$STUB_DIR/next"); echo $((n + 1)) > "$STUB_DIR/next"
+        [ -n "${STUB_BAD_NUMBER:-}" ] && { echo "oops"; exit 0; }
+        echo "$n" ;;
+    list) cat "$STUB_DIR/list" ;;
+    create-config) touch "$NISSE_SNAPPER_CONFDIR/root" ;;
+esac
+exit 0
+STUB
+    chmod +x "$work/snapper"
+    export STUB_DIR="$work"
+    unset STUB_FAIL STUB_BAD_NUMBER
+    : > "$work/calls"
+}
+has_call() { grep -q -- "$1" "$work/calls"; }
+
+# ---- hook
+fresh; touch "$work/confdir/root"
+out="$(sh "$hook" pre 2>&1)"; rc=$?
+[ "$rc" = 0 ] && ok "hook pre: exit 0" || bad "hook pre: exit $rc"
+has_call 'create -t pre -p -c number -d' && ok "hook pre: takes a pre snapshot with the number cleanup algorithm" || bad "hook pre: no pre snapshot call: $(cat "$work/calls")"
+has_call '--no-dbus -c root' && ok "hook pre: talks to snapper directly (no daemon cache)" || bad "hook pre: not --no-dbus -c root"
+[ "$(cat "$work/state/pre-number" 2>/dev/null)" = 41 ] && ok "hook pre: remembers the snapshot number" || bad "hook pre: state file is '$(cat "$work/state/pre-number" 2>/dev/null)'"
+case "$out" in *"log.INFO=nisse-snapshots: pre snapshot 41"*) ok "hook pre: logs the id for dnf";; *) bad "hook pre: no log line: $out";; esac
+if LC_ALL=C grep -q '[^ -~]' "$work/calls"; then bad "hook pre: non-ASCII in a snapper argument"; else ok "hook pre: ASCII arguments"; fi
+
+sh "$hook" post > "$work/out" 2>&1; rc=$?
+[ "$rc" = 0 ] && ok "hook post: exit 0" || bad "hook post: exit $rc"
+has_call 'create -t post --pre-number 41 -p -c number -d' && ok "hook post: pairs with pre snapshot 41" || bad "hook post: no paired post call: $(cat "$work/calls")"
+[ ! -e "$work/state/pre-number" ] && ok "hook post: clears the state" || bad "hook post: state file left behind"
+grep -q 'post snapshot 42' "$work/out" && ok "hook post: logs the id" || bad "hook post: no log line"
+
+fresh; touch "$work/confdir/root"
+sh "$hook" post >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && ! has_call create && ok "hook post without a pre: does nothing, exit 0" || bad "hook post without a pre: rc=$rc calls=$(cat "$work/calls")"
+
+fresh; touch "$work/confdir/root"; NISSE_ROOT_FSTYPE=ext4 sh "$hook" pre >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && [ ! -s "$work/calls" ] && ok "hook on a non-btrfs root: skipped, exit 0" || bad "hook on ext4: rc=$rc calls=$(cat "$work/calls")"
+
+fresh
+sh "$hook" pre >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && [ ! -s "$work/calls" ] && ok "hook without a root config: skipped, exit 0" || bad "hook without config: rc=$rc calls=$(cat "$work/calls")"
+
+fresh; touch "$work/confdir/root"; NISSE_FREE_PERCENT=5 sh "$hook" pre > "$work/out" 2>&1; rc=$?
+[ "$rc" = 0 ] && ! has_call create && grep -q 'log.WARNING=nisse-snapshots: .*5% free' "$work/out" \
+    && ok "hook with under 10% free: skips the snapshot and says why" || bad "hook low space: rc=$rc out=$(cat "$work/out")"
+
+fresh; touch "$work/confdir/root"; STUB_FAIL=create sh "$hook" pre > "$work/out" 2>&1; rc=$?
+[ "$rc" = 0 ] && [ ! -e "$work/state/pre-number" ] && grep -q 'log.WARNING' "$work/out" \
+    && ok "hook when snapper fails: warns, exit 0 (never blocks the transaction)" || bad "hook snapper fails: rc=$rc out=$(cat "$work/out")"
+
+fresh; touch "$work/confdir/root"; STUB_BAD_NUMBER=1 sh "$hook" pre > "$work/out" 2>&1; rc=$?
+[ "$rc" = 0 ] && [ ! -e "$work/state/pre-number" ] && ok "hook with a non-numeric answer: ignored" || bad "hook bad number: rc=$rc state=$(cat "$work/state/pre-number" 2>/dev/null)"
+
+fresh; touch "$work/confdir/root"; sh "$hook" sideways >/dev/null 2>&1; rc=$?
+[ "$rc" = 2 ] && ok "hook: unknown mode is a usage error (2)" || bad "hook: unknown mode exit $rc, wanted 2"
+
+# ---- setup
+fresh
+sh "$setup" > "$work/out" 2>&1; rc=$?
+[ "$rc" = 0 ] && ok "setup: exit 0 on btrfs without a config" || bad "setup: exit $rc: $(cat "$work/out")"
+has_call 'create-config /' && ok "setup: creates the root config for /" || bad "setup: no create-config call"
+has_call 'set-config TIMELINE_CREATE=no NUMBER_LIMIT=40' && ok "setup: applies every line of the template in one set-config" || bad "setup: set-config missing: $(cat "$work/calls")"
+
+fresh; NISSE_SNAPSHOT_SUBVOLUME=/srv/test sh "$setup" >/dev/null 2>&1
+has_call 'create-config /srv/test' && ok "setup: the subvolume can be overridden for tests" || bad "setup: NISSE_SNAPSHOT_SUBVOLUME ignored"
+
+fresh; touch "$work/confdir/root"; sh "$setup" >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && [ ! -s "$work/calls" ] && ok "setup: leaves an existing root config alone" || bad "setup: touched an existing config (rc=$rc)"
+
+fresh; NISSE_ROOT_FSTYPE=xfs sh "$setup" >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && [ ! -s "$work/calls" ] && ok "setup: skips a non-btrfs root" || bad "setup: acted on xfs (rc=$rc)"
+
+fresh; STUB_FAIL=create-config sh "$setup" >/dev/null 2>&1; rc=$?
+[ "$rc" = 1 ] && ok "setup: create-config failure is exit 1" || bad "setup: create-config failure exit $rc"
+
+fresh; STUB_FAIL=set-config sh "$setup" >/dev/null 2>&1; rc=$?
+[ "$rc" = 1 ] && has_call 'delete-config' && ok "setup: a half-applied config is deleted so the next boot retries" || bad "setup: set-config failure rc=$rc calls=$(cat "$work/calls")"
+
+# ---- prune: 14 days
+now=1795000000   # fixed clock
+iso() { date -u -d "@$1" '+%Y-%m-%d %H:%M:%S'; }
+day=86400
+fresh; touch "$work/confdir/root"
+export NISSE_NOW=$now
+cat > "$work/list" <<EOF
+number,type,pre-number,date,cleanup,default,active
+0,single,,,,no,no
+1,pre,,$(iso $((now - 20 * day))),number,no,no
+2,post,1,$(iso $((now - 20 * day + 5))),number,no,no
+3,pre,,$(iso $((now - 10 * day))),number,no,no
+4,post,3,$(iso $((now - 10 * day + 5))),number,no,no
+5,pre,,$(iso $((now - 30 * day))),number,no,no
+6,single,,$(iso $((now - 40 * day))),,no,no
+7,pre,,$(iso $((now - 25 * day))),number,no,yes
+8,post,7,$(iso $((now - 25 * day + 5))),number,no,yes
+9,pre,,$(iso $((now - 25 * day))),number,yes,no
+10,post,9,$(iso $((now - 25 * day + 5))),number,yes,no
+11,pre,,$(iso $((now - 15 * day))),number,no,no
+12,post,11,$(iso $((now - 13 * day))),number,no,no
+EOF
+sh "$prune" > "$work/out" 2>&1; rc=$?
+[ "$rc" = 0 ] && ok "prune: exit 0" || bad "prune: exit $rc: $(cat "$work/out")"
+del="$(grep ' delete ' "$work/calls" | sed 's/.* delete //' | tr ' ' '\n' | sort -n | tr '\n' ' ')"
+[ "$del" = "1 2 5 " ] && ok "prune: deletes the old pair (1,2) and the old orphan pre (5)" || bad "prune: deleted '$del', wanted '1 2 5 '"
+case " $del" in *" 3 "*|*" 4 "*) bad "prune: deleted the 10-day-old pair";; *) ok "prune: keeps a 10-day-old pair";; esac
+case " $del" in *" 6 "*) bad "prune: deleted a snapshot nisse did not make (no number cleanup tag)";; *) ok "prune: never touches snapshots without the number cleanup tag";; esac
+case " $del" in *" 7 "*|*" 8 "*) bad "prune: deleted the active snapshot";; *) ok "prune: never deletes the active snapshot";; esac
+case " $del" in *" 9 "*|*" 10 "*) bad "prune: deleted the default snapshot";; *) ok "prune: never deletes the default snapshot";; esac
+case " $del" in *" 11 "*|*" 12 "*) bad "prune: broke a pair whose post is only 13 days old";; *) ok "prune: a pair is judged by its post, so a 15/13-day pair stays";; esac
+
+fresh; touch "$work/confdir/root"; export NISSE_NOW=$now
+printf 'number,type,pre-number,date,cleanup,default,active\n0,single,,,,no,no\n3,pre,,%s,number,no,no\n4,post,3,%s,number,no,no\n' "$(iso $((now - 2 * day)))" "$(iso $((now - 2 * day)))" > "$work/list"
+sh "$prune" >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && ! has_call ' delete ' && ok "prune: nothing old, nothing deleted" || bad "prune: deleted fresh snapshots (rc=$rc)"
+
+fresh; export NISSE_NOW=$now
+sh "$prune" >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && [ ! -s "$work/calls" ] && ok "prune: no root config, nothing to do" || bad "prune: no config rc=$rc"
+
+fresh; touch "$work/confdir/root"; export NISSE_NOW=$now; STUB_FAIL=list sh "$prune" >/dev/null 2>&1; rc=$?
+[ "$rc" = 1 ] && ok "prune: snapper list failure is exit 1" || bad "prune: list failure exit $rc"
+
+fresh; touch "$work/confdir/root"; export NISSE_NOW=$now NISSE_SNAPSHOT_MAX_AGE_DAYS=5
+printf 'number,type,pre-number,date,cleanup,default,active\n3,pre,,%s,number,no,no\n4,post,3,%s,number,no,no\n' "$(iso $((now - 6 * day)))" "$(iso $((now - 6 * day)))" > "$work/list"
+sh "$prune" >/dev/null 2>&1
+has_call ' delete 3 4' || has_call ' delete 4 3' && ok "prune: the age limit is NISSE_SNAPSHOT_MAX_AGE_DAYS" || bad "prune: age override ignored: $(cat "$work/calls")"
+unset NISSE_SNAPSHOT_MAX_AGE_DAYS NISSE_NOW
+
+# ---- every script is ASCII, executable text with an SPDX header
+for f in "$hook" "$setup" "$prune"; do
+    if LC_ALL=C grep -q '[^ -~	]' "$f"; then bad "$(basename "$f") has non-ASCII"; else ok "$(basename "$f") is ASCII"; fi
+    head -3 "$f" | grep -q 'SPDX-License-Identifier: GPL-2.0-or-later' && ok "$(basename "$f") has the SPDX header" || bad "$(basename "$f") lacks the SPDX header"
+    sh -n "$f" 2>/dev/null && ok "$(basename "$f") parses" || bad "$(basename "$f") has a syntax error"
+done
+
+echo
+[ "$failures" = 0 ] && echo "PASS: snapshot scripts" || { echo "$failures failed"; exit 1; }

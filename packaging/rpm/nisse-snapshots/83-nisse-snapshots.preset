@@ -1,0 +1,7 @@
+# nisse snapshots: set up the root config at first boot, prune daily, let snapper enforce the count hourly.
+# Snapper's own timers for timed snapshots and boot snapshots stay off (events only, N-302).
+enable nisse-snapshot-setup.service
+enable nisse-snapshot-prune.timer
+enable snapper-cleanup.timer
+disable snapper-timeline.timer
+disable snapper-boot.timer

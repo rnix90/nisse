@@ -1,0 +1,49 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-snapshot-setup
+# First-boot job: give a btrfs root its snapper config, with the nisse settings from the template. Does nothing on a
+# non-btrfs root (live media, other installs) and leaves an existing root config alone, so a change an admin made
+# survives. If the settings cannot be applied the new config is removed again so the next boot retries, because a bare
+# snapper config would run snapper's own hourly timeline.
+#
+# Test overrides (never set in production): NISSE_SNAPPER, NISSE_SNAPPER_CONFDIR, NISSE_ROOT_FSTYPE,
+# NISSE_SNAPSHOT_CONFIG, NISSE_SNAPSHOT_SUBVOLUME, NISSE_SNAPSHOT_TEMPLATE.
+set -u
+
+snapper="${NISSE_SNAPPER:-/usr/bin/snapper}"
+confdir="${NISSE_SNAPPER_CONFDIR:-/etc/snapper/configs}"
+cfg="${NISSE_SNAPSHOT_CONFIG:-root}"
+subvolume="${NISSE_SNAPSHOT_SUBVOLUME:-/}"
+template="${NISSE_SNAPSHOT_TEMPLATE:-/usr/share/nisse/snapshots/root.conf}"
+
+fstype="${NISSE_ROOT_FSTYPE:-$(stat -f -c %T / 2>/dev/null)}"
+if [ "$fstype" != btrfs ]; then
+    echo "nisse-snapshots: root is $fstype, not btrfs; no snapshot config made"
+    exit 0
+fi
+if [ -f "$confdir/$cfg" ]; then
+    echo "nisse-snapshots: the $cfg config already exists; leaving it as it is"
+    exit 0
+fi
+
+"$snapper" --no-dbus -c "$cfg" create-config "$subvolume" || {
+    echo "nisse-snapshots: snapper create-config failed" >&2
+    exit 1
+}
+
+# One argument per non-empty, non-comment line of the template (KEY=value).
+set --
+while IFS= read -r line; do
+    case "$line" in
+        '' | '#'*) continue ;;
+    esac
+    set -- "$@" "$line"
+done < "$template"
+
+"$snapper" --no-dbus -c "$cfg" set-config "$@" || {
+    echo "nisse-snapshots: could not apply $template; removing the new config so the next boot retries" >&2
+    "$snapper" --no-dbus -c "$cfg" delete-config
+    exit 1
+}
+echo "nisse-snapshots: created the $cfg snapshot config"
+exit 0

@@ -267,4 +267,25 @@ grep -qx 'DefaultProfile=Nisse.profile' "$root/usr/share/kde-settings/kde-profil
 case "$(rpmq -qf /etc/xdg/konsolerc 2>/dev/null)" in konsole-part-*) ;; *) fail "/etc/xdg/konsolerc is no longer owned by konsole-part (Fedora changed where it keeps Konsole's defaults)" ;; esac
 echo "terminal: the nisse scheme and profile are the Konsole default"
 
+# Rollback block 2 (ledger N-305): the snapshot package is in the image with its dnf5 hook, scripts and presets, and
+# snapper plus the actions plugin it needs are there. The live image must not carry a snapper root config: the setup unit
+# makes it at first boot of an installed btrfs system only.
+case "$(rpmq -q nisse-snapshots 2>/dev/null)" in nisse-snapshots-*) ;; *) fail "nisse-snapshots is not installed in the image" ;; esac
+for p in snapper libdnf5-plugin-actions btrfs-progs; do rpmq -q "$p" >/dev/null 2>&1 || fail "$p is not installed (nisse-snapshots needs it)"; done
+for f in /usr/libexec/nisse/nisse-snapshot-hook /usr/libexec/nisse/nisse-snapshot-setup /usr/libexec/nisse/nisse-snapshot-prune          /usr/share/nisse/snapshots/root.conf /etc/dnf/libdnf5-plugins/actions.d/nisse-snapshots.actions; do
+    [ -f "$root$f" ] || fail "$f missing from the image"
+done
+[ -x "$root/usr/libexec/nisse/nisse-snapshot-hook" ] || fail "the snapshot hook is not executable"
+grep -qx 'pre_transaction:::enabled=host-only:/usr/libexec/nisse/nisse-snapshot-hook pre' "$root/etc/dnf/libdnf5-plugins/actions.d/nisse-snapshots.actions" || fail "the dnf5 pre_transaction hook line is missing"
+for unit in nisse-snapshot-setup.service nisse-snapshot-prune.timer snapper-cleanup.timer; do
+    state="$(sudo systemctl --root="$merged" is-enabled "$unit" 2>/dev/null || true)"
+    case "$state" in enabled | enabled-runtime) ;; *) fail "$unit is '$state' after the image applies its presets, expected enabled" ;; esac
+done
+for unit in snapper-timeline.timer snapper-boot.timer; do
+    state="$(sudo systemctl --root="$merged" is-enabled "$unit" 2>/dev/null || true)"
+    case "$state" in enabled | enabled-runtime) fail "$unit is enabled (nisse takes snapshots on events only)" ;; esac
+done
+[ -e "$root/etc/snapper/configs/root" ] && fail "the image ships a snapper root config (it must be made at first boot on the installed btrfs root)"
+echo "snapshots: nisse-snapshots, snapper and the dnf5 hook are in the image; no timed snapshots; no root config until first boot"
+
 echo "PASS: ISO contents ($iso), Qt $qt"

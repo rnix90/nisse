@@ -1,0 +1,82 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-snapshot-prune
+# Daily job: delete the package-transaction snapshots (the ones nisse made, tagged with the number cleanup algorithm)
+# that are older than 14 days. Snapper's own hourly cleanup keeps the count down to 20 pairs; it has no age limit, which
+# is why this exists. A pair goes by the age of its post snapshot, an unpaired old pre snapshot (left by a failed
+# transaction) goes too, and snapshots nisse did not make, the active one and the default one are never touched.
+#
+# Test overrides (never set in production): NISSE_SNAPPER, NISSE_SNAPPER_CONFDIR, NISSE_SNAPSHOT_CONFIG, NISSE_NOW,
+# NISSE_SNAPSHOT_MAX_AGE_DAYS.
+set -u
+
+snapper="${NISSE_SNAPPER:-/usr/bin/snapper}"
+confdir="${NISSE_SNAPPER_CONFDIR:-/etc/snapper/configs}"
+cfg="${NISSE_SNAPSHOT_CONFIG:-root}"
+days="${NISSE_SNAPSHOT_MAX_AGE_DAYS:-14}"
+now="${NISSE_NOW:-$(date +%s)}"
+
+[ -f "$confdir/$cfg" ] || exit 0
+limit=$((days * 86400))
+
+list="$("$snapper" --no-dbus -c "$cfg" --csvout list --columns number,type,pre-number,date,cleanup,default,active)" || {
+    echo "nisse-snapshots: snapper list failed" >&2
+    exit 1
+}
+
+# Pass 1: which pre snapshots have a post snapshot, and which snapshots are old.
+paired=" "
+old=" "
+protected=" "
+rows="$(printf '%s\n' "$list" | tail -n +2)"
+IFS_SAVE="$IFS"
+IFS=','
+while read -r num type pre date cleanup default active; do
+    [ "$num" = 0 ] && continue
+    [ "$cleanup" = number ] || continue
+    [ "$type" = post ] && paired="$paired$pre "
+    if [ "$default" = yes ] || [ "$active" = yes ]; then
+        protected="$protected$num "
+        [ "$type" = post ] && protected="$protected$pre "
+        continue
+    fi
+    when="$(date -d "$date" +%s 2>/dev/null)" || continue
+    [ $((now - when)) -gt "$limit" ] && old="$old$num "
+done <<EOF
+$rows
+EOF
+IFS="$IFS_SAVE"
+
+# Pass 2: a post snapshot that is old takes its pre with it; a pre snapshot with no post goes when it is old itself.
+victims=""
+IFS=','
+while read -r num type pre date cleanup default active; do
+    [ "$num" = 0 ] && continue
+    [ "$cleanup" = number ] || continue
+    case "$protected" in *" $num "*) continue ;; esac
+    case "$type" in
+        post)
+            case "$old" in *" $num "*) victims="$victims $num $pre" ;; esac ;;
+        pre)
+            case "$paired" in
+                *" $num "*) ;;
+                *) case "$old" in *" $num "*) victims="$victims $num" ;; esac ;;
+            esac ;;
+    esac
+done <<EOF
+$rows
+EOF
+IFS="$IFS_SAVE"
+
+victims="$(printf '%s\n' $victims | sort -un | tr '\n' ' ')"
+if [ -z "${victims# }" ]; then
+    echo "nisse-snapshots: no snapshots older than $days days"
+    exit 0
+fi
+# shellcheck disable=SC2086
+"$snapper" --no-dbus -c "$cfg" delete $victims || {
+    echo "nisse-snapshots: snapper delete failed for: $victims" >&2
+    exit 1
+}
+echo "nisse-snapshots: deleted snapshots older than $days days: $victims"
+exit 0

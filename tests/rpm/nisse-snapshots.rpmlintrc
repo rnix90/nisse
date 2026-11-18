@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# rpmlint filter for the nisse-snapshots test: the dnf5 plugin package is named libdnf5-plugin-actions, which the
+# explicit-lib-dependency check mistakes for a library; nisse-snapshots needs the plugin by its package name.
+addFilter(r"explicit-lib-dependency libdnf5-plugin-actions")

@@ -130,6 +130,11 @@ Recorded through three questions, each answered as the first recommended option 
    up early when snapshots use more than 5 GiB. To verify in N-305, not assumed here: snapper's own space limit is a
    fraction of the filesystem (`SPACE_LIMIT`) and needs btrfs quotas, so how a fixed 5 GiB is expressed (or whether a
    fraction of a typical disk stands in for it) is that task's spike. The open risks above stay open.
+   **Amended in N-305 (Bert, 2026-11-18): the 5 GiB cap is dropped.** Verified in the build VM: snapper counts pre and post
+   snapshots separately, so 20 pairs is `NUMBER_LIMIT=40`; it has no age limit, so a daily prune job enforces 14 days; a size
+   cap needs btrfs quotas (performance cost, and snapper's `SPACE_LIMIT` did not trim in the test) and `btrfs filesystem du`
+   cannot measure it without quotas. Retention is 20 pairs and 14 days, plus a hook that skips the pre snapshot below 10%
+   free space. Details: `docs/snapshots.md`.
 
 ## Open risks (carried to N-302 and N-304, nothing here is solved)
 

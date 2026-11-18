@@ -1,0 +1,71 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-snapshot-hook pre|post
+# Takes the btrfs root snapshot pair around a package transaction. dnf5's actions plugin runs it (see
+# nisse-snapshots.actions): "pre" before the transaction, "post" after it. The post snapshot is paired with the pre
+# one through the number kept in the state directory.
+#
+# It never fails the transaction: every problem is reported as a log line and the exit status stays 0. Only a usage
+# error returns 2. Lines of the form log.LEVEL=message are what the actions plugin sends to dnf's own log.
+#
+# Test overrides (never set in production): NISSE_SNAPPER, NISSE_STATE_DIR, NISSE_SNAPPER_CONFDIR, NISSE_ROOT_FSTYPE,
+# NISSE_FREE_PERCENT, NISSE_SNAPSHOT_CONFIG, NISSE_MIN_FREE_PERCENT.
+set -u
+
+snapper="${NISSE_SNAPPER:-/usr/bin/snapper}"
+state="${NISSE_STATE_DIR:-/run/nisse-snapshots}"
+confdir="${NISSE_SNAPPER_CONFDIR:-/etc/snapper/configs}"
+cfg="${NISSE_SNAPSHOT_CONFIG:-root}"
+min_free="${NISSE_MIN_FREE_PERCENT:-10}"
+
+info() { echo "log.INFO=nisse-snapshots: $*"; }
+warn() { echo "log.WARNING=nisse-snapshots: $*"; }
+
+mode="${1:-}"
+case "$mode" in
+    pre | post) ;;
+    *) echo "usage: nisse-snapshot-hook pre|post" >&2; exit 2 ;;
+esac
+
+# Only a btrfs root that has the snapper root config can be snapshotted: live media, other filesystems and a
+# half-installed system are quietly skipped.
+fstype="${NISSE_ROOT_FSTYPE:-$(stat -f -c %T / 2>/dev/null)}"
+[ "$fstype" = btrfs ] || exit 0
+[ -f "$confdir/$cfg" ] || exit 0
+
+if [ "$mode" = pre ]; then
+    free="${NISSE_FREE_PERCENT:-}"
+    if [ -z "$free" ]; then
+        set -- $(stat -f -c '%a %b' / 2>/dev/null)
+        [ "${2:-0}" -gt 0 ] 2>/dev/null && free=$(($1 * 100 / $2))
+    fi
+    if [ -n "$free" ] && [ "$free" -lt "$min_free" ]; then
+        warn "only ${free}% free on /, no snapshot taken before this transaction (the limit is ${min_free}%)"
+        exit 0
+    fi
+    rm -f "$state/pre-number"
+    num="$("$snapper" --no-dbus -c "$cfg" create -t pre -p -c number -d "package transaction: before" -u "nisse=package-transaction")" || {
+        warn "snapper could not take the pre snapshot; the transaction goes ahead without one"
+        exit 0
+    }
+    case "$num" in
+        '' | *[!0-9]*) warn "snapper answered '$num' instead of a snapshot number; ignoring it"; exit 0 ;;
+    esac
+    mkdir -p "$state" && echo "$num" > "$state/pre-number"
+    info "pre snapshot $num"
+    exit 0
+fi
+
+# post
+[ -f "$state/pre-number" ] || exit 0
+pre="$(cat "$state/pre-number")"
+rm -f "$state/pre-number"
+case "$pre" in
+    '' | *[!0-9]*) exit 0 ;;
+esac
+num="$("$snapper" --no-dbus -c "$cfg" create -t post --pre-number "$pre" -p -c number -d "package transaction: after" -u "nisse=package-transaction")" || {
+    warn "snapper could not take the post snapshot paired with $pre"
+    exit 0
+}
+info "post snapshot $num (pre $pre)"
+exit 0

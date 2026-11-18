@@ -1,0 +1,8 @@
+[Unit]
+Description=Delete package-transaction snapshots older than 14 days
+ConditionPathExists=/etc/snapper/configs/root
+ConditionKernelCommandLine=!rd.live.image
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nisse/nisse-snapshot-prune

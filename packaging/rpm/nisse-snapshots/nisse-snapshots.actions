@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# dnf5 actions plugin (libdnf5-plugin-actions): a snapshot pair around every package transaction on this system.
+# Format: callback:package_filter:direction:options:command. An empty filter runs the command once per transaction;
+# enabled=host-only skips transactions in another installroot (image builds). The hook never fails the transaction.
+pre_transaction:::enabled=host-only:/usr/libexec/nisse/nisse-snapshot-hook pre
+post_transaction:::enabled=host-only:/usr/libexec/nisse/nisse-snapshot-hook post
