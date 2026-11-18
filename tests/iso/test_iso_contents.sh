@@ -136,6 +136,13 @@ done
 launchers="$(grep -o 'applications:[a-zA-Z.-]*\.desktop\|preferred://[a-z]*' "$root/usr/share/plasma/look-and-feel/org.nisse.desktop/contents/layouts/org.kde.plasma.desktop-layout.js" | tr '\n' ' ')"
 case "$launchers" in "applications:nisse-panel.desktop preferred://filemanager preferred://browser applications:org.kde.konsole.desktop applications:systemsettings.desktop ") ;; *) fail "the pinned taskbar launchers changed: $launchers" ;; esac
 
+# The live desktop's Install to Hard Drive launcher (N-410): liveinst.desktop names an icon that must resolve, or the launcher shows a
+# blank page. It is the working pickaxe, shipped by nisse-branding in place of fedora-logos' icon.
+inst_icon="$(sed -n 's/^Icon=//p' "$root/usr/share/applications/liveinst.desktop" | head -1)"
+[ -n "$inst_icon" ] || fail "liveinst.desktop names no icon"
+[ -f "$root/usr/share/icons/hicolor/scalable/apps/$inst_icon.svg" ] || fail "the icon liveinst.desktop names ($inst_icon) does not exist in hicolor: the launcher would show a blank page"
+grep -q 'id="pickaxe"' "$root/usr/share/icons/hicolor/scalable/apps/$inst_icon.svg" || fail "the installer launcher icon is not the working pickaxe"
+
 # The live session itself: livesys creates the live user and sets up autologin; without these units the ISO boots to
 # a login prompt instead of the desktop (Fedora enables them through its own preset file, which nisse-release replaced).
 for u in livesys.service livesys-late.service; do

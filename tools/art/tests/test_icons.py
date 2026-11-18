@@ -29,8 +29,8 @@ def used(svg):
     return {h.lower() for h in re.findall(r"#[0-9a-fA-F]{6}\b", svg)}
 
 
-def test_the_icons_are_the_four_the_ledger_names():
-    assert sorted(icons.build_all()) == ["anaconda", "preferences-system", "start-here-kde-plasma-dark",
+def test_the_icons_are_the_ones_the_ledger_names():
+    assert sorted(icons.build_all()) == ["anaconda", "install-to-hard-drive", "preferences-system", "start-here-kde-plasma-dark",
                                          "start-here-kde-plasma-light", "utilities-terminal"]
 
 
@@ -45,10 +45,10 @@ def test_every_svg_is_ascii_with_a_licence_header_a_view_box_and_a_lowercase_tit
             assert banned not in svg, (name, banned)
 
 
-@pytest.mark.parametrize("name", ["preferences-system", "utilities-terminal", "anaconda"])
+@pytest.mark.parametrize("name", ["preferences-system", "utilities-terminal", "anaconda", "install-to-hard-drive"])
 def test_the_tile_icons_use_only_ink_paper_and_ember_and_are_the_nisse_tile_shape(name):
     svg = icons.build_all()[name]
-    assert used(svg) <= {"#1b2330", "#f6f2e9", "#e0623f", "#2b3749", "#000000", "#ffffff"}, used(svg)   # #000 and #fff drive the logo mask
+    assert used(svg) <= {"#1b2330", "#f6f2e9", "#e0623f", "#2b3749", "#aab1bd", "#bd573c", "#000000", "#ffffff"}, used(svg)   # #000 and #fff drive the logo mask
     assert 'id="tile"' in svg and re.search(r'<rect id="tile"[^>]*rx="2\d"', svg)
 
 
@@ -115,3 +115,18 @@ def test_the_sheet_exists_and_shows_each_icon_at_the_sizes_it_is_used():
     assert (ART / "sheet.png").is_file()
     sheet = icons.build_sheet()[0]
     assert "preferences-system" in sheet and "start-here-kde-plasma" in sheet
+
+
+def test_the_install_to_hard_drive_icon_is_the_mascots_pickaxe_striking_ground_with_sparks():
+    # N-410: the desktop launcher's icon is a working pickaxe (the mascot's: a steel crescent head on an Ember-pressed handle)
+    svg = icons.build_all()["install-to-hard-drive"]
+    for ident in ("pickaxe", "ground", "sparks"):
+        assert f'id="{ident}"' in svg, ident
+    head = re.search(r'<path d="(M[^"]+)" fill="#aab1bd"', svg).group(1)
+    assert head.startswith("M-62 20 C-34 -44 40 -44 84 20")           # the mascot's head, path for path (pick(0, 0, ...))
+    assert re.search(r'<line [^>]*stroke="#bd573c"[^>]*stroke-width="15"', svg)
+    assert svg.count("<circle") >= 3                                  # the sparks
+
+
+def test_the_icon_name_is_the_one_liveinst_asks_for():
+    assert icons.INSTALLER_ICON == "org.fedoraproject.AnacondaInstaller"

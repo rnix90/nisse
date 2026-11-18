@@ -9,6 +9,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools" / "logo"))
+sys.path.insert(0, str(ROOT / "tools" / "art"))
 import build_system  # noqa: E402
 
 SYSTEM = ROOT / "assets" / "logo" / "system"
@@ -79,3 +80,11 @@ def test_the_installer_icon_is_the_nisse_logo_on_a_disk_and_its_png_matches_the_
         img = Image.open(SYSTEM / rel)
         assert img.size == (49, 49), rel                       # the size of the Fedora placeholder it replaces
         assert img.convert("RGBA").getpixel((0, 0))[3] == 0     # the tile's rounded corner is transparent
+
+
+def test_the_install_to_hard_drive_icon_that_the_live_desktop_launcher_names_exists_in_hicolor():
+    # N-410: liveinst.desktop says Icon=org.fedoraproject.AnacondaInstaller, a file fedora-logos ships (and nisse-branding replaces),
+    # so it was missing and the launcher showed a blank page. It is now the working pickaxe.
+    import icons
+    path = SYSTEM / "usr/share/icons/hicolor/scalable/apps/org.fedoraproject.AnacondaInstaller.svg"
+    assert path.read_text(encoding="ascii") == icons.build_all()["install-to-hard-drive"]

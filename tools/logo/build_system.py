@@ -94,6 +94,9 @@ def build(out):
     path = out / "usr/share/icons/hicolor/scalable/apps/anaconda.svg"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(disk, encoding="ascii", newline=chr(10))
+    # the icon liveinst.desktop names for the live desktop's Install to Hard Drive launcher (fedora-logos shipped it; N-410: a pickaxe)
+    pick = out / f"usr/share/icons/hicolor/scalable/apps/{icons.INSTALLER_ICON}.svg"
+    pick.write_text(icons.build_all()["install-to-hard-drive"], encoding="ascii", newline=chr(10))
     disk_png = Image.open(io.BytesIO(icons.render_png(disk, 49))).convert("RGBA")
     for rel in ("usr/share/icons/hicolor/48x48/apps/anaconda.png", "usr/share/icons/oxygen/48x48/apps/anaconda.png"):
         save(rel, disk_png)

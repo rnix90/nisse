@@ -3,7 +3,7 @@
 
 Name:           nisse-branding
 Version:        0.2
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        nisse logo, icons and system artwork
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -57,6 +57,7 @@ ln -s ../apps/start-here.svg %{buildroot}/usr/share/icons/hicolor/scalable/place
 /usr/share/anaconda/pixmaps/topbar-bg.png
 /usr/share/icons/hicolor/48x48/apps/anaconda.png
 /usr/share/icons/hicolor/scalable/apps/anaconda.svg
+/usr/share/icons/hicolor/scalable/apps/org.fedoraproject.AnacondaInstaller.svg
 /usr/share/icons/hicolor/scalable/apps/fedora-logo-icon.svg
 /usr/share/icons/hicolor/scalable/apps/fedora-logo-sprite.svg
 /usr/share/icons/hicolor/scalable/apps/start-here.svg
@@ -70,6 +71,9 @@ ln -s ../apps/start-here.svg %{buildroot}/usr/share/icons/hicolor/scalable/place
 /usr/share/icons/hicolor/scalable/places/start-here.svg
 
 %changelog
+* Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-4
+- Add org.fedoraproject.AnacondaInstaller (the live desktop's Install to Hard Drive icon, a working pickaxe)
+
 * Tue Nov 17 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-3
 - The installer icon (anaconda) is the nisse logo on a disk
 

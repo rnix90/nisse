@@ -20,6 +20,8 @@ for f in /usr/share/icons/hicolor/48x48/apps/distributor-logo-nisse.png \
          /usr/share/icons/hicolor/symbolic/apps/distributor-logo-nisse-symbolic.svg; do
     printf '%s\n' "$bl" | grep -qxF "$f" || fail "branding RPM lacks $f"
 done
+# N-410: the live desktop's Install to Hard Drive launcher names this icon (a fedora-logos file): the working pickaxe
+grep -qxF /usr/share/icons/hicolor/scalable/apps/org.fedoraproject.AnacondaInstaller.svg <<< "$bl" || fail "branding RPM lacks the installer launcher icon org.fedoraproject.AnacondaInstaller"
 # N-403: the nisse n, the panel app's own icon (nisse-panel.desktop says Icon=nisse-n)
 for f in /usr/share/icons/hicolor/48x48/apps/nisse-n.png \
          /usr/share/icons/hicolor/16x16/apps/nisse-n.png \
