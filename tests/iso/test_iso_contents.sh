@@ -118,7 +118,7 @@ done
 for t in nisse_icons:breeze nisse_icons_dark:breeze-dark; do
     d="$root/usr/share/icons/${t%%:*}"
     grep -qx "Inherits=${t##*:}" "$d/index.theme" || fail "${t%%:*} must inherit ${t##*:}"
-    for f in scalable/apps/preferences-system.svg scalable/apps/utilities-terminal.svg scalable/places/start-here-kde-plasma.svg; do
+    for f in scalable/apps/preferences-system.svg scalable/apps/utilities-terminal.svg scalable/apps/org.fedoraproject.AnacondaInstaller.svg scalable/places/start-here-kde-plasma.svg; do
         [ -f "$d/$f" ] || fail "${t%%:*} lacks $f"
     done
     [ -d "$root/usr/share/icons/${t##*:}" ] || fail "the base icon theme ${t##*:} is missing"

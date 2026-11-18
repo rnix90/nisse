@@ -9,11 +9,11 @@ rpmf="$(ls -v out/rpmbuild/RPMS/noarch/nisse-icons-[0-9]*.rpm 2>/dev/null | tail
 [ -n "$rpmf" ] || fail "nisse-icons RPM not found (run tools/rpm/build-rpm.sh nisse-icons)"
 files="$(rpm -qlp "$rpmf")"
 for t in nisse_icons nisse_icons_dark; do
-    for f in index.theme scalable/apps/preferences-system.svg scalable/apps/utilities-terminal.svg scalable/places/start-here-kde-plasma.svg; do
+    for f in index.theme scalable/apps/preferences-system.svg scalable/apps/utilities-terminal.svg scalable/apps/org.fedoraproject.AnacondaInstaller.svg scalable/places/start-here-kde-plasma.svg; do
         printf '%s\n' "$files" | grep -qxF "/usr/share/icons/$t/$f" || fail "RPM lacks /usr/share/icons/$t/$f"
     done
     n="$(printf '%s\n' "$files" | grep -c "^/usr/share/icons/$t/.*\.svg$")"
-    [ "$n" = 3 ] || fail "$t must carry exactly the three icons it overrides, found $n"
+    [ "$n" = 4 ] || fail "$t must carry exactly the four icons it overrides, found $n"
 done
 printf '%s\n' "$files" | grep -qx '/usr/share/icons' && fail "must not own /usr/share/icons"
 rpm -qp --requires "$rpmf" | grep -q 'breeze-icon-theme' || fail "must require breeze-icon-theme (the themes it inherits)"

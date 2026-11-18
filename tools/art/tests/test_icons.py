@@ -103,8 +103,8 @@ def test_the_two_overlay_themes_inherit_breeze_and_carry_only_these_icons():
         assert cp["Icon Theme"]["Inherits"] == base
         assert cp["Icon Theme"]["Directories"] == "scalable/apps,scalable/places"
         files = sorted(str(p.relative_to(root)).replace("\\", "/") for p in root.rglob("*") if p.is_file())
-        assert files == ["index.theme", "scalable/apps/preferences-system.svg", "scalable/apps/utilities-terminal.svg",
-                         "scalable/places/start-here-kde-plasma.svg"], files
+        assert files == ["index.theme", "scalable/apps/org.fedoraproject.AnacondaInstaller.svg", "scalable/apps/preferences-system.svg",
+                         "scalable/apps/utilities-terminal.svg", "scalable/places/start-here-kde-plasma.svg"], files
         assert CAPITAL not in (root / "index.theme").read_text(encoding="ascii")
     light = (ART / "nisse_icons/scalable/places/start-here-kde-plasma.svg").read_text(encoding="ascii")
     dark = (ART / "nisse_icons_dark/scalable/places/start-here-kde-plasma.svg").read_text(encoding="ascii")
@@ -117,15 +117,12 @@ def test_the_sheet_exists_and_shows_each_icon_at_the_sizes_it_is_used():
     assert "preferences-system" in sheet and "start-here-kde-plasma" in sheet
 
 
-def test_the_install_to_hard_drive_icon_is_the_mascots_pickaxe_striking_ground_with_sparks():
-    # N-410: the desktop launcher's icon is a working pickaxe (the mascot's: a steel crescent head on an Ember-pressed handle)
+def test_the_install_to_hard_drive_icon_is_the_chosen_plunge_pick_on_the_tile():
+    # N-410: the desktop launcher's icon is Bert's pick of three concepts: a fat Ember pick tilted into the logo's hill
     svg = icons.build_all()["install-to-hard-drive"]
-    for ident in ("pickaxe", "ground", "sparks"):
+    for ident in ("pickaxe", "hill", "tile"):
         assert f'id="{ident}"' in svg, ident
-    head = re.search(r'<path d="(M[^"]+)" fill="#aab1bd"', svg).group(1)
-    assert head.startswith("M-62 20 C-34 -44 40 -44 84 20")           # the mascot's head, path for path (pick(0, 0, ...))
-    assert re.search(r'<line [^>]*stroke="#bd573c"[^>]*stroke-width="15"', svg)
-    assert svg.count("<circle") >= 3                                  # the sparks
+    assert 'id="sparks"' not in svg and 'id="ground"' not in svg
 
 
 def test_the_icon_name_is_the_one_liveinst_asks_for():

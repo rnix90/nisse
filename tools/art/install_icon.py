@@ -72,7 +72,9 @@ def plunge(mode):
     head, socket, handle = pick_parts(69)
     pick = f'<g id="pickaxe" fill="{EMBER}" transform="translate(36 8) rotate(20 0 72)">{head}{socket}{handle}</g>'
     hill = f'<path id="hill" d="M4 84 C22 66 74 66 92 84 V86 Q92 92 86 92 H10 Q4 92 4 86 Z" fill="{PAPER}"/>'
-    return tile + pick + hill, ""
+    if mode == "light":      # Bert's gate: on the tile it is drawn smaller so the Paper hill does not touch the tile's edge
+        return tile + f'<g id="scaled" transform="translate(48 48) scale(0.86) translate(-48 -48)">{pick}{hill}</g>', ""
+    return pick + hill, ""
 
 
 def shoulder_pick(mode):
@@ -90,6 +92,7 @@ def shoulder_pick(mode):
     return back + pick + head, ""
 
 
+CHOSEN = "plunge"      # Bert's pick of the three (N-410 gate, 2026-11-18)
 CONCEPTS = {"hat-pick": hat_pick, "plunge": plunge, "shoulder-pick": shoulder_pick}
 
 

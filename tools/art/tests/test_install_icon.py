@@ -117,3 +117,25 @@ def test_hat_pick_fills_most_of_the_disc_with_the_big_crescent_head():
 
 def test_shoulder_pick_has_the_bigger_head_round_two_fix():
     assert install_icon.SHOULDER_HEAD_SCALE >= 0.33
+
+
+def test_the_chosen_concept_is_plunge_and_on_the_tile_it_is_smaller_so_the_hill_clears_the_tile_edge():
+    assert install_icon.CHOSEN == "plunge"                                            # Bert, 2026-11-18
+    light = install_icon.build("plunge", "light")
+    m = re.search(r'<g id="scaled" transform="translate\(48 48\) scale\(([\d.]+)\) translate\(-48 -48\)">', light)
+    assert m and float(m.group(1)) <= 0.88
+    s = float(m.group(1))
+    left = 48 + (4 - 48) * s                                                           # the hill's left edge after scaling
+    right = 48 + (92 - 48) * s
+    bottom = 48 + (92 - 48) * s
+    assert left >= 8 and 96 - right >= 8 and 96 - bottom >= 8                         # at least 8 units of tile all round
+    assert 'id="scaled"' not in install_icon.build("plunge", "dark")                  # tile-less: the full size
+
+
+def test_the_installer_icon_in_the_overlay_themes_is_plunge_dark_and_light_and_the_hicolor_one_is_the_tile_version():
+    import icons
+    root = ROOT / "assets" / "art" / "icons"
+    name = icons.INSTALLER_ICON
+    assert (root / "nisse_icons_dark" / "scalable" / "apps" / f"{name}.svg").read_text(encoding="ascii") == install_icon.build("plunge", "dark")
+    assert (root / "nisse_icons" / "scalable" / "apps" / f"{name}.svg").read_text(encoding="ascii") == install_icon.build("plunge", "light")
+    assert icons.build_all()["install-to-hard-drive"] == install_icon.build("plunge", "light")

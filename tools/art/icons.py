@@ -27,7 +27,6 @@ ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 import mascot_final  # noqa: E402
 import wallpaper  # noqa: E402
-from mascot_round4 import pick  # noqa: E402
 
 OUT = ROOT / "assets" / "art" / "icons"
 LF = chr(10)
@@ -122,13 +121,11 @@ def start_here(mode):
 
 
 def install_to_hard_drive():
-    """The live desktop's "Install to Hard Drive" launcher: the mascot's pickaxe (a steel head on an Ember-pressed handle) striking
-    the ground, with a few sparks: a working pickaxe (N-410). The pick is the mascot's own drawing, scaled and turned onto a diagonal."""
-    ground = f'<rect id="ground" x="10" y="74" width="54" height="7" rx="3.5" fill="{PAPER}"/>'
-    sparks = (f'<g id="sparks"><circle cx="14" cy="64" r="2.8" fill="{EMBER}"/><circle cx="22" cy="57" r="2.2" fill="{EMBER}"/>'
-              f'<circle cx="9" cy="71" r="2" fill="{EMBER}"/></g>')
-    tool = f'<g transform="translate(47 42) rotate(40) scale(0.26) translate(0 -150)">{pick(0, 0, 300, tilt=0)}</g>'
-    return doc(96, "nisse installer launcher icon, a working pickaxe", tile() + ground + tool + sparks)
+    """The live desktop's "Install to Hard Drive" launcher (N-410): Bert chose the Plunge concept (tools/art/install_icon.py), a fat
+    tilted Ember pick driven into the logo's hill. This is the tile version, the hicolor fallback that suits any look; the overlay
+    themes carry the tile-less version for the dark look."""
+    import install_icon
+    return install_icon.build(install_icon.CHOSEN, "light")
 
 
 def build_all():
@@ -170,6 +167,8 @@ def write_themes():
         for icon in ("preferences-system", "utilities-terminal"):
             (root / "scalable" / "apps" / f"{icon}.svg").write_text(svgs[icon], encoding="ascii", newline=LF)
         (root / "scalable" / "places" / "start-here-kde-plasma.svg").write_text(svgs[f"start-here-kde-plasma-{mode}"], encoding="ascii", newline=LF)
+        import install_icon
+        (root / "scalable" / "apps" / f"{INSTALLER_ICON}.svg").write_text(install_icon.build(install_icon.CHOSEN, mode), encoding="ascii", newline=LF)
 
 
 def _uri(svg):
