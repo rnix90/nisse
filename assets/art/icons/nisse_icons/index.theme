@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Icon Theme]
+Name=nisse icons
+Comment=The nisse gear, terminal and start icons over Breeze; every other icon is Breeze's
+Inherits=breeze
+Directories=scalable/apps,scalable/places
+
+[scalable/apps]
+Size=48
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Applications
+
+[scalable/places]
+Size=48
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Places
