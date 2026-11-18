@@ -33,6 +33,7 @@
     <package name="nisse-theme"/>
     <package name="nisse-wallpaper"/>
     <package name="nisse-cursors"/>
+    <package name="nisse-icons"/>
     <package name="nisse-lookandfeel"/>
     <package name="nisse-defaults"/>
     <package name="nisse-hw"/>

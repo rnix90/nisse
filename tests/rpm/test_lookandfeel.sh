@@ -51,8 +51,8 @@ dark="$scratch$LAF/org.nisse.desktop/contents/defaults"
 light="$scratch$LAF/org.nisse.desktop.light/contents/defaults"
 want "$dark"  'kdeglobals][General' ColorScheme NisseEmber
 want "$light" 'kdeglobals][General' ColorScheme NisseEmberLight
-want "$dark"  'kdeglobals][Icons'   Theme breeze-dark
-want "$light" 'kdeglobals][Icons'   Theme breeze
+want "$dark"  'kdeglobals][Icons'   Theme nisse_icons_dark
+want "$light" 'kdeglobals][Icons'   Theme nisse_icons
 for f in "$dark" "$light"; do
     want "$f" 'kdeglobals][KDE' widgetStyle Breeze
     want "$f" 'kwinrc][org.kde.kdecoration2' library org.kde.breeze
@@ -71,6 +71,8 @@ rpm -qp --requires "$rpm_path" | grep -q nisse-wallpaper || fail "nisse-lookandf
 echo "ok   both looks default to the nisse wallpaper"
 rpm -qp --requires "$rpm_path" | grep -q 'nisse-cursors' || fail "nisse-lookandfeel must require nisse-cursors (the default cursor theme it names)"
 echo "ok   both looks default to the nisse cursors"
+rpm -qp --requires "$rpm_path" | grep -q 'nisse-icons' || fail "nisse-lookandfeel must require nisse-icons (the default icon themes it names)"
+echo "ok   both looks default to the nisse icon themes"
 
 # the system default for every new user
 g="$scratch/etc/xdg/kdeglobals"

@@ -5,7 +5,7 @@ widgetStyle=Breeze
 ColorScheme=NisseEmber
 
 [kdeglobals][Icons]
-Theme=breeze-dark
+Theme=nisse_icons_dark
 
 [plasmarc][Theme]
 name=default

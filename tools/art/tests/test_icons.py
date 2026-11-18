@@ -60,13 +60,22 @@ def test_the_gear_has_eight_rounded_teeth_and_a_hole_with_an_ember_centre():
     assert 'id="hub"' in svg and "#e0623f" in svg
 
 
-def test_the_terminal_icon_is_a_prompt_window_under_the_logos_exact_hat():
+def test_the_terminal_icon_has_the_logos_exact_hat_layered_behind_the_prompt_window_with_a_see_through_gap():
+    # Bert's gate: the hat goes BEHIND the rest, separated by the same kind of transparency line as the logo's horizon
     svg = icons.build_all()["utilities-terminal"]
     assert mascot_final.HAT_D in svg                                 # the logo's hat, path for path
-    assert 'id="window"' in svg and 'id="prompt"' in svg and 'id="cap"' in svg
-    assert svg.index('id="window"') < svg.index('id="cap"')          # the cap sits on top of the window
+    for ident in ("window", "prompt", "cap", "gap"):
+        assert f'id="{ident}"' in svg, ident
+    assert svg.index('id="tile"') < svg.index('id="cap"') < svg.index('id="gap"') < svg.index('id="window"') < svg.index('id="prompt"')
     cap = svg[svg.index('id="cap"'):]
     assert "#e0623f" in cap[:cap.index("</g>")]
+    gap = re.search(r'<rect id="gap" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*fill="(#[0-9a-f]{6})"', svg)
+    win = re.search(r'<rect id="window" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"', svg)
+    assert gap and win
+    gx, gy, gw, gh = (float(v) for v in gap.groups()[:4])
+    wx, wy, ww, wh = (float(v) for v in win.groups())
+    assert gap.group(5) == "#1b2330"                                 # the gap shows the tile through: a see-through line
+    assert wx - gx >= 3 and wy - gy >= 3 and (gx + gw) - (wx + ww) >= 3     # the line is at least 3 units wide on the sides and the top
 
 
 def test_the_disk_icon_carries_the_nisse_logo_and_a_status_light():

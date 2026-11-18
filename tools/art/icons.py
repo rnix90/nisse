@@ -73,13 +73,16 @@ def preferences_system():
 
 
 def utilities_terminal():
-    window = f'<rect id="window" x="14" y="50" width="68" height="32" rx="8" fill="{PAPER}"/>'
-    prompt = (f'<g id="prompt"><polyline points="26,58 35,65.5 26,73" fill="none" stroke="{INK}" stroke-width="5" stroke-linecap="round" '
-              f'stroke-linejoin="round"/><line x1="43" y1="73" x2="58" y2="73" stroke="{EMBER}" stroke-width="5" stroke-linecap="round"/></g>')
-    cap = (f'<g id="cap" transform="translate(48 52) scale(0.4)" fill="{EMBER}"><path d="{mascot_final.HAT_D}"/>'
+    """The terminal-under-the-cap idea: the logo's hat stands BEHIND a prompt window, and a see-through line (a gap that shows the
+    tile, like the logo's horizon line) separates them. (Bert's gate: the hat goes behind the rest.)"""
+    cap = (f'<g id="cap" transform="translate(48 56) scale(0.5)" fill="{EMBER}"><path d="{mascot_final.HAT_D}"/>'
            f'<rect x="{mascot_final.CUFF_X}" y="{mascot_final.CUFF_Y}" width="{mascot_final.CUFF_W}" height="{mascot_final.CUFF_H}" '
            f'rx="{mascot_final.CUFF_RX}"/></g>')
-    return doc(96, "nisse terminal icon", tile() + window + prompt + cap)
+    gap = f'<rect id="gap" x="9.5" y="48.5" width="77" height="41" rx="12" fill="{INK}"/>'
+    window = f'<rect id="window" x="14" y="53" width="68" height="32" rx="8" fill="{PAPER}"/>'
+    prompt = (f'<g id="prompt"><polyline points="26,61 35,68.5 26,76" fill="none" stroke="{INK}" stroke-width="5" stroke-linecap="round" '
+              f'stroke-linejoin="round"/><line x1="43" y1="76" x2="58" y2="76" stroke="{EMBER}" stroke-width="5" stroke-linecap="round"/></g>')
+    return doc(96, "nisse terminal icon", tile() + cap + gap + window + prompt)
 
 
 def _logo(fill_or_class, ident, x, y, size, mask_id):

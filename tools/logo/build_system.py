@@ -10,8 +10,10 @@ Paper only (the Ember accent arrives with roadmap 1.1/1.2). The symlink places/s
 Needs: Pillow.  Run from anywhere:  python tools/logo/build_system.py [--out DIR]
 """
 import argparse
+import io
 import pathlib
 import shutil
+import sys
 
 from PIL import Image, ImageDraw
 
@@ -22,7 +24,6 @@ INK = (0x1B, 0x23, 0x30, 255)
 # Where each kind of art goes: (path under the image root, kind)
 TILE_SVG = LOGO / "svg" / "nisse-app-tile.svg"
 SVG_COPIES = (
-    "usr/share/icons/hicolor/scalable/apps/anaconda.svg",
     "usr/share/icons/hicolor/scalable/apps/fedora-logo-icon.svg",
     "usr/share/icons/hicolor/scalable/apps/fedora-logo-sprite.svg",
     "usr/share/icons/hicolor/scalable/apps/start-here.svg",
@@ -86,8 +87,16 @@ def build(out):
     save("usr/share/anaconda/pixmaps/topbar-bg.png", Image.new("RGBA", (1040, 132), INK))
 
     # launcher and installer icons (the start button is start-here)
+    # the installer's icon is the nisse logo on a disk (N-409), drawn by tools/art/icons.py; its PNGs keep the placeholder's 49 pixels
+    sys.path.insert(0, str(ROOT / "tools" / "art"))
+    import icons  # noqa: E402
+    disk = icons.build_all()["anaconda"]
+    path = out / "usr/share/icons/hicolor/scalable/apps/anaconda.svg"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(disk, encoding="ascii", newline=chr(10))
+    disk_png = Image.open(io.BytesIO(icons.render_png(disk, 49))).convert("RGBA")
     for rel in ("usr/share/icons/hicolor/48x48/apps/anaconda.png", "usr/share/icons/oxygen/48x48/apps/anaconda.png"):
-        save(rel, tile.resize((49, 49), Image.LANCZOS))
+        save(rel, disk_png)
     for rel in SVG_COPIES:
         path = out / rel
         path.parent.mkdir(parents=True, exist_ok=True)

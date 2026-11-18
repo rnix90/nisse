@@ -10,7 +10,7 @@ smallestReadableFont=Nunito,8,-1,5,50,0,0,0,0,0
 toolBarFont=Nunito,9,-1,5,50,0,0,0,0,0
 
 [Icons]
-Theme=breeze-dark
+Theme=nisse_icons_dark
 
 [KDE]
 LookAndFeelPackage=org.nisse.desktop

@@ -113,6 +113,21 @@ for laf in org.nisse.desktop org.nisse.desktop.light; do
         || fail "$laf does not default to the nisse_cursors cursor theme"
 done
 
+# The nisse icon themes (N-409): overlays on Breeze with exactly three icons, the default in both looks and the system default;
+# the installer icon (anaconda) is the logo on a disk.
+for t in nisse_icons:breeze nisse_icons_dark:breeze-dark; do
+    d="$root/usr/share/icons/${t%%:*}"
+    grep -qx "Inherits=${t##*:}" "$d/index.theme" || fail "${t%%:*} must inherit ${t##*:}"
+    for f in scalable/apps/preferences-system.svg scalable/apps/utilities-terminal.svg scalable/places/start-here-kde-plasma.svg; do
+        [ -f "$d/$f" ] || fail "${t%%:*} lacks $f"
+    done
+    [ -d "$root/usr/share/icons/${t##*:}" ] || fail "the base icon theme ${t##*:} is missing"
+done
+grep -qx 'Theme=nisse_icons_dark' "$root/usr/share/plasma/look-and-feel/org.nisse.desktop/contents/defaults" || fail "the dark look does not default to nisse_icons_dark"
+grep -qx 'Theme=nisse_icons' "$root/usr/share/plasma/look-and-feel/org.nisse.desktop.light/contents/defaults" || fail "the light look does not default to nisse_icons"
+grep -qx 'Theme=nisse_icons_dark' "$root/etc/xdg/kdeglobals" || fail "/etc/xdg/kdeglobals does not default to nisse_icons_dark"
+grep -q 'id="drive"' "$root/usr/share/icons/hicolor/scalable/apps/anaconda.svg" || fail "the anaconda icon is not the logo on a disk"
+
 # The live session itself: livesys creates the live user and sets up autologin; without these units the ISO boots to
 # a login prompt instead of the desktop (Fedora enables them through its own preset file, which nisse-release replaced).
 for u in livesys.service livesys-late.service; do

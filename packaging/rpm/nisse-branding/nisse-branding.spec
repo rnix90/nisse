@@ -3,7 +3,7 @@
 
 Name:           nisse-branding
 Version:        0.2
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        nisse logo, icons and system artwork
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -70,6 +70,9 @@ ln -s ../apps/start-here.svg %{buildroot}/usr/share/icons/hicolor/scalable/place
 /usr/share/icons/hicolor/scalable/places/start-here.svg
 
 %changelog
+* Tue Nov 17 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-3
+- The installer icon (anaconda) is the nisse logo on a disk
+
 * Sun Nov 15 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-2
 - Add the nisse n (a tipped hat on the wordmark's n) as the icon nisse-n, at every size, scalable and symbolic
 

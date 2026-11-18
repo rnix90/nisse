@@ -68,3 +68,14 @@ def test_the_distributor_logo_ids_are_kept():
     release = (ROOT / "packaging/rpm/nisse-release").rglob("*")
     text = "".join(p.read_text(errors="ignore") for p in release if p.is_file())
     assert "LOGO=distributor-logo-nisse" in text
+
+
+def test_the_installer_icon_is_the_nisse_logo_on_a_disk_and_its_png_matches_the_placeholder_size():
+    # N-409: anaconda is the logo on a disk (a drive with a status light), no longer the plain tile
+    svg = (SYSTEM / "usr/share/icons/hicolor/scalable/apps/anaconda.svg").read_text(encoding="ascii")
+    assert 'id="drive"' in svg and 'id="logo"' in svg and 'id="led"' in svg
+    assert svg != TILE.read_text(encoding="ascii")
+    for rel in ("usr/share/icons/hicolor/48x48/apps/anaconda.png", "usr/share/icons/oxygen/48x48/apps/anaconda.png"):
+        img = Image.open(SYSTEM / rel)
+        assert img.size == (49, 49), rel                       # the size of the Fedora placeholder it replaces
+        assert img.convert("RGBA").getpixel((0, 0))[3] == 0     # the tile's rounded corner is transparent
