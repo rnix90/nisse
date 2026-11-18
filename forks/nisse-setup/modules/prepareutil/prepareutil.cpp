@@ -36,7 +36,7 @@ PrepareUtil::PrepareUtil(QObject *parent)
     });
 
     // set property initially
-    m_usingDarkTheme = m_colorsSettings->colorScheme() == u"BreezeDark"_s;
+    m_usingDarkTheme = m_colorsSettings->colorScheme() == u"NisseEmber"_s;
 }
 
 int PrepareUtil::scaling() const
@@ -93,9 +93,9 @@ void PrepareUtil::setUsingDarkTheme(bool usingDarkTheme)
 {
     // use plasma-apply-lookandfeel since it has logic for notifying the shell of changes
     if (usingDarkTheme) {
-        QProcess::execute(u"plasma-apply-lookandfeel"_s, {QStringLiteral("--apply"), QStringLiteral("org.kde.breezedark.desktop")});
+        QProcess::execute(u"plasma-apply-lookandfeel"_s, {QStringLiteral("--apply"), QStringLiteral("org.nisse.desktop")});
     } else {
-        QProcess::execute(u"plasma-apply-lookandfeel"_s, {QStringLiteral("--apply"), QStringLiteral("org.kde.breeze.desktop")});
+        QProcess::execute(u"plasma-apply-lookandfeel"_s, {QStringLiteral("--apply"), QStringLiteral("org.nisse.desktop.light")});
     }
 
     m_usingDarkTheme = usingDarkTheme;

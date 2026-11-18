@@ -32,16 +32,16 @@ int main(int argc, char *argv[])
     }
 
     KAboutData about(QStringLiteral("plasma-setup"),
-                     i18n("Plasma Setup"),
+                     i18n("nisse setup"),
                      QStringLiteral(PLASMASETUP_VERSION_STRING),
-                     i18n("Make Plasma yours"),
+                     i18n("Make nisse yours"),
                      KAboutLicense::GPL_V3,
                      i18n("© 2021-2024 KDE Community"));
 
     QQmlApplicationEngine engine;
 
     QCommandLineParser parser;
-    parser.addOption(QCommandLineOption(QStringLiteral("remove-autologin"), i18n("Remove the Plasma Setup autologin configuration.")));
+    parser.addOption(QCommandLineOption(QStringLiteral("remove-autologin"), i18n("Remove the nisse setup autologin configuration.")));
     about.setupCommandLine(&parser);
     parser.process(app);
     about.processCommandLine(&parser);

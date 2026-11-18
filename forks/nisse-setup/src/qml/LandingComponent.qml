@@ -53,8 +53,8 @@ Item {
             const landscapeFile = "5120x2880.png";
             const portraitFile  = "1440x2960.png";
 
-            const lightFolder = "wallpapers/Next/contents/images/";
-            const darkFolder  = "wallpapers/Next/contents/images_dark/";
+            const lightFolder = "wallpapers/nisse/contents/images/";
+            const darkFolder  = "wallpapers/nisse/contents/images_dark/";
             const themedFolder = Prepare.PrepareUtil.usingDarkTheme ? darkFolder : lightFolder;
 
             function locate(file) {
@@ -131,9 +131,7 @@ Item {
 
             Label {
                 Layout.fillWidth: true
-                text: Kirigami.Settings.isMobile
-                    ? i18n("Welcome to<br/><b>Plasma Mobile</b>")
-                    : i18n("Welcome to<br/><b>Plasma Desktop</b>")
+                text: i18n("Welcome to<br/><b>nisse</b>")
 
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
