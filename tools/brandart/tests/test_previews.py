@@ -61,7 +61,7 @@ DecorationFocus=224,98,63
 
 
 def xcursor(frames):
-    """A synthetic Xcursor file: frames = [(nominal_size, width, height, (r, g, b, a)), ...]; one solid colour each."""
+    """A synthetic Xcursor file: frames = [(nominal_size, width, height, (r, g, b, a)), ...]; one solid color each."""
     chunks = []
     for nominal, w, h, (r, g, b, a) in frames:
         # pixels are premultiplied ARGB32, little endian: bytes B G R A
@@ -115,7 +115,7 @@ def test_a_color_scheme_missing_roles_still_renders_the_others(tmp_path):
     previews.run(out)
     item = find(json.loads((out / "inventory.json").read_text()), "colors", "Ember")
     img = Image.open(out / item["preview"]).convert("RGB")
-    # Button, Tooltip and Complementary are not in this scheme: a neutral grey tile, not a crash
+    # Button, Tooltip and Complementary are not in this scheme: a neutral gray tile, not a crash
     assert img.getpixel((245, 40)) == previews.MISSING_ROLE_COLOR
 
 

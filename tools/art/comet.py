@@ -45,7 +45,7 @@ SAMPLES = 90
 
 
 def _pos(theta, r):
-    """A point at angle theta clockwise from twelve o'clock, radius r from the centre."""
+    """A point at angle theta clockwise from twelve o'clock, radius r from the center."""
     return (CX + r * math.sin(theta), CY - r * math.cos(theta))
 
 

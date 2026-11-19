@@ -6,7 +6,7 @@ Breeze ships two logo cursors that are looked up by name: `x-cursor` (the X.Org 
 bare X root use it) and `wayland-cursor` (the Wayland logo, a round badge with a W; Qt's Wayland client, SDL and libdecor name it).
 Bert's call (2026-11-17): replace just those two, with a simple W and a simple X in the nisse font, and keep every other pointer
 as Breeze draws it. So this makes a tiny theme `nisse_cursors` that inherits `breeze_cursors` and carries only those two files,
-at the same eleven sizes (nominal 12 to 72, pictures 16 to 96 pixels) with the hotspot at the centre.
+at the same eleven sizes (nominal 12 to 72, pictures 16 to 96 pixels) with the hotspot at the center.
 
 The badge: a Paper outline ring (so it shows on dark backgrounds), an Ember disc, and the letter in Ink (Ember fills carry Ink,
 the palette rule for text on an accent), the letter outlined from Nunito by tools/logo/build.py.
@@ -48,7 +48,7 @@ def _logo_build():
 
 
 def badge_svg(letter, size):
-    """The badge as an SVG document at `size` pixels: a Paper ring, an Ember disc and the Ink letter, centred."""
+    """The badge as an SVG document at `size` pixels: a Paper ring, an Ember disc and the Ink letter, centerd."""
     B = _logo_build()
     d, left, right, _ = B.layout(letter, 1.0, 0.0, 0.0)
     # the glyph's own height at scale 1 (font units): take it from a bounding pass of the outline

@@ -88,7 +88,7 @@ def open_hand(x, y):
                       f'transform="rotate({a} {x + dx} {y - 20})"/>' for dx, a in ((-8, -18), (2, -4), (12, 12))))
 
 
-# ------------------------------------------------------------------ the head: one tomte, four settings (local coords, face centre 200,258)
+# ------------------------------------------------------------------ the head: one tomte, four settings (local coords, face center 200,258)
 def tomte_head(cs=1.15, bb=440, beard=PAPER, eyes="dot", eye_r=10, brows=True, mustache=True, smile=False,
                cheek_r=10, goggles=False, big_mustache=False, beard_w=1.0):
     cap_y = 230

@@ -65,7 +65,7 @@ TestCase {
         sourceSize.height: 72
     }
 
-    // how many pixels of a grabbed image are drawn, and where their centre of mass is (relative to the image centre)
+    // how many pixels of a grabbed image are drawn, and where their center of mass is (relative to the image center)
     function measure(img) {
         var n = 0, sx = 0, sy = 0
         for (var y = 0; y < img.height; ++y) {
@@ -112,7 +112,7 @@ TestCase {
         verify(!a0.equals(a90), "turning by 90 degrees changed nothing")
         verify(Math.abs(m90.count - m0.count) < 0.1 * m0.count, "the area changed when it turned: " + m0.count + " -> " + m90.count)
         var turned = (angleOf(m90) - angleOf(m0) + 360) % 360
-        verify(Math.abs(turned - 90) < 12, "the centre of mass moved " + turned + " degrees, not about 90 clockwise")
+        verify(Math.abs(turned - 90) < 12, "the center of mass moved " + turned + " degrees, not about 90 clockwise")
         spinner.rotation = 360
         // a full turn comes back to the start (not compared pixel for pixel: anti-aliasing differs in the last bit)
         var m360 = measure(grabImage(stage))

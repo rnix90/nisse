@@ -4,7 +4,7 @@
 
 The tree under assets/logo/system mirrors the file system (usr/share/...), so nisse-branding installs it with one copy.
 Every path and size comes from tests/rpm/placeholder-paths.txt: a replacement has the same size as the file it replaces.
-Inputs are the files tools/logo/build.py already generated (assets/logo/png and assets/logo/svg); colours are Ink and
+Inputs are the files tools/logo/build.py already generated (assets/logo/png and assets/logo/svg); colors are Ink and
 Paper only (the Ember accent arrives with roadmap 1.1/1.2). The symlink places/start-here.svg is made by the RPM spec.
 
 Needs: Pillow.  Run from anywhere:  python tools/logo/build_system.py [--out DIR]
@@ -42,7 +42,7 @@ def fit(img, max_w, max_h):
 
 
 def on_ink(size, art, box, left=None):
-    """Ink canvas of `size` with `art` fitted into `box` (w, h) and centred (or at x=`left`, centred vertically)."""
+    """Ink canvas of `size` with `art` fitted into `box` (w, h) and centerd (or at x=`left`, centerd vertically)."""
     canvas = Image.new("RGBA", size, INK)
     art = fit(art, *box)
     x = left if left is not None else (size[0] - art.width) // 2
@@ -51,7 +51,7 @@ def on_ink(size, art, box, left=None):
 
 
 def card(size, art, box, radius=26):
-    """Opaque Ink rounded card with `art` fitted and centred: readable on a light page and on a dark one."""
+    """Opaque Ink rounded card with `art` fitted and centerd: readable on a light page and on a dark one."""
     canvas = Image.new("RGBA", size, (0, 0, 0, 0))
     mask = Image.new("L", size, 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=radius, fill=255)

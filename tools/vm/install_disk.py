@@ -80,7 +80,7 @@ def kickstart(user, password, wizard=False):
 
 def anaconda_command(profile=None):
     """The command that runs the installer in the live session (as root, in the background, output to a file)."""
-    profile = profile or None          # an empty value means "no forced profile": the real nisse behaviour
+    profile = profile or None          # an empty value means "no forced profile": the real nisse behavior
     if profile is not None and not re.fullmatch(r"[a-z][a-z0-9-]*", profile):
         raise ValueError(f"not a profile id: {profile!r}")
     extra = f" --profile {profile}" if profile else ""

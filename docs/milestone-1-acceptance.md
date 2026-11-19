@@ -22,7 +22,7 @@ kernel selection. Most of it is checked by scripts. A few things need a person, 
 | RPM tests | `tests/rpm/test_*.sh` in the build VM | each package has the files, units, presets and licenses it should |
 | Hardware detection and routing | `cd hw && python -m pytest` | Surface, T2, pre-T2 and generic machines get the right profile and commands; offline runs retry |
 | Services | `cd services && cargo test --workspace` | audit log, config, runner and D-Bus API |
-| Panel | `ctest --test-dir panel/build`, `tests/e2e/panel_daemon.sh` | chat behaviour, and panel plus daemon on a real bus |
+| Panel | `ctest --test-dir panel/build`, `tests/e2e/panel_daemon.sh` | chat behavior, and panel plus daemon on a real bus |
 | First-boot fetch | `tests/shell/test_fetch_claude.sh` | Claude Code is fetched, never bundled, and retried offline |
 | ISO contents | `tests/iso/test_iso_contents.sh out/nisse-live.iso` | os-release says nisse, Nunito is there, our programs and the Anaconda post-script are in, the live-session units are enabled, Qt is 6.10, no `claude` file |
 | Boot | `tools/vm/smoke-boot.sh ISO --screenshot ...` | the ISO boots to Plasma with "Welcome to nisse!" |

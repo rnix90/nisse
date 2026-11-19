@@ -82,7 +82,7 @@ def icon_parts(fill, cls=None):
 
 
 # ---------------------------------------------------------------- forms
-# Each form returns (view_w, view_h, defs, body) for a fill colour.
+# Each form returns (view_w, view_h, defs, body) for a fill color.
 def form_icon(fill):
     defs, body = icon_parts(fill)
     return 512, 512, defs, body
@@ -223,18 +223,18 @@ def main():
     for old in LOGO.glob("nisse-*.svg"):
         old.unlink()
 
-    # ---- SVG: every form x colourway
+    # ---- SVG: every form x colorway
     for form in FORMS:
         for suffix, fill in COLORWAYS:
             _, _, text = doc(form, fill)
             write(LOGO / "svg" / f"nisse-{form}{suffix}.svg", text)
     w, h, defs, body = form_tile(None)
     write(LOGO / "svg" / "nisse-app-tile.svg", svg_doc(w, h, defs, body, "nisse app tile"))
-    # symbolic (inherits text colour) for panels and toolbars
+    # symbolic (inherits text color) for panels and toolbars
     w, h, defs, body = form_icon("currentColor")
     write(LOGO / "svg" / "nisse-icon-symbolic.svg", svg_doc(w, h, defs, body, "nisse icon, symbolic"))
 
-    # ---- favicon.svg that follows the browser colour scheme
+    # ---- favicon.svg that follows the browser color scheme
     defs, body = icon_parts(INK, cls="m")
     style = ('<style>.m{fill:%s}@media (prefers-color-scheme:dark){.m{fill:%s}}</style>' % (INK, PAPER))
     write(LOGO / "favicon" / "favicon.svg", svg_doc(512, 512, defs, body, "nisse", style))

@@ -47,7 +47,7 @@ def test_the_other_colorways_and_the_symbolic_form():
 
 def test_the_head_rides_the_orbit_and_everything_fits_with_room_in_the_square():
     g = comet.geometry()
-    assert (g["cx"], g["cy"]) == (68.0, 68.0), "the orbit centre is the view box centre, so rotation is clean"
+    assert (g["cx"], g["cy"]) == (68.0, 68.0), "the orbit center is the view box center, so rotation is clean"
     assert abs(math.dist((g["cx"], g["cy"]), g["head"]) - g["orbit_r"]) < 1e-6
     assert g["max_extent"] <= 68 - 4, g["max_extent"]
 

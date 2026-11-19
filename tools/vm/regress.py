@@ -29,7 +29,7 @@ OUT = REPO / "out" / "regress" / "last"
 CLOCK = (0.78, 0.935, 0.965, 0.99)
 PANEL_CLOCK = (0.78, 0.0, 0.965, 1.0)
 
-# A terminal that shows the 16 palette colours and the font, and nothing that varies: no prompt, no time, no host name.
+# A terminal that shows the 16 palette colors and the font, and nothing that varies: no prompt, no time, no host name.
 TERMINAL_SCRIPT = r"""#!/bin/bash
 printf '\033[1;38;2;224;98;63mnisse terminal\033[0m  Fira Code 10  ->  != == >= <= => ==> -> <- ::\n\n'
 for i in 0 1 2 3 4 5 6 7; do printf '\033[3%dm color%d \033[0m' $i $i; done; echo

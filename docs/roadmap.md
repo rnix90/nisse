@@ -43,7 +43,7 @@ document-like apps (email, word processing, PDF, web pages) keep a light backgro
 rebuilt ISO: contents test (63 preset-enabled units verified after a simulated first-boot preset-all), live desktop
 screenshot, 4-case hardware e2e, and the whole test suite. Final review fixes (same day): the 10-minute whole-turn timeout became a check-in watchdog (30 s check-ins; no sign of life for 10 minutes
 flags the CLI as hung, stops it and everything it started, restarts the turn once); sshd is off by default. Notes: supervised authority maps to the CLI's default permission
-mode and its behaviour in `-p` mode is not yet verified against the real CLI (see `docs/claude-cli-notes.md`); the Fedora
+mode and its behavior in `-p` mode is not yet verified against the real CLI (see `docs/claude-cli-notes.md`); the Fedora
 preset set is adopted except `plasma-setup.service`; Flatpak remotes are Fedora's plus Flathub.
 
 ## Phase 1: the nisse look and feel (all packaged; tested by VM screenshots)
@@ -56,7 +56,7 @@ preset set is adopted except `plasma-setup.service`; Flatpak remotes are Fedora'
 | 1.4 | Wallpapers and lock/login backgrounds | nisse artwork from the logo assets; at least one wallpaper per variant |
 | 1.5 | Fonts | Decided 2026-11-12 (Bert, from rendered sheets): Nunito = UI (already shipped), Fira Code = monospace (terminal, code editor), Literata = default document font. All OFL-1.1 and packaged in Fedora 44 (`fira-code-fonts` 6.2, `typetogether-literata-fonts` 2.200) |
 | 1.6 | Panel, launcher and default layout | (guess) one panel layout shipped via the Plasma look-and-feel package and `/etc/skel`; nisse panel entry pinned |
-| 1.7 | Shortcuts and window behaviour | Defaults for shortcuts, animations, night light, window rules |
+| 1.7 | Shortcuts and window behavior | Defaults for shortcuts, animations, night light, window rules |
 | 1.8 | Login screen (Plasma Login Manager) | Branded theme and logo |
 | 1.9 | Boot experience | Plymouth splash and GRUB theme with the nisse mark |
 | 1.10 | Terminal and editor defaults | Konsole profile in the nisse palette; the terminal-under-cap logo is reserved for a terminal app (later) |

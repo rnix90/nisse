@@ -26,7 +26,7 @@ Findings and corrections made in place:
   in the agent's memory, is now recorded in `docs/claude-cli-notes.md`.
 - **Roadmap:** item 1.0 (branding foundations) was not marked done; "Public alpha ISO" contradicted the 2026-11-02
   decision that there is no alpha label. Fixed (now "First public ISO").
-- **Unowned work:** none new. The open items the old docs carried (supervised `-p` behaviour, remote control on
+- **Unowned work:** none new. The open items the old docs carried (supervised `-p` behavior, remote control on
   daemon sessions, the managed-settings path, Bert's manual Milestone 1 checklist) are now owned by N-201, N-202 and
   N-003.
 - **Known and accepted:** `test_system_art` and `test_tracked_files` fail inside the build VM (no Pillow, not a git

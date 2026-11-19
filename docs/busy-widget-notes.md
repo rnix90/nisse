@@ -13,7 +13,7 @@ Fedora's and Breeze's `contents/splash/Splash.qml` all have the same block:
   are switched off.
 - It is faded out when the splash reaches stage 5, and sits in the middle of the space below the logo (`plasma.svgz`).
 
-So the animation is NOT in the file. The art is ONE static picture that is turned about its centre. It has to look right
+So the animation is NOT in the file. The art is ONE static picture that is turned about its center. It has to look right
 while it turns and be centered on its view box. If the logo were inside the file, the logo would spin too, so the file
 that replaces `busywidget.svgz` is the comet ring only; the logo is the separate `plasma.svgz` image above it.
 

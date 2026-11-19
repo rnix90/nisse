@@ -178,7 +178,7 @@ def one_hill(w, h, p):
     u = h / 900
     sx = pull(0.62, w, h)
     top, r = 0.37 * h, 0.06 * h
-    sun_y = top + 0.12 * r                      # the centre sits just below the plateau's top edge: a true half disc sunk in it
+    sun_y = top + 0.12 * r                      # the center sits just below the plateau's top edge: a true half disc sunk in it
     # the plateau: a low ramp on the left, a left shoulder, a flat top, a steep right-hand cliff down to a notch, a lower shoulder
     plateau = rounded([(-0.06 * w, h * 1.02), (-0.06 * w, 0.52 * h), (sx - 0.30 * w, 0.52 * h), (sx - 0.10 * w, top),
                        (sx + 0.24 * w, top), (sx + 0.27 * w, 0.54 * h), (sx + 0.34 * w, 0.54 * h), (sx + 0.37 * w, 0.49 * h),

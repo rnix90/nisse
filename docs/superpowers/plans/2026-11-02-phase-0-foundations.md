@@ -15,7 +15,7 @@
 - ASCII only in everything authored: no em dashes, smart quotes, arrows or emoji.
 - No tokens, credentials or personal data in the repo or the image.
 - Claude Code is never bundled in the image; it is fetched at first boot.
-- TDD: every behaviour change gets a test that is run and seen to fail first.
+- TDD: every behavior change gets a test that is run and seen to fail first.
 - RPM changes bump the spec `Release` (kiwi may serve a cached RPM with the same name-version-release) and add a changelog entry dated with the real date, author `Bert <266182601+rnix90@users.noreply.github.com>`.
 - Rust: `cargo fmt` and `cargo clippy -- -D warnings` stay clean in `services/`. Rust, QML and RPM tests run in the build VM (`bash tools/build/vm.sh sync` first, then `vm.sh ssh 'cd ~/nisse && ...'`); Python tests run on the host (`cd hw && python -m pytest -q`).
 - Git commits end with the lines `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>` and `Claude-Session: https://claude.ai/code/session_012HaX4wM2HNi6CtaPcZCAUT`.
@@ -47,7 +47,7 @@
   - `test_retry_flag_resets_the_attempt_count`: after a `failed` state, `main(["--retry", "--state-dir", str(tmp_path)])` returns 0 and the stored attempts are 0.
   - `test_main_prints_one_line_for_a_broken_profiles_file`: `main` with `--profiles` pointing at invalid TOML, `--state-dir tmp_path` and empty `--dmi-root`/`--pci-root` directories returns 1; captured stderr is exactly one line starting `nisse-hwroute: ` and does not contain `Traceback`.
   - `test_unit_stops_restarting_after_a_final_failure`: the unit text (`UNIT`) contains `RestartPreventExitStatus=1`.
-- [ ] **Step 2: Run to verify they fail:** `cd hw && python -m pytest -q tests/test_route.py`. Expected: the six new tests FAIL (missing names or behaviour), existing tests pass.
+- [ ] **Step 2: Run to verify they fail:** `cd hw && python -m pytest -q tests/test_route.py`. Expected: the six new tests FAIL (missing names or behavior), existing tests pass.
 - [ ] **Step 3: Implement** in `route.py`: `MAX_ATTEMPTS`; wrap each `runner(cmd)` call in `try/except OSError` and record `"{cmd text} exited with status {rc}"` or `"cannot run {cmd[0]}: {error}"`; write `last_error` through `_write_state`; check the attempts cap before running any command (stored attempts >= `MAX_ATTEMPTS` -> status `failed`, return 1, print `nisse-hwroute: giving up after N attempts: <last_error>` to stderr); add `--retry`; wrap `main` in `try/except Exception` printing one line to stderr and returning 1 (state status `error` is optional). Add `RestartPreventExitStatus=1` to the unit.
 - [ ] **Step 4: Run to verify they pass:** `cd hw && python -m pytest -q`. Expected: all pass (45 existing plus the new ones).
 - [ ] **Step 5: RPM test.** Add to `tests/rpm/test_nisse_hw.sh` an assertion that the packaged `nisse-hwroute.service` contains `RestartPreventExitStatus=1`; run it RED against the old RPM, bump the spec Release to 2 with a changelog line, rebuild (`tools/rpm/build-rpm.sh nisse-hw`), run it GREEN.
@@ -125,7 +125,7 @@
 
 **Interfaces:**
 - Consumes: Task 4's session store, Task 3's `RunRequest.authority`.
-- Produces: D-Bus `Cancel(session_id: String) -> bool` (true if a turn was running). Behaviour: a second `SendMessage` on a session that is running is queued and runs after the first turn ends, in order; each turn emits its own `MessageChunk`s and exactly one `SessionDone`. `Cancel` aborts the running turn (dropping the runner future so `kill_on_drop` stops the child), drops that session's queued messages, audits kind `cancel`, and emits exactly one `SessionDone` and no `SessionError`. `Cancel` on an idle or unknown session returns false and emits nothing.
+- Produces: D-Bus `Cancel(session_id: String) -> bool` (true if a turn was running). Behavior: a second `SendMessage` on a session that is running is queued and runs after the first turn ends, in order; each turn emits its own `MessageChunk`s and exactly one `SessionDone`. `Cancel` aborts the running turn (dropping the runner future so `kill_on_drop` stops the child), drops that session's queued messages, audits kind `cancel`, and emits exactly one `SessionDone` and no `SessionError`. `Cancel` on an idle or unknown session returns false and emits nothing.
 
 - [ ] **Step 1: Write the failing tests** in `tests/dbus.rs` with spy runners:
   - `two_messages_on_one_session_never_run_at_once`: a runner that increments a shared counter on entry, sleeps 100 ms, records the maximum, decrements; two quick `SendMessage` calls; both replies arrive in order; the recorded maximum is 1; two `SessionDone` signals.
@@ -154,7 +154,7 @@
   - `test_stop_calls_cancel_for_the_current_session`.
   - `test_done_after_stop_unlocks_the_input_and_notes_it`: after clicking Stop and emitting `done`, `busy` is false and the last message has role `note` and text `Stopped.`.
 - [ ] **Step 2: Run:** in the VM `cmake -S panel -B /tmp/panel-build -G Ninja && cmake --build /tmp/panel-build && ctest --test-dir /tmp/panel-build --output-on-failure`. Expected: FAIL (new tests).
-- [ ] **Step 3: Implement** the C++ method and property and the QML. Style: a `note` bubble uses a neutral background; no new colours outside what `ChatView.qml` already uses (the Ember palette arrives with roadmap 1.2).
+- [ ] **Step 3: Implement** the C++ method and property and the QML. Style: a `note` bubble uses a neutral background; no new colors outside what `ChatView.qml` already uses (the Ember palette arrives with roadmap 1.2).
 - [ ] **Step 4: Run:** ctest, then `bash tests/e2e/panel_daemon.sh` (its self-test must still print `backend: max` and `reply: echo: ping`; extend `main.cpp --self-test` to also print `authority: autonomous` and assert it in the script). Expected: PASS.
 - [ ] **Step 5: Commit** `feat: panel Stop button and authority label`.
 

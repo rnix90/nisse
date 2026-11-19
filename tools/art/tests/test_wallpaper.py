@@ -192,7 +192,7 @@ def test_round_three_one_hill_sun_is_sunk_into_the_plateau_edge():
     hill = wallpaper.scene(1920, 1080, "dark", "one-hill")
     m = re.search(r'<circle id="sun" cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"', hill)
     cx, cy, r = (float(v) for v in m.groups())
-    assert cy >= 0.37 * 1080                       # the centre is on or below the plateau's top edge: a half disc, not a bump
+    assert cy >= 0.37 * 1080                       # the center is on or below the plateau's top edge: a half disc, not a bump
 
 
 def test_a_portrait_screen_gets_the_scene_on_a_shorter_canvas_so_nothing_is_lost_in_the_crop():

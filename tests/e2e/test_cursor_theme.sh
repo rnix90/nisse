@@ -35,13 +35,13 @@ def load(name, size=32):
     return img.width, img.height, img.pixels[(img.height // 2) * img.width + img.width // 2], img.pixels[0]
 
 for name, letter_hint in (("x-cursor", "X"), ("wayland-cursor", "W")):
-    w, h, centre, corner = load(name)
+    w, h, center, corner = load(name)
     assert w == h and w > 0, (name, w, h)                                   # a square picture of some size
     assert corner >> 24 == 0, f"{name}: the corner must be transparent (round badge)"
-    assert centre >> 24 == 255, f"{name}: the centre must be solid"
+    assert center >> 24 == 255, f"{name}: the center must be solid"
 print("ok   libXcursor loads x-cursor and wayland-cursor from nisse_cursors")
 # a pointer the theme does NOT carry falls through to Breeze (Inherits=breeze_cursors)
-w, h, centre, corner = load("left_ptr")
+w, h, center, corner = load("left_ptr")
 assert w > 0 and h > 0
 print("ok   left_ptr falls through to breeze_cursors")
 PY

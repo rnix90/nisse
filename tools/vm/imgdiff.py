@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Screenshot comparison for the regression harness (ledger N-113).
 
-A pixel counts as changed when its largest colour-channel difference is above `threshold`. A screen passes when the
+A pixel counts as changed when its largest color-channel difference is above `threshold`. A screen passes when the
 share of changed pixels, taken over the pixels outside the masks, is at most `tolerance`. Masks cover things that change
 by themselves, such as the clock. Pure Pillow, no VM needed.
 """

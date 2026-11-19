@@ -95,7 +95,7 @@ def cap(shape, shade, x, y, s=1.0, flip=False, band=True):
     return out
 
 
-# ------------------------------------------------------------------ heads: local coords, face centre (200, 250)
+# ------------------------------------------------------------------ heads: local coords, face center (200, 250)
 def head_peeker():
     return (f'<circle cx="200" cy="250" r="86" fill="{EMBER_T}"/>'
             f'<path d="M116 262 C114 340 156 392 200 398 C244 392 286 340 284 262 C264 298 234 306 200 306 '
@@ -275,7 +275,7 @@ def badge_for(head_g, s, top):
     return s, 26 - s * top + 250 * s
 
 
-# number, name, head, body builder, sleeve colour, (hs, hy), badge (scale, local cap top)
+# number, name, head, body builder, sleeve color, (hs, hy), badge (scale, local cap top)
 def _options():
     return {
         "1": ("peeker", head_peeker, body_bell(DIV, MUTED), DIV, (0.86, 214), None),

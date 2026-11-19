@@ -19,7 +19,7 @@ from PIL import Image
 PAPER = (0xF6, 0xF2, 0xE9)
 # The live session turns Night Light on at 4500 K (N-111), which warms the whole screen: the Paper mark is drawn as this.
 PAPER_WARM = (245, 210, 171)
-HOTDOG_MAX = 0.03  # fraction of the region that may be hot dog coloured
+HOTDOG_MAX = 0.03  # fraction of the region that may be hot dog colored
 PAPER_MIN = 0.05   # fraction of the region that must be Paper, plain or Night Light warmed (the disc of the nisse mark)
 
 
@@ -47,7 +47,7 @@ def main(argv=None):
         print(f"FAIL: expected a 1280x800 screenshot, got {shot.size[0]}x{shot.size[1]}")
         return 1
     hot, paper = analyse(shot.crop((x, y, x + w, y + h)))
-    print(f"start button region: {hot:.1%} hot dog coloured, {paper:.1%} Paper coloured")
+    print(f"start button region: {hot:.1%} hot dog colored, {paper:.1%} Paper colored")
     if hot >= HOTDOG_MAX:
         print("FAIL: the start button still shows the Fedora placeholder (hot dog)")
         return 1

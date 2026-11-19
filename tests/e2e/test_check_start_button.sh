@@ -16,7 +16,7 @@ import sys
 from PIL import Image
 
 out = sys.argv[1]
-PANEL = (31, 36, 60)   # the live session's panel colour
+PANEL = (31, 36, 60)   # the live session's panel color
 REGION = (12, 750)
 
 

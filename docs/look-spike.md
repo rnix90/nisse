@@ -43,7 +43,7 @@ Sheets (same windows, four variants each):
 | Plasma's own shell (panel, launcher menu) follows the scheme | launcher screenshot | Dark navy surfaces, Ember selection. |
 | Kirigami and QML apps follow the scheme | System Settings, the nisse panel app | Yes, in A. Under Kvantum they look almost the same as under Breeze. |
 | Kvantum installs without root | `dnf download` then `rpm2cpio`, run from the home folder | Works; no missing libraries. (The live session's `sudo` wants a password.) |
-| A Kvantum theme can be generated from the tokens | sed recolor of KvFlat, below | Works; see B1 in the sheets. About ten SVG colors map to tokens; a second pass was needed for stock blue and greys. |
+| A Kvantum theme can be generated from the tokens | sed recolor of KvFlat, below | Works; see B1 in the sheets. About ten SVG colors map to tokens; a second pass was needed for stock blue and grays. |
 | Aurorae is on the ISO | `rpm -q aurorae` | `aurorae-6.6.4-1.fc44`. |
 | Breeze's own knobs | `breeze.kcfg`, `breeze-decoration.kcfg` in plasma-breeze | Behavior only: animations, scrollbar buttons, menu opacity, window drag, title alignment, button size. No corner radius or color settings. |
 
@@ -51,7 +51,7 @@ Sheets (same windows, four variants each):
 
 Copy `/usr/share/Kvantum/KvFlat` to `NisseFlat`; rewrite the `[GeneralColors]` block of the `.kvconfig` from the tokens
 (window, base, alt.base, button, light, mid, dark, highlight, text, link and visited colors); and substitute the
-colors hard-coded in the `.svg`: KvFlat blue to `accent`, `accent-pressed`, `accent-hover`; its greys to `base`,
+colors hard-coded in the `.svg`: KvFlat blue to `accent`, `accent-pressed`, `accent-hover`; its grays to `base`,
 `surface`, `surface-2`, `divider`, `outline`. The result is generated output, like the color schemes.
 
 ## Findings
@@ -63,7 +63,7 @@ the mascot, A already carries it.
 **Kvantum changes the shapes only a little unless someone redraws the SVG.** B1 and B2 differ from A in toolbar,
 view-frame, button and field details, not in the overall silhouette. The nisse panel app (QML) is nearly identical in A, B1
 and B2. A distinct widget shape language means editing or drawing the Kvantum SVG by hand; recoloring is scripted,
-reshaping is design work. A stock Kvantum theme (B2) brings its own greys and loses our surface colors.
+reshaping is design work. A stock Kvantum theme (B2) brings its own grays and loses our surface colors.
 
 **Window decorations were not changed in any variant.** All four use the Breeze decoration, colored by the scheme's
 WM colors (`activeBackground` and friends). Aurorae is installed and would allow a full SVG title bar, but writing an

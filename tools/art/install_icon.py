@@ -34,19 +34,19 @@ def f1(v):
     return f"{v:.1f}"
 
 
-HEAD_W, HEAD_T, HEAD_DROP = 0.66 * 96, 0.09 * 96, 0.18 * 96    # the art director's crescent: width, thickness at the centre, drop of the tips
+HEAD_W, HEAD_T, HEAD_DROP = 0.66 * 96, 0.09 * 96, 0.18 * 96    # the art director's crescent: width, thickness at the center, drop of the tips
 HANDLE_W = 0.12 * 96
 SHOULDER_HEAD_SCALE = 0.34                                       # the mascot's pick head, scaled (it was 0.30; round 2: bigger)
 
 
 def crescent_d(w, t, drop):
-    """A pick head as a thin crescent, in its own units (top centre at 0,0): two quadratic arcs from tip to tip that meet in points."""
+    """A pick head as a thin crescent, in its own units (top center at 0,0): two quadratic arcs from tip to tip that meet in points."""
     a = w / 2
     return f"M-{f1(a)} {f1(drop)} Q0 {f1(-drop)} {f1(a)} {f1(drop)} Q0 {f1(2 * t - drop)} -{f1(a)} {f1(drop)} Z"
 
 
 def pick_parts(handle_len):
-    """The pick in its own units (the head's top centre at 0,0, pointing up): a crescent head, a small socket and a straight handle."""
+    """The pick in its own units (the head's top center at 0,0, pointing up): a crescent head, a small socket and a straight handle."""
     socket = f'<rect id="socket" x="{f1(-0.08 * 96)}" y="{f1(HEAD_T - 2)}" width="{f1(0.16 * 96)}" height="{f1(0.06 * 96)}" rx="2"/>'
     handle = f'<rect id="handle" x="{f1(-HANDLE_W / 2)}" y="3" width="{f1(HANDLE_W)}" height="{f1(handle_len)}" rx="3"/>'
     return f'<path id="head" d="{crescent_d(HEAD_W, HEAD_T, HEAD_DROP)}"/>', socket, handle

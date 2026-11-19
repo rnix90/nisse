@@ -129,10 +129,10 @@ kind = "cursor"
 [[group]]
 id = "colors"
 title = "Color schemes"
-seen = "Window, view, button, selection and tooltip colours"
+seen = "Window, view, button, selection and tooltip colors"
 patterns = ["usr/share/color-schemes/*.colors"]
 requests = [
-  { title = "nisse Ember colour scheme (dark shell, light document areas)", seen = "Whole desktop; chosen palette is Ember, see docs/roadmap.md 1.1" },
+  { title = "nisse Ember color scheme (dark shell, light document areas)", seen = "Whole desktop; chosen palette is Ember, see docs/roadmap.md 1.1" },
 ]
 
 [[group]]

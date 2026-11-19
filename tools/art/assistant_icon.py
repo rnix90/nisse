@@ -24,13 +24,13 @@ import icons  # noqa: E402
 OUT = ROOT / "assets" / "art" / "assistant" / "hicolor"
 LF = chr(10)
 INK, PAPER, EMBER = "#1b2330", "#f6f2e9", "#e0623f"
-# (centre as a fraction of the square, radius as a fraction, power): the launcher's make_icon.py values
+# (center as a fraction of the square, radius as a fraction, power): the launcher's make_icon.py values
 MAIN = ((0.5, 0.5), 0.47, 5.0)
 COMPANIONS = (((0.795, 0.22), 0.145, 4.5), ((0.205, 0.785), 0.10, 4.5))
 SMALL_MAIN = ((0.5, 0.5), 0.45, 3.2)
 SMALL_CUTOFF = 32
 SIZES = (16, 22, 24, 32, 48, 64, 96, 128, 256, 512)
-SCALE = 0.84          # the launcher's star fills its square; on the tile it is drawn at this fraction, about the centre
+SCALE = 0.84          # the launcher's star fills its square; on the tile it is drawn at this fraction, about the center
 
 
 def astroid(center, radius, power, samples=140):

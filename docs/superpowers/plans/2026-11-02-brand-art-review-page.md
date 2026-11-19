@@ -18,7 +18,7 @@
 - Everything runs locally: the server binds to `127.0.0.1` only, the page loads nothing from the network (no CDN, fonts or analytics), and `out/` stays git-ignored. Extracted Fedora and KDE originals never enter git.
 - Bert's comments must never be lost: every change is written to disk before the page shows it as saved, writes are atomic (temp file then rename), and the page keeps a copy in the browser too.
 - No tokens, credentials or personal data in the repo, the page or the export.
-- TDD: each behaviour gets a test that is seen to fail first. Python tests run on the host; image reading runs in the build VM.
+- TDD: each behavior gets a test that is seen to fail first. Python tests run on the host; image reading runs in the build VM.
 - Commits end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>` and `Claude-Session: https://claude.ai/code/session_012HaX4wM2HNi6CtaPcZCAUT`.
 - Bert's standing rule: fix Minor review findings too; ask only for decisions that are his.
 

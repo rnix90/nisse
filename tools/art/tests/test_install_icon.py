@@ -106,7 +106,7 @@ def test_the_pick_head_is_a_real_crescent_not_a_dome_round_two_fix():
     nums = [float(v) for v in re.findall(r"-?\d+\.?\d*", d)]
     assert d.startswith("M-") and d.count("Q") == 2 and d.endswith("Z")
     tip_x, tip_y = nums[0], nums[1]
-    assert tip_y > install_icon.HEAD_T * 1.5                                         # the tips drop well below the centre thickness
+    assert tip_y > install_icon.HEAD_T * 1.5                                         # the tips drop well below the center thickness
     assert abs(tip_x) == pytest.approx(install_icon.HEAD_W / 2, abs=0.1)
 
 

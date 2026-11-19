@@ -5,8 +5,8 @@
     previews.py DIR      DIR is the output directory of inventory.py build (inventory.json + assets/)
 
 - colors  : a swatch PNG of the six roles Plasma schemes define (Window, View, Button, Selection, Tooltip, Complementary),
-            each tile showing its background, a strip of its foreground and a strip of its focus decoration colour;
-            the colours are also listed in the item as `roles`
+            each tile showing its background, a strip of its foreground and a strip of its focus decoration color;
+            the colors are also listed in the item as `roles`
 - cursor  : the Xcursor file's largest size rendered to PNG; further animation frames of that size go to `variants`
 - icns    : the Mac icon rendered to PNG
 - sound   : `audio` points at the file (the page plays it); no image

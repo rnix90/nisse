@@ -9,14 +9,14 @@ change `tools/logo/build.py` and re-run it (needs fontTools, Pillow, playwright 
 
     python tools/logo/build.py
 
-## Colours
+## Colors
 
 | Name | Hex | Use |
 |---|---|---|
 | Ink | `#1b2330` | the mark on light backgrounds, tile and splash background |
 | Paper | `#f6f2e9` | the mark on dark backgrounds |
 
-Each form also comes in pure `-black` and `-white` for stamps, print, one-colour jobs.
+Each form also comes in pure `-black` and `-white` for stamps, print, one-color jobs.
 In every file the cap and hill line are real transparency (SVG mask), not a paper fill.
 
 ## Which file to use
@@ -28,7 +28,7 @@ In every file the cap and hill line are real transparency (SVG mask), not a pape
 | Name + icon, tall (installer, posters) | `svg/nisse-lockup-stacked*.svg` |
 | Name only, where the name is listed | `svg/nisse-wordmark*.svg` (cap sits on the i) |
 | Self-contained app / launcher icon | `svg/nisse-app-tile.svg` |
-| Panel / toolbar icon that follows text colour | `svg/nisse-icon-symbolic.svg` |
+| Panel / toolbar icon that follows text color | `svg/nisse-icon-symbolic.svg` |
 | Raster versions | `png/` (icon 16-1024 px, lockups and wordmark 600/1200/2400 px wide) |
 | Web | `favicon/` (`favicon.svg` follows dark mode, `favicon.ico`, apple-touch, android-chrome) |
 | freedesktop icon theme | `linux/hicolor/` (`distributor-logo-nisse`, all sizes + scalable + symbolic) |
@@ -47,7 +47,7 @@ In every file the cap and hill line are real transparency (SVG mask), not a pape
 
 - Clear space around the mark: at least a quarter of the icon's diameter.
 - Smallest sizes: icon 16 px, lockups 120 px wide. Below that use the icon alone.
-- Do not recolour outside the four colourways, stretch, or re-letter the wordmark.
+- Do not recolor outside the four colorways, stretch, or re-letter the wordmark.
 - The terminal-under-the-cap sketch from the logo exploration is reserved for the distro's
   terminal app and is not part of this package.
 

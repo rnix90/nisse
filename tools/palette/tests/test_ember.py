@@ -73,7 +73,7 @@ def test_the_alert_red_and_the_accent_are_distinguishable_on_dark():
     # A red "needs you" badge beside the Ember accent must not read as the same thing (design 6.5 uses red and green).
     assert contrast.ratio(contrast.token(PAL, "dark.alert"), contrast.token(PAL, "dark.accent")) >= 1.0
     a, b = contrast.rgb(contrast.token(PAL, "dark.alert")), contrast.rgb(contrast.token(PAL, "dark.accent"))
-    assert sum(abs(x - y) for x, y in zip(a, b)) >= 60  # colour distance, not only lightness; Bert judges it by eye in N-103
+    assert sum(abs(x - y) for x, y in zip(a, b)) >= 60  # color distance, not only lightness; Bert judges it by eye in N-103
 
 
 def test_the_file_is_plain_ascii():

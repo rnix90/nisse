@@ -37,7 +37,7 @@ def test_the_full_icon_is_three_sparkles_on_the_ink_tile_and_the_small_one_is_on
 
 
 def test_the_sparkles_use_the_launchers_shapes_a_big_star_and_two_small_companions_in_its_places():
-    # the launcher's make_icon.py: main at the centre, radius 0.47, power 5; companions at (0.795, 0.22) r 0.145 and (0.205, 0.785)
+    # the launcher's make_icon.py: main at the center, radius 0.47, power 5; companions at (0.795, 0.22) r 0.145 and (0.205, 0.785)
     # r 0.10, power 4.5; for 32 px and smaller one fatter star (power 3.2, radius 0.45) with no companions
     assert (assistant_icon.MAIN, assistant_icon.COMPANIONS) == (((0.5, 0.5), 0.47, 5.0), (((0.795, 0.22), 0.145, 4.5), ((0.205, 0.785), 0.10, 4.5)))
     assert assistant_icon.SMALL_MAIN == ((0.5, 0.5), 0.45, 3.2) and assistant_icon.SMALL_CUTOFF == 32
@@ -62,7 +62,7 @@ def test_the_hicolor_tree_has_every_size_and_the_scalable_svg():
 
 
 def test_the_small_sizes_use_the_single_fat_star_so_it_survives_at_taskbar_scale():
-    # at 24 px the small variant puts an Ember pixel run through the centre row; the companions (Paper) are absent
+    # at 24 px the small variant puts an Ember pixel run through the center row; the companions (Paper) are absent
     img = Image.open(HICOLOR / "24x24" / "apps" / "nisse-assistant.png").convert("RGB")
     paper = sum(1 for x in range(24) for y in range(24) if img.getpixel((x, y))[0] > 230 and img.getpixel((x, y))[2] > 220)
     ember = sum(1 for x in range(24) for y in range(24) if abs(img.getpixel((x, y))[0] - 0xe0) < 30 and abs(img.getpixel((x, y))[2] - 0x3f) < 40)

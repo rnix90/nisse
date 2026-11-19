@@ -269,12 +269,12 @@ def build_loves():
     tile = TILE_SVG.read_text(encoding="utf-8")
     defs = tile[tile.index("<defs>"):tile.index("</defs>") + len("</defs>")]
     disc = (f'<circle cx="256" cy="256" r="236" fill="{PAPER}" mask="url(#knockout)"/>')
-    # the logo's disc sits where the f was (its centre is the bubble centre, about 76, 77) and about 57 units across
+    # the logo's disc sits where the f was (its center is the bubble center, about 76, 77) and about 57 units across
     nisse = (f'<g id="nisse-logo">{bubble}'
              f'<svg x="45" y="46" width="62" height="62" viewBox="0 0 512 512">{defs}{disc}</svg></g>')
     rest = src[j:].replace("#db3279", INK).replace("#1d99f3", INK)
     note = ("<!-- Derived from fedora-loves-kde.svg (plasma-welcome-fedora 6.3.4-3, see assets/art/avatars/source): the left logo is "
-            "the nisse logo in the bubble's shape, and the heart and the KDE logo are recoloured to the nisse Ink; every shape and the "
+            "the nisse logo in the bubble's shape, and the heart and the KDE logo are recolored to the nisse Ink; every shape and the "
             "outline are the original's. Licence of the original to be confirmed when this is packaged (ledger N-406a). -->")
     out = src[:i] + nisse + rest
     k = out.index(">") + 1        # right after the opening svg tag
