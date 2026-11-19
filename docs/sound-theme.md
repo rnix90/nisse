@@ -47,9 +47,29 @@ sound being the lowest are tested too.
 
 The committed theme is `--theme --out assets/audio/theme`.
 
-## Handed on
+## How it is wired (all done in N-414, nothing left for later but the ear check)
 
-N-506 ships the files and sets the sound theme (login at GATE 3; Bert's ear check on the real session), and N-415 packages
-`assets/audio/theme/` with the approved art. The other five events are wired where each exists: logout in the session teardown,
-`notification` and `needs-you` in the panel's notice and approval paths (N-205, N-207), `error` for failures and `volume` for the
-volume-feedback tick.
+The sounds are a freedesktop sound theme, so KDE finds each one by the name it already asks for. Facts verified in the Fedora 44
+packages (Plasma 6.8.3): `plasma-workspace.target` wants `plasma-startupsound.service`, whose program plays `desktop-login` through
+libcanberra using the theme in `kdeglobals` `[Sounds] Theme` (default `ocean`); the exit event plays `desktop-logout`; the volume
+feedback plays `audio-volume-change`; error events play `dialog-error` and `dialog-error-serious`; libcanberra looks for `.oga`,
+`.ogg` and `.wav` files; `libnotificationmanager` has a `playSoundHint` (only the symbol is verified; that Plasma honors the panel's `sound-name` hint is settled by ear at GATE 3).
+
+| Piece | What it does |
+|---|---|
+| `nisse-sounds` (`packaging/rpm/nisse-sounds`) | installs `/usr/share/sounds/nisse` with the six files and the names in `assets/audio/theme/names.txt`; the theme inherits ocean and freedesktop, so any event nisse does not voice still plays Plasma's own sound |
+| `assets/theme/xdg/kdeglobals` (`nisse-lookandfeel` 0.2-5, requires `nisse-sounds`) | `[Sounds] Theme=nisse`, the system default for every new user |
+| the panel (`DesktopNotify`) | the approval notice carries the `sound-name` hint `nisse-needs-you` (a unit test reads the message; the approvals e2e test checks it on the bus) |
+
+Which name each sound answers to (`names.txt`; the first name is the real file, the rest are links): login = `desktop-login`;
+logout = `desktop-logout`; notification = `message-new-instant`, `message-new-email`; needs-you = `nisse-needs-you`, `dialog-question`,
+`message-attention`; error = `dialog-error`, `dialog-error-serious`, `dialog-error-critical`; volume = `audio-volume-change`.
+
+Checks: `tools/art/tests/test_sound_package.py` (manifest, names Plasma asks for, index, default, build and image wiring),
+`tests/rpm/test_nisse_sounds.sh` (the built RPM: every name resolves to a real WAV, the files are the approved ones),
+`tests/rpm/test_lookandfeel.sh`, `panel/tests/tst_notify.cpp`, and in the image `tests/iso/test_iso_contents.sh` (queued for the next
+ISO rebuild: theme, names, the default, and that the startup-sound service is present and not masked).
+
+Not wired because the event does not exist yet: a sound for a finished AI turn (the panel only badges it, N-207).
+
+**Bert's ear check on the real session (login, logout, a needs-you notice, an error, a volume key press) is at GATE 3.**

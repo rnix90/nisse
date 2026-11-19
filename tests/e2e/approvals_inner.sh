@@ -47,6 +47,7 @@ grep -q '"actor":"desktop"' "$NISSE_AUDIT_LOG" || fail "the audit record does no
 sleep 0.5
 grep -q 'nisse needs you' "$work/notify.log" || fail "no desktop notice was sent: $(cat "$work/notify.log")"
 grep -q 'git push origin main' "$work/notify.log" || fail "the desktop notice does not name the call"
+grep -q 'nisse-needs-you' "$work/notify.log" || fail "the desktop notice does not ask for the nisse needs-you sound (N-414)"
 python3 - "$work/badge.log" <<'PY' || fail "the taskbar badge did not go 1 then 0: $(cat "$work/badge.log")"
 import re, sys
 text = open(sys.argv[1]).read()

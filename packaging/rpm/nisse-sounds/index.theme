@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Sound Theme]
+Name=nisse
+Comment=The nisse sound theme: plucked wooden notes, up for arriving and down for leaving
+Inherits=ocean,freedesktop
+Directories=stereo
+Example=desktop-login
+
+[stereo]
+OutputProfile=stereo

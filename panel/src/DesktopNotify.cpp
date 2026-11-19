@@ -20,15 +20,26 @@ DesktopNotify::DesktopNotify(QObject *parent)
                                           SLOT(onActionInvoked(uint, QString)));
 }
 
-void DesktopNotify::show(const QString &title, const QString &body)
+QString DesktopNotify::soundName()
+{
+    return QStringLiteral("nisse-needs-you");
+}
+
+QDBusMessage DesktopNotify::message(const QString &title, const QString &body)
 {
     QDBusMessage message = QDBusMessage::createMethodCall(kService, kPath, kService, QStringLiteral("Notify"));
     QVariantMap hints;
     hints.insert(QStringLiteral("desktop-entry"), QStringLiteral("nisse-panel"));
     hints.insert(QStringLiteral("urgency"), QVariant::fromValue(static_cast<uchar>(2)));
+    hints.insert(QStringLiteral("sound-name"), soundName()); // freedesktop notification spec: a themed sound name
     message << QStringLiteral("nisse") << uint(0) << QStringLiteral("nisse-panel") << title << body
             << QStringList{QStringLiteral("default"), QStringLiteral("Open")} << hints << int(-1);
-    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(message), this);
+    return message;
+}
+
+void DesktopNotify::show(const QString &title, const QString &body)
+{
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(message(title, body)), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
         const QDBusPendingReply<uint> reply = *w;
         if (reply.isValid())

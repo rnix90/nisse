@@ -106,6 +106,22 @@ for laf in org.nisse.desktop org.nisse.desktop.light; do
         || fail "$laf does not default to the nisse wallpaper (Image=nisse under [Wallpaper])"
 done
 
+# The nisse sound theme (N-414): a freedesktop sound theme that falls back to ocean, selected by the system default, with the names
+# Plasma 6.8 asks for (the startup sound plays desktop-login, the volume feedback audio-volume-change, error events dialog-error...).
+snd="$root/usr/share/sounds/nisse"
+grep -qx 'Name=nisse' "$snd/index.theme" || fail "the nisse sound theme is missing ($snd/index.theme)"
+grep -qx 'Inherits=ocean,freedesktop' "$snd/index.theme" || fail "the nisse sound theme must inherit ocean and freedesktop"
+for n in desktop-login desktop-logout audio-volume-change dialog-error dialog-error-serious message-new-instant nisse-needs-you; do
+    [ -f "$snd/stereo/$n.wav" ] || fail "the nisse sound theme lacks $n.wav (a missing file or a broken link)"
+done
+[ -f "$root/usr/share/sounds/ocean/index.theme" ] || fail "the ocean sound theme the nisse theme inherits is not installed"
+awk '$0=="[Sounds]"{s=1;next} /^\[/{s=0} s&&$1=="Theme=nisse"{f=1} END{exit !f}' "$root/etc/xdg/kdeglobals" \
+    || fail "/etc/xdg/kdeglobals does not select the nisse sound theme (Theme=nisse under [Sounds])"
+# Plasma's own startup sound is what plays desktop-login: its service and program must be in the image and not masked
+[ -x "$root/usr/libexec/plasma-startup-sound" ] || fail "plasma-startup-sound is missing: nothing would play the login sound"
+[ -f "$root/usr/lib/systemd/user/plasma-startupsound.service" ] || fail "plasma-startupsound.service is missing"
+[ "$(readlink "$root/etc/systemd/user/plasma-startupsound.service" 2>/dev/null)" != "/dev/null" ] || fail "plasma-startupsound.service is masked"
+
 # The nisse cursor theme (N-408): the two logo cursors replaced, everything else inherited from Breeze, and the default in both looks.
 cth="$root/usr/share/icons/nisse_cursors"
 grep -qx 'Inherits=breeze_cursors' "$cth/index.theme" || fail "nisse_cursors must inherit breeze_cursors"

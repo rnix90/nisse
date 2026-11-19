@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 
+#include <QDBusMessage>
 #include <QObject>
 #include <QSet>
 #include <QString>
@@ -13,6 +14,10 @@ class DesktopNotify : public QObject
 public:
     explicit DesktopNotify(QObject *parent = nullptr);
     void show(const QString &title, const QString &body);
+    // The Notify call for one notice, built without a bus so a test can read it.
+    static QDBusMessage message(const QString &title, const QString &body);
+    // The sound the notice asks for: the nisse sound theme (the nisse-sounds package) answers to this name.
+    static QString soundName();
 
 signals:
     // The person clicked one of our notifications.

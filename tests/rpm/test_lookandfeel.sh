@@ -69,6 +69,8 @@ want "$dark"  Wallpaper Image nisse
 want "$light" Wallpaper Image nisse
 rpm -qp --requires "$rpm_path" | grep -q nisse-wallpaper || fail "nisse-lookandfeel must require nisse-wallpaper (the default wallpaper it names)"
 echo "ok   both looks default to the nisse wallpaper"
+rpm -qp --requires "$rpm_path" | grep -q 'nisse-sounds' || fail "nisse-lookandfeel must require nisse-sounds (the sound theme the system default selects)"
+echo "ok   the system default's sound theme package is required"
 rpm -qp --requires "$rpm_path" | grep -q 'nisse-cursors' || fail "nisse-lookandfeel must require nisse-cursors (the default cursor theme it names)"
 echo "ok   both looks default to the nisse cursors"
 rpm -qp --requires "$rpm_path" | grep -q 'nisse-icons' || fail "nisse-lookandfeel must require nisse-icons (the default icon themes it names)"

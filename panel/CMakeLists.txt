@@ -39,3 +39,10 @@ target_include_directories(tst_badge PRIVATE src)
 target_link_libraries(tst_badge PRIVATE Qt6::Test Qt6::Core Qt6::DBus)
 add_test(NAME tst_badge COMMAND tst_badge)
 set_tests_properties(tst_badge PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# The desktop notice message and its "needs you" sound hint (no bus needed).
+add_executable(tst_notify tests/tst_notify.cpp src/DesktopNotify.cpp)
+target_include_directories(tst_notify PRIVATE src)
+target_link_libraries(tst_notify PRIVATE Qt6::Test Qt6::Core Qt6::DBus)
+add_test(NAME tst_notify COMMAND tst_notify)
+set_tests_properties(tst_notify PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

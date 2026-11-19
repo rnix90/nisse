@@ -16,5 +16,8 @@ Theme=nisse_icons_dark
 LookAndFeelPackage=org.nisse.desktop
 widgetStyle=Breeze
 
+[Sounds]
+Theme=nisse
+
 [WM]
 activeFont=Nunito,10,-1,5,50,0,0,0,0,0
