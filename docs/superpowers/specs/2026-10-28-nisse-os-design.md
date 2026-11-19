@@ -126,6 +126,9 @@ conditions, but both machines remain in scope.
 ### 6.5 Interface
 - Panel form: both a standalone QML/Qt app (taskbar entry, tabs, badges) and a small Plasma
   widget (badges, status), sharing one backend service.
+  AMENDED 2026-11-19 (Bert, N-415a): the panel is a docked sidebar on a screen edge (a layer-shell
+  surface that slides out and back), not a normal window with a taskbar entry; the status and
+  badges live in a tray item (N-415b). The Plasma widget stays a later, separate option.
 - Panel contents in v1: chat and task history; an undo/rollback button; an approvals queue (where
   guardrail requests land); backend and usage status including a kill switch that pauses the AI.
 - Tabs: a tabbing system for multiple sessions/agents running at once.

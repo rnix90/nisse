@@ -103,7 +103,7 @@ def test_a_shipped_request_points_at_the_manifest():
 
 def test_the_tray_art_names_the_task_that_will_use_it():
     tray = [r for _, r in _requests() if "tray icon" in r["title"]]
-    assert tray and tray[0].get("used_by") == "N-415a", "shipped tray icons must name the task that wires them (N-415a)"
+    assert tray and tray[0].get("used_by") == "N-415b", "shipped tray icons must name the task that wires them (N-415b)"
 
 
 def test_an_orphan_request_is_caught():

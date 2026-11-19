@@ -23,7 +23,7 @@ test fails if one does not:
 | `decided` | someone decided against it | that task is DONE in the ledger |
 
 Today: GRUB logo N-502, login manager N-503, lock and logout screens N-504, Welcome Center slides N-515; the tray icons are shipped and
-used by N-415a (the tray item, which nothing owned until N-414); the website mark is kept in `assets/logo/favicon` and `assets/logo/social`
+used by N-415b (the tray item, which nothing owned until N-414); the website mark is kept in `assets/logo/favicon` and `assets/logo/social`
 because a website is not part of the image; the window decoration is Breeze's (N-106).
 
 ## What N-415 itself added
