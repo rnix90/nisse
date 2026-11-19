@@ -116,7 +116,17 @@ Qt at the release version:
     sudo dnf --repo=fedora distro-sync -y 'qt6-*'
 
 Re-run it after any `dnf upgrade` in the VM, and rebuild `nisse-panel`. When the ISO starts using the updates
-repository, remove this section. `build/build-all.sh` rebuilds every package and the ISO in one go.
+repository, remove this section.
+
+**Never `dnf install` from the `updates` repository in the build VM** (2026-11-19: installing `layer-shell-qt-devel` 6.8.3 from
+updates pulled Qt 6.11 and a whole Plasma 6.8 into the VM in the middle of a build, the panel came out built against Qt 6.11 and
+the ISO build failed at its package step). The `updates` and `updates-testing` repositories are now disabled in the VM
+(`sudo dnf config-manager setopt updates.enabled=0 updates-testing.enabled=0`), so installs come from the release repository the
+image uses. The VM was put back on the release set with `sudo dnf downgrade -y --allowerasing 'qt6-*'`.
+
+`build/build-all.sh` now runs `tools/rpm/check-installable.sh` before kiwi: it resolves every nisse package of the image against the
+Fedora release repository plus `out/repo` in an empty install root, so this kind of drift fails in seconds with the missing provides
+named (unit test: `tests/build/test_check_installable.sh`). `build/build-all.sh` rebuilds every package and the ISO in one go.
 
 ## GATE 2 checks inside the live image
 

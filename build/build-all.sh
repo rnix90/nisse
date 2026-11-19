@@ -17,6 +17,8 @@ for pkg in nisse-release nisse-branding nisse-fonts-nunito nisse-theme nisse-wal
 done
 echo "== indexing the local repo"
 tools/rpm/make-repo.sh
+echo "== checking every package installs from the image repositories (release only, plus out/repo)"
+bash tools/rpm/check-installable.sh
 echo "== building the ISO"
 bash build/build-iso.sh
 echo "== done"

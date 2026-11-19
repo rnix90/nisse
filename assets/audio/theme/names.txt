@@ -1,6 +1,6 @@
 # The nisse sound theme: which freedesktop sound name each file answers to (N-414). Read by the nisse-sounds package.
 # Format: <file> <name> [<name> ...]. The first name is the real file in the theme; the others are links to it.
-# Names are the ones Plasma 6.8 asks for: the startup sound plays desktop-login, the exit event desktop-logout, the volume
+# Names are the ones Plasma 6.6 asks for: the startkde event plays desktop-login, the exit event desktop-logout, the volume
 # feedback audio-volume-change, error events dialog-error and its serious variant. nisse-needs-you is the panel's own name.
 login.wav desktop-login
 logout.wav desktop-logout

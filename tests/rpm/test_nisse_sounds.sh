@@ -34,7 +34,7 @@ rpm2cpio "$rpmf" | (cd "$tmp" && cpio -idm --quiet)
 t="$tmp$base"
 grep -qx 'Name=nisse' "$t/index.theme" || fail "index.theme does not name the theme"
 grep -qx 'Inherits=ocean,freedesktop' "$t/index.theme" || fail "the theme must fall back to ocean for events it does not voice"
-# the names Plasma 6.8 asks for resolve to a real, playable WAV (through the link where there is one)
+# the names Plasma asks for resolve to a real, playable WAV (through the link where there is one)
 for n in desktop-login desktop-logout audio-volume-change dialog-error dialog-error-serious dialog-error-critical \
          message-new-instant nisse-needs-you dialog-question message-attention; do
     f="$t/stereo/$n.wav"

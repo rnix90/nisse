@@ -127,7 +127,7 @@ done < "$(dirname "$0")/../rpm/approved-art.txt"
 echo "ok   $art_n approved art paths are in the image"
 
 # The nisse sound theme (N-414): a freedesktop sound theme that falls back to ocean, selected by the system default, with the names
-# Plasma 6.8 asks for (the startup sound plays desktop-login, the volume feedback audio-volume-change, error events dialog-error...).
+# Plasma 6.6 asks for (the startkde event plays desktop-login, the volume feedback audio-volume-change, error events dialog-error...).
 snd="$root/usr/share/sounds/nisse"
 grep -qx 'Name=nisse' "$snd/index.theme" || fail "the nisse sound theme is missing ($snd/index.theme)"
 grep -qx 'Inherits=ocean,freedesktop' "$snd/index.theme" || fail "the nisse sound theme must inherit ocean and freedesktop"
@@ -137,10 +137,16 @@ done
 [ -f "$root/usr/share/sounds/ocean/index.theme" ] || fail "the ocean sound theme the nisse theme inherits is not installed"
 awk '$0=="[Sounds]"{s=1;next} /^\[/{s=0} s&&$1=="Theme=nisse"{f=1} END{exit !f}' "$root/etc/xdg/kdeglobals" \
     || fail "/etc/xdg/kdeglobals does not select the nisse sound theme (Theme=nisse under [Sounds])"
-# Plasma's own startup sound is what plays desktop-login: its service and program must be in the image and not masked
-[ -x "$root/usr/libexec/plasma-startup-sound" ] || fail "plasma-startup-sound is missing: nothing would play the login sound"
-[ -f "$root/usr/lib/systemd/user/plasma-startupsound.service" ] || fail "plasma-startupsound.service is missing"
-[ "$(readlink "$root/etc/systemd/user/plasma-startupsound.service" 2>/dev/null)" != "/dev/null" ] || fail "plasma-startupsound.service is masked"
+# What plays desktop-login and desktop-logout on Plasma 6.6.4 (the image's version): the notifyrc events and the programs that emit
+# them (their names are UTF-16 strings in the binaries). Plasma 6.8's plasma-startupsound.service does not exist here.
+nrc="$root/usr/share/knotifications6/plasma_workspace.notifyrc"
+[ -f "$nrc" ] || fail "plasma_workspace.notifyrc is missing"
+grep -qx 'Sound=desktop-login' "$nrc" || fail "the startkde event no longer plays desktop-login"
+grep -qx 'Sound=desktop-logout' "$nrc" || fail "the exitkde event no longer plays desktop-logout"
+LC_ALL=C grep -qaP 's\x00t\x00a\x00r\x00t\x00k\x00d\x00e\x00' "$root/usr/bin/plasma_session" \
+    || fail "plasma_session no longer emits the startkde event: nothing would play the login sound"
+LC_ALL=C grep -qaP 'e\x00x\x00i\x00t\x00k\x00d\x00e\x00' "$root/usr/bin/ksmserver" \
+    || fail "ksmserver no longer emits the exitkde event: nothing would play the logout sound"
 
 # The nisse cursor theme (N-408): the two logo cursors replaced, everything else inherited from Breeze, and the default in both looks.
 cth="$root/usr/share/icons/nisse_cursors"

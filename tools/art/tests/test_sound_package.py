@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """N-414 wiring: the approved sounds are a freedesktop sound theme (the nisse-sounds package) that Plasma selects by default, so every
 sound is reachable by the name KDE actually asks for. The manifest assets/audio/theme/names.txt is the single source for the
-package; these tests check it against what Plasma 6.8 plays (read from the Fedora 44 packages, see docs/sound-theme.md) and against
+package; these tests check it against what Plasma 6.6 plays (read from the Fedora 44 RELEASE packages the image uses, see docs/sound-theme.md) and against
 the files, and that the package, the default and the build all reference it."""
 import re
 import sys
@@ -39,7 +39,7 @@ def test_every_theme_sound_is_in_the_manifest_and_every_manifest_file_exists():
         assert names, event
 
 
-# what Plasma 6.8 asks for (verified in the Fedora 44 packages): the startup sound plays "desktop-login", the exitkde event
+# what Plasma 6.6 asks for (verified in the Fedora 44 release packages): the startkde event plays "desktop-login", the exitkde event
 # "desktop-logout", plasma-pa the "audio-volume-change" feedback, notifyrc error events "dialog-error" and its serious variant
 REQUIRED = {
     "login": "desktop-login",

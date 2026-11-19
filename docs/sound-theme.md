@@ -49,11 +49,23 @@ The committed theme is `--theme --out assets/audio/theme`.
 
 ## How it is wired (all done in N-414, nothing left for later but the ear check)
 
-The sounds are a freedesktop sound theme, so KDE finds each one by the name it already asks for. Facts verified in the Fedora 44
-packages (Plasma 6.8.3): `plasma-workspace.target` wants `plasma-startupsound.service`, whose program plays `desktop-login` through
-libcanberra using the theme in `kdeglobals` `[Sounds] Theme` (default `ocean`); the exit event plays `desktop-logout`; the volume
-feedback plays `audio-volume-change`; error events play `dialog-error` and `dialog-error-serious`; libcanberra looks for `.oga`,
-`.ogg` and `.wav` files; `libnotificationmanager` has a `playSoundHint` (only the symbol is verified; that Plasma honors the panel's `sound-name` hint is settled by ear at GATE 3).
+The sounds are a freedesktop sound theme, so KDE finds each one by the name it already asks for. The image is Fedora's RELEASE
+repository only (no updates, Bert's decision of 2026-10-29), so it has **Plasma 6.6.4, KDE Frameworks 6.25 and Qt 6.10**. Facts
+verified in those release packages (2026-11-19):
+
+- `plasma_workspace.notifyrc` (kf6-frameworkintegration 6.25) has the events `startkde` with `Sound=desktop-login` and `exitkde`
+  with `Sound=desktop-logout`; the program names are in the binaries (UTF-16 strings): `startkde` in `/usr/bin/plasma_session` and
+  `/usr/bin/startplasma-wayland`, `exitkde` in `/usr/bin/ksmserver`. So the session emits both events. That the login sound is
+  AUDIBLE on 6.6.4 is not proven (a silent login has been reported on some Plasma 6 releases): the GATE 3 ear check settles it.
+- `libKF6Notifications` reads `[Sounds] Theme` from `kdeglobals` and passes it to libcanberra as `canberra.xdg-theme.name`;
+  so does the volume feedback in plasma-pa (`VolumeFeedback`). The default theme is `ocean`.
+- `libnotificationmanager` reads the notice hints `sound-name`, `sound-file` and `suppress-sound` and has `playSoundHint`.
+- `ocean-sound-theme` 6.6.4 has `desktop-login`, `desktop-logout`, `audio-volume-change`, `dialog-error`, `message-new-instant`.
+- libcanberra looks for `.oga`, `.ogg` and `.wav` files.
+
+NOT true here, though true on Plasma 6.8 (which an earlier version of this page described by mistake, from the updates
+repository): there is no `plasma-startupsound.service` and no sound-theme settings file in 6.6.4. Plasma 6.8 plays the login
+sound from a new service; if the image ever adopts updates, re-check this section.
 
 | Piece | What it does |
 |---|---|
@@ -68,7 +80,7 @@ logout = `desktop-logout`; notification = `message-new-instant`, `message-new-em
 Checks: `tools/art/tests/test_sound_package.py` (manifest, names Plasma asks for, index, default, build and image wiring),
 `tests/rpm/test_nisse_sounds.sh` (the built RPM: every name resolves to a real WAV, the files are the approved ones),
 `tests/rpm/test_lookandfeel.sh`, `panel/tests/tst_notify.cpp`, and in the image `tests/iso/test_iso_contents.sh` (queued for the next
-ISO rebuild: theme, names, the default, and that the startup-sound service is present and not masked).
+ISO rebuild: theme, names, the default, and that the notifyrc events and the programs that emit them are in the image).
 
 Not wired because the event does not exist yet: a sound for a finished AI turn (the panel only badges it, N-207).
 
