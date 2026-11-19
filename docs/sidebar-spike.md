@@ -1,6 +1,6 @@
 # The panel as a docked sidebar (N-415a)
 
-**Status 2026-11-19: built and verified except keyboard delivery (see "OPEN" below). N-415a stays open.**
+**Status 2026-11-19: N-415a is done and shipped. One point is open and is a GATE 3 hand check (Bert's decision): keyboard delivery on the real panel, see "OPEN" below.**
 
 On 2026-11-19, planning the tray item, Bert said the panel should not open and minimize like a window but be an embedded part of the
 desktop. Asked which form he meant, he chose a **docked sidebar on a screen edge** (not a desktop widget, not the normal window).
