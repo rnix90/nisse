@@ -226,6 +226,22 @@ class Vm:
             self.put("/tmp/env.sh", (SESSION_ENV + script).encode())
         self.sh(QUIET_SESSION, 30)
 
+    NIGHT_LIGHT_INHIBIT = (
+        "from gi.repository import Gio, GLib\n"
+        "bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)\n"
+        "bus.call_sync('org.kde.KWin', '/org/kde/KWin/NightLight', 'org.kde.KWin.NightLight', 'inhibit', None, None,"
+        " Gio.DBusCallFlags.NONE, -1, None)\n"
+        "GLib.MainLoop().run()\n"
+    )
+
+    def true_colors(self):
+        """Switch the screen tint off for screenshots (N-411). Night Light runs in the live session (the guest clock starts at
+        night, see RTC_BASE) and tints white to #ffdebc. A Night Light inhibition lasts while the process that asked for it
+        lives, so this leaves one running; with it white is #ffffff and Ink is #1b2330. Call after prepare_session."""
+        self.put("/tmp/nl-inhibit.py", self.NIGHT_LIGHT_INHIBIT.encode())
+        self.sh("nohup python3 /tmp/nl-inhibit.py > /tmp/nl-inhibit.log 2>&1 &", 20)
+        time.sleep(4)
+
     def close(self):
         try:
             self.proc.kill()

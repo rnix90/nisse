@@ -110,7 +110,11 @@ def build(out):
     # shown on light and dark pages alike (the About page uses system-logo-white.png): opaque cards
     save("usr/share/pixmaps/fedora-logo.png", card((240, 310), stacked, (180, 240)))
     save("usr/share/pixmaps/system-logo-white.png", card((240, 310), stacked, (180, 240)))
-    save("usr/share/pixmaps/splash/gnome-splash.png", on_ink((420, 293), stacked, (230, 200)))
+
+    # the installer you see is the Anaconda WebUI (a Cockpit page): its colors and logo come from the branding folder named after
+    # os-release ID, built from the palette (N-411)
+    import installer_look  # noqa: E402
+    installer_look.write(out)
 
     # Mac boot icon
     save("usr/share/pixmaps/bootloader/fedora.icns", tile.resize((512, 512), Image.LANCZOS), format="ICNS")

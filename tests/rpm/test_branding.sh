@@ -63,8 +63,24 @@ while read -r kind path sha spec; do
     esac
     replaced=$((replaced + 1))
 done < <(grep '^R ' "$manifest")
-[ "$replaced" -ge 21 ] || fail "only $replaced replacements checked, expected 21 or more"
+[ "$replaced" -ge 20 ] || fail "only $replaced replacements checked, expected 20 or more"
 echo "ok   $replaced placeholder paths replaced by nisse art"
+
+# ---- the installer's look (N-411): the Anaconda WebUI takes its colors and logo from /usr/share/cockpit/branding/<os-release ID>
+for f in branding.css logo.png favicon.ico apple-touch-icon.png; do
+    printf '%s\n' "$bl" | grep -qxF "/usr/share/cockpit/branding/nisse/$f" || fail "branding RPM lacks the installer's $f"
+done
+printf '%s\n' "$bl" | grep -qF 'gnome-splash' && fail "branding RPM still ships gnome-splash.png (dropped in N-411)"
+cssf="$scratch/usr/share/cockpit/branding/nisse/branding.css"
+head -c 40 "$cssf" | grep -q 'SPDX-License-Identifier' || fail "the installer branding.css has no SPDX header"
+for want in '#e0623f' '#1b2330' ':root.pf-v6-theme-dark' ':root:not(.pf-v6-theme-dark)' 'filter: none'; do
+    grep -qF -- "$want" "$cssf" || fail "the installer branding.css lacks: $want"
+done
+grep -qiE '#(51a2da|3c6eb4|294172)' "$cssf" && fail "the installer branding.css still has Fedora's blue"
+got="$(python3 -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); assert d[:8]==b"\x89PNG\r\n\x1a\n"; print("%dx%d" % struct.unpack(">II", d[16:24]))' "$scratch/usr/share/cockpit/branding/nisse/logo.png" 2>&1)"
+[ "$got" = "128x128" ] || fail "the installer logo.png is $got, expected 128x128"
+[ "$(head -c 4 "$scratch/usr/share/cockpit/branding/nisse/favicon.ico" | od -An -tx1 | tr -d ' \n')" = "00000100" ] || fail "favicon.ico is not an icon file"
+echo "ok   the installer look (cockpit branding folder nisse) is in the branding RPM"
 
 fl="$(rpm -qlp "$fonts")"
 printf '%s\n' "$fl" | grep -qF '/usr/share/fonts/nunito/Nunito[wght].ttf' || fail "fonts RPM lacks the roman TTF"

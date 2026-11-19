@@ -3,7 +3,7 @@
 
 Name:           nisse-branding
 Version:        0.2
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        nisse logo, icons and system artwork
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -46,7 +46,9 @@ ln -s ../apps/start-here.svg %{buildroot}/usr/share/icons/hicolor/scalable/place
 %dir /usr/share/icons/oxygen/48x48
 %dir /usr/share/icons/oxygen/48x48/apps
 %dir /usr/share/pixmaps/bootloader
-%dir /usr/share/pixmaps/splash
+%dir /usr/share/cockpit
+%dir /usr/share/cockpit/branding
+%dir /usr/share/cockpit/branding/nisse
 /usr/share/anaconda/boot/splash.png
 /usr/share/anaconda/boot/syslinux-splash.png
 /usr/share/anaconda/pixmaps/anaconda_header.png
@@ -62,15 +64,21 @@ ln -s ../apps/start-here.svg %{buildroot}/usr/share/icons/hicolor/scalable/place
 /usr/share/icons/hicolor/scalable/apps/fedora-logo-sprite.svg
 /usr/share/icons/hicolor/scalable/apps/start-here.svg
 /usr/share/icons/oxygen/48x48/apps/anaconda.png
+/usr/share/cockpit/branding/nisse/branding.css
+/usr/share/cockpit/branding/nisse/logo.png
+/usr/share/cockpit/branding/nisse/favicon.ico
+/usr/share/cockpit/branding/nisse/apple-touch-icon.png
 /usr/share/pixmaps/bootloader/fedora.icns
 /usr/share/pixmaps/fedora-logo-small.png
 /usr/share/pixmaps/fedora-logo-sprite.svg
 /usr/share/pixmaps/fedora-logo.png
-/usr/share/pixmaps/splash/gnome-splash.png
 /usr/share/pixmaps/system-logo-white.png
 /usr/share/icons/hicolor/scalable/places/start-here.svg
 
 %changelog
+* Thu Nov 19 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-5
+- The installer (the Anaconda WebUI) gets the nisse look: a cockpit branding folder named after the os-release ID with the Ember palette for both looks and the nisse logo; Fedora's unused gnome-splash is no longer shipped (N-411)
+
 * Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-4
 - Add org.fedoraproject.AnacondaInstaller (the live desktop's Install to Hard Drive icon, a working pickaxe)
 

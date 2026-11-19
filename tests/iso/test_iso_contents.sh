@@ -225,6 +225,14 @@ about_logo="$(sed -n 's/^LogoPath=//p' "$root/etc/xdg/kcm-about-distrorc" 2>/dev
 [ -n "$about_logo" ] || fail "no LogoPath in /etc/xdg/kcm-about-distrorc (how does the About page pick its logo?)"
 case "$(rpmq -qf "$about_logo" 2>/dev/null)" in nisse-branding-*) ;; *) fail "the About page logo $about_logo is not a nisse-branding file" ;; esac
 case "$(rpmq -qf /usr/share/icons/hicolor/scalable/apps/start-here.svg 2>/dev/null)" in nisse-branding-*) ;; *) fail "the start button icon start-here.svg is not a nisse-branding file" ;; esac
+# The installer's look (ledger N-411): cockpit takes the Anaconda WebUI's colors and logo from the folder named after os-release ID.
+for f in branding.css logo.png favicon.ico apple-touch-icon.png; do
+    [ -f "$root/usr/share/cockpit/branding/nisse/$f" ] || fail "the installer branding folder lacks $f"
+done
+grep -qx 'ID=nisse' "$root/etc/os-release" || grep -qx 'ID=nisse' "$root/usr/lib/os-release" || fail "os-release ID is not nisse, so cockpit would not pick the nisse branding folder"
+grep -qF '#e0623f' "$root/usr/share/cockpit/branding/nisse/branding.css" || fail "the installer branding has no Ember"
+echo "installer look: the nisse cockpit branding folder is in the image and matches the os-release ID"
+
 echo "placeholder art: $replaced paths replaced by nisse-branding, $(grep -c '^D ' "$manifest") dropped, generic-logos absent"
 
 # The nisse global themes (ledger N-108). Fedora's look-and-feel package stays installed because plasma-workspace

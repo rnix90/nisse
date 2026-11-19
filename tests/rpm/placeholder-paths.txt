@@ -30,7 +30,7 @@ D /usr/share/pixmaps/bootloader/fedora.vol f3d13e0981daf486 binary Mac HFS+ boot
 R /usr/share/pixmaps/fedora-logo-small.png 692c3217a966086a png:128x128
 R /usr/share/pixmaps/fedora-logo-sprite.svg 8e45d2c92e9f0881 svg
 R /usr/share/pixmaps/fedora-logo.png 4b314d72b1061687 png:240x310
-R /usr/share/pixmaps/splash/gnome-splash.png be7246eaa48cf2ee png:420x293
+D /usr/share/pixmaps/splash/gnome-splash.png be7246eaa48cf2ee the legacy GNOME splash: nothing in the image loads it (Bert's verdict on installer/gnome-splash was drop, N-411)
 R /usr/share/pixmaps/system-logo-white.png 4b314d72b1061687 png:240x310
 D /usr/share/plymouth/themes/charge/progress-00.png 898af6d15039a2e2 assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)
 D /usr/share/plymouth/themes/charge/progress-01.png 38228c1a32e6696c assets of the charge Plymouth theme; plymouth-theme-charge is not installed so nothing loads them (boot splash is roadmap 1.9)

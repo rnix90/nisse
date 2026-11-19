@@ -76,7 +76,8 @@ patterns = [
   "usr/share/anaconda/pixmaps/*.png",
   "usr/share/icons/hicolor/48x48/apps/anaconda.png",
   "usr/share/icons/hicolor/scalable/apps/anaconda.svg",
-  "usr/share/pixmaps/splash/gnome-splash.png",
+  "usr/share/cockpit/branding/nisse/*.png",
+  "usr/share/cockpit/branding/nisse/*.ico",
   "usr/share/pixmaps/bootloader/*.icns",
 ]
 requests = [
