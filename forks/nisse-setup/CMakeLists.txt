@@ -8,8 +8,10 @@ cmake_minimum_required(VERSION 3.20)
 set(PROJECT_VERSION "6.8.3")
 project(plasma-setup VERSION ${PROJECT_VERSION})
 
-set(QT_MIN_VERSION "6.11.0")
-set(KF6_MIN_VERSION "6.30.0")
+# nisse: upstream 6.8.3 asks for Qt 6.11 and KDE Frameworks 6.30, but the nisse image is Fedora 44's RELEASE repository only (Qt 6.10,
+# Frameworks 6.25). It compiles and links against those (checked 2026-11-19), so the minimums are the release versions.
+set(QT_MIN_VERSION "6.10.0")
+set(KF6_MIN_VERSION "6.25.0")
 
 include(FeatureSummary)
 

@@ -69,3 +69,4 @@ New files are nisse's own (GPL-2.0-or-later, `SPDX-FileCopyrightText: 2026 nisse
 | `tests/choiceset_test.cpp` | new: the helper's logic against a fake engine and, with `NISSE_CHOICES_REAL`, the real one | nisse's tests |
 | `tests/choiceslisting_test.cpp` | new: the parser | nisse's tests |
 | `CMakeLists.txt` | adds the tests directory when testing is on | nisse's tests |
+| `CMakeLists.txt` | the minimum versions are the release repository's Qt 6.10 and Frameworks 6.25 (upstream: 6.11 and 6.30) | the image is Fedora 44 release only; it builds and links on those (2026-11-19). Re-check the first-boot run at the ISO gate |
