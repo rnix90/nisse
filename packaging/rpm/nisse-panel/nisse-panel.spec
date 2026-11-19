@@ -5,7 +5,7 @@
 
 Name:           nisse-panel
 Version:        0.1
-Release:        17%{?dist}
+Release:        18%{?dist}
 Summary:        nisse panel: chat with the AI that looks after this computer
 License:        GPL-2.0-or-later
 BuildRequires:  cmake
@@ -13,20 +13,27 @@ BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
 BuildRequires:  qt6-qtbase-devel
 BuildRequires:  qt6-qtdeclarative-devel
+# the sidebar is a layer-shell surface (N-415a)
+BuildRequires:  layer-shell-qt-devel
 Requires:       nisse-daemon
 Requires:       qt6-qtdeclarative
+# the layer-shell plugin is loaded at run time, not linked, so it is not found by the automatic dependencies
+Requires:       layer-shell-qt
 Requires:       nisse-branding
 Requires:       hicolor-icon-theme
 # The desktop notice for a waiting approval is held back while a microphone is in use; that is read with pw-dump.
 Requires:       pipewire-utils
 
 Source1:        nisse-panel.desktop
+Source2:        nisse-panel-autostart.desktop
 
 %description
-A Qt 6 / QML window with chat tabs for several sessions at once, an
-approvals view, an audit log view and the active backend. It talks to
-nisse-daemon over D-Bus and sends a desktop notice when an approval is waiting
-and the window is in the background, except while a microphone is in use.
+The nisse panel, a docked sidebar on the right screen edge. It runs from
+login and slides out on the tray click, Meta+N, a notice or the pointer at
+the edge. It has chat tabs for several sessions at once, an approvals view,
+an audit log view and the active backend. It talks to nisse-daemon over
+D-Bus and sends a desktop notice when an approval is waiting and you are not
+looking at the panel, except while a microphone is in use.
 
 %prep
 
@@ -40,6 +47,8 @@ mkdir -p licenses
 install -pm 0644 %{nisse_root}/LICENSE licenses/LICENSE
 install -Dpm 0755 build/nisse-panel %{buildroot}%{_bindir}/nisse-panel
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/applications/nisse-panel.desktop
+# started at login by KDE, with the sidebar closed (a second launch toggles the running one)
+install -Dpm 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/xdg/autostart/nisse-panel-autostart.desktop
 # the default global shortcut (Meta+N) is read from the desktop file in this directory, as for Konsole's Ctrl+Alt+T
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/kglobalaccel/nisse-panel.desktop
 # the panel's own icon (N-409a): the three-star sparkle, at every size and scalable
@@ -52,10 +61,15 @@ find %{buildroot}%{_datadir}/icons/hicolor -type d -exec chmod 0755 {} +
 %license licenses/LICENSE
 %{_bindir}/nisse-panel
 %{_datadir}/applications/nisse-panel.desktop
+%config(noreplace) %{_sysconfdir}/xdg/autostart/nisse-panel-autostart.desktop
 %{_datadir}/kglobalaccel/nisse-panel.desktop
 %{_datadir}/icons/hicolor/*/apps/nisse-assistant.*
 
 %changelog
+* Thu Nov 19 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-18
+- The panel is a docked sidebar on the right screen edge (layer-shell, N-415a): one instance that starts at login, closed; the tray click,
+  Meta+N, a notice click and the pointer at the edge open it; it stays open until closed and floats over windows. A second launch toggles it
+
 * Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-17
 - The panel's own icon is the three-star sparkle (nisse-assistant), flat and in the nisse colors; it ships the icon at every size
 

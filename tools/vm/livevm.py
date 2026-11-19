@@ -74,7 +74,7 @@ def clean(t):
 RTC_BASE = "2026-11-14T03:00:00"
 
 
-def qemu_command(iso, vars_file, mon_port, serial_port, mem, rtc_base=RTC_BASE, disks=()):
+def qemu_command(iso, vars_file, mon_port, serial_port, mem, rtc_base=RTC_BASE, disks=(), tablet=False):
     """The QEMU command line. `disks` are qcow2 files attached as virtio drives (an install target); with no `iso` the
     machine boots from the first disk (N-303: the installed system)."""
     media = ["-cdrom", str(iso), "-boot", "d"] if iso else ["-boot", "c"]
@@ -89,11 +89,13 @@ def qemu_command(iso, vars_file, mon_port, serial_port, mem, rtc_base=RTC_BASE, 
         "-monitor", f"tcp:127.0.0.1:{mon_port},server,nowait",
         "-serial", f"tcp:127.0.0.1:{serial_port},server,nowait",
         "-display", "none",
+        # an absolute pointer (N-415a): the HMP mouse_move of the default PS/2 mouse is relative and unreliable for a precise click
+        *(["-device", "qemu-xhci", "-device", "usb-tablet"] if tablet else []),
     ]
 
 
 class Vm:
-    def __init__(self, iso, out, mem=6144, rtc_base=RTC_BASE, disks=(), fresh_vars=True):
+    def __init__(self, iso, out, mem=6144, rtc_base=RTC_BASE, disks=(), fresh_vars=True, tablet=False):
         self.out = Path(out)
         self.out.mkdir(parents=True, exist_ok=True)
         self.buf = ""
@@ -103,7 +105,8 @@ class Vm:
         vars_file = self.out / "OVMF_VARS.fd"
         if fresh_vars or not vars_file.exists():   # an installed disk keeps the firmware boot entries its installer wrote
             vars_file.write_bytes((QEMU_DIR / "share" / "edk2-i386-vars.fd").read_bytes())
-        cmd = qemu_command(iso, vars_file, self.mon_port, self.serial_port, mem, rtc_base, disks)
+        self.tablet = tablet
+        cmd = qemu_command(iso, vars_file, self.mon_port, self.serial_port, mem, rtc_base, disks, tablet)
         self.proc = subprocess.Popen(cmd, creationflags=0x08000000)
         self.sock = self._connect(self.serial_port)
         threading.Thread(target=self._reader, daemon=True).start()
@@ -133,6 +136,37 @@ class Vm:
         s.sendall((line + "\n").encode())
         time.sleep(0.5)
         s.close()
+
+    def monitor_text(self, line):
+        """Like monitor(), but returns what the QEMU monitor answered."""
+        sock = self._connect(self.mon_port)
+        sock.settimeout(2)
+        sock.sendall((line + "\n").encode())
+        time.sleep(0.7)
+        try:
+            data = sock.recv(8192).decode("utf-8", "replace")
+        except OSError:
+            data = ""
+        sock.close()
+        return data
+
+    def use_tablet(self):
+        """Make the USB tablet the active mouse (needs tablet=True): then mouse_move takes absolute coordinates."""
+        info = self.monitor_text("info mice")
+        for line in info.splitlines():
+            if "Tablet" in line:
+                digits = "".join(c for c in line.split("#")[1].split(":")[0] if c.isdigit()) if "#" in line else ""
+                if digits:
+                    self.monitor(f"mouse_set {digits}")
+                    return True
+        return False
+
+    def click(self, x, y, width=1280, height=800):
+        """A click at pixel (x, y) of the screen, through the tablet (use_tablet first)."""
+        self.monitor(f"mouse_move {int(x * 32767 / width)} {int(y * 32767 / height)}")
+        time.sleep(0.4)
+        self.monitor("mouse_button 1")
+        self.monitor("mouse_button 0")
 
     def keys_to_grub(self):
         """Fedora's menu defaults to the slow media check: press Up until Start nisse, then Enter."""

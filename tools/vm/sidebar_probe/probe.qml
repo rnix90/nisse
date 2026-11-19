@@ -6,7 +6,7 @@ import QtQuick.Controls
 import QtQuick.Window
 
 QtObject {
-  Window {
+  property Window edgeStrip: Window {
     id: strip
     width: 2
     height: 600
@@ -18,7 +18,7 @@ QtObject {
     TapHandler { onTapped: probe.log("edge strip tapped") }
   }
 
-  Window {
+  property Window sidebar: Window {
     id: win
     width: 420
     height: 600

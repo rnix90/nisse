@@ -33,7 +33,10 @@ public:
         lw->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityOnDemand);
         lw->setDesiredSize(QSize(width, 0)); // full height, this width
         m_edge = edge;
-        log(QStringLiteral("docked on %1, width %2").arg(edge).arg(width));
+        // PROBE_START_HIDDEN=1: map the surface already slid out of sight, as the real panel does (focus experiment, N-415a)
+        if (qEnvironmentVariableIsSet("PROBE_START_HIDDEN"))
+            lw->setMargins(edge == QLatin1String("left") ? QMargins(-width, 0, 0, 0) : QMargins(0, 0, -width, 0));
+        log(QStringLiteral("docked on %1, width %2, start hidden=%3").arg(edge).arg(width).arg(qEnvironmentVariableIsSet("PROBE_START_HIDDEN")));
     }
 
     // a thin transparent strip on the right edge, full height: does the pointer pushing against the screen edge reach it?

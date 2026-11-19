@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=nisse
+Comment=Start the nisse panel at login: the sidebar at the screen edge, closed, ready for a notice or the pointer at the edge
+Exec=nisse-panel --background
+Icon=nisse-assistant
+Terminal=false
+NoDisplay=true
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2

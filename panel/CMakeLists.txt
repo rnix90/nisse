@@ -5,6 +5,7 @@ project(nisse-panel VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 DBus QuickTest Test)
+find_package(LayerShellQt REQUIRED) # the sidebar is a layer-shell surface (N-415a); layer-shell-qt-devel in the build VM
 qt_standard_project_setup(REQUIRES 6.5)
 
 qt_add_executable(nisse-panel src/main.cpp)
@@ -14,8 +15,9 @@ qt_add_qml_module(nisse-panel
     QML_FILES qml/Main.qml qml/ChatView.qml qml/AuditView.qml qml/StatusBar.qml qml/ApprovalsView.qml qml/SessionTabs.qml qml/RemoteSwitch.qml qml/KillSwitchBar.qml qml/ConfigView.qml qml/ConnectionBanner.qml qml/DevicesView.qml
     SOURCES src/DaemonClient.h src/DaemonClient.cpp src/ApprovalNotifier.h src/ApprovalNotifier.cpp
             src/MicWatcher.h src/MicWatcher.cpp src/DesktopNotify.h src/DesktopNotify.cpp src/LauncherBadge.h src/LauncherBadge.cpp
+            src/Sidebar.h src/Sidebar.cpp src/PanelService.h src/PanelService.cpp src/LayerShellDock.h src/LayerShellDock.cpp
 )
-target_link_libraries(nisse-panel PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::DBus)
+target_link_libraries(nisse-panel PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::DBus LayerShellQt::Interface)
 install(TARGETS nisse-panel RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 enable_testing()
@@ -46,3 +48,16 @@ target_include_directories(tst_notify PRIVATE src)
 target_link_libraries(tst_notify PRIVATE Qt6::Test Qt6::Core Qt6::DBus)
 add_test(NAME tst_notify COMMAND tst_notify)
 set_tests_properties(tst_notify PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# The sidebar rules (open, slide, edge dwell) and the single-instance control surface (no compositor, no bus needed).
+add_executable(tst_sidebar tests/tst_sidebar.cpp src/Sidebar.cpp)
+target_include_directories(tst_sidebar PRIVATE src)
+target_link_libraries(tst_sidebar PRIVATE Qt6::Test Qt6::Core)
+add_test(NAME tst_sidebar COMMAND tst_sidebar)
+set_tests_properties(tst_sidebar PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_panelservice tests/tst_panelservice.cpp src/PanelService.cpp src/Sidebar.cpp)
+target_include_directories(tst_panelservice PRIVATE src)
+target_link_libraries(tst_panelservice PRIVATE Qt6::Test Qt6::Core Qt6::DBus)
+add_test(NAME tst_panelservice COMMAND tst_panelservice)
+set_tests_properties(tst_panelservice PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

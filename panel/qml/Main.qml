@@ -5,9 +5,9 @@ import QtQuick.Layouts
 
 ApplicationWindow {
     id: window
-    width: 480
+    width: sidebarDocked ? 420 : 480
     height: 720
-    visible: true
+    visible: false // main.cpp shows it: docked on the screen edge as the sidebar (N-415a), or as a normal window where that is not possible
     title: "nisse"
 
     // 0 chat, 1 approvals, 2 audit log, 3 settings
@@ -17,14 +17,68 @@ ApplicationWindow {
         target: daemon
         function onShowApprovalsRequested() {
             window.page = 1
-            window.show()
-            window.raise()
-            window.requestActivate()
+            if (sidebarDocked) {
+                sidebar.show()
+            } else {
+                window.show()
+                window.raise()
+                window.requestActivate()
+            }
         }
+    }
+
+    // the sidebar takes the keyboard when it is opened on purpose (tray, shortcut, a notice); the pointer at the edge does not
+    // Asked for at once it is ignored while the surface is still sliding in from off screen (live check 2026-11-19: the window never
+    // became active, so Escape and typing did nothing), so it waits for the slide to end, then focuses the chat input.
+    Timer {
+        id: focusLater
+        interval: 320
+        onTriggered: {
+            window.requestActivate()
+            var input = window.findInput(window.contentItem)
+            if (input && window.page === 0)
+                input.forceActiveFocus()
+            else
+                window.contentItem.forceActiveFocus()
+        }
+    }
+    function findInput(item) {
+        if (!item)
+            return null
+        if (item.objectName === "input")
+            return item
+        for (var i = 0; i < item.children.length; ++i) {
+            var found = findInput(item.children[i])
+            if (found)
+                return found
+        }
+        return null
+    }
+    onActiveChanged: console.info("nisse panel window active=" + active)
+    Connections {
+        target: sidebar
+        function onActivateRequested() {
+            focusLater.restart()
+        }
+    }
+
+    // Escape closes the sidebar; it stays open until closed otherwise (Bert, 2026-11-19). The window shortcut covers "nothing has the
+    // keyboard"; the Keys handlers on the header, the pages and the footer cover a focused item (live check 2026-11-19: with the chat
+    // field focused the window shortcut alone never fired; tests/tst_escape.qml)
+    function closeSidebar() {
+        console.info("nisse sidebar: Escape handled, docked=" + sidebarDocked)
+        if (sidebarDocked)
+            sidebar.escapePressed()
+    }
+    Shortcut {
+        sequence: "Escape"
+        enabled: sidebarDocked
+        onActivated: window.closeSidebar()
     }
 
     header: ColumnLayout {
         spacing: 0
+        Keys.onEscapePressed: window.closeSidebar()
         ConnectionBanner {
             Layout.fillWidth: true
             client: daemon
@@ -42,6 +96,7 @@ ApplicationWindow {
     StackLayout {
         anchors.fill: parent
         currentIndex: window.page
+        Keys.onEscapePressed: window.closeSidebar()
 
         SessionTabs {
             client: daemon
@@ -58,6 +113,7 @@ ApplicationWindow {
     }
 
     footer: ToolBar {
+        Keys.onEscapePressed: window.closeSidebar()
         RowLayout {
             anchors.fill: parent
             Button {

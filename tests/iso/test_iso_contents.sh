@@ -150,6 +150,12 @@ LC_ALL=C grep -qaP 's\x00t\x00a\x00r\x00t\x00k\x00d\x00e\x00' "$root/usr/bin/pla
 LC_ALL=C grep -qaP 'e\x00x\x00i\x00t\x00k\x00d\x00e\x00' "$root/usr/bin/ksmserver" \
     || fail "ksmserver no longer emits the exitkde event: nothing would play the logout sound"
 
+# The panel is a docked sidebar that runs from login (N-415a): the layer-shell plugin it loads at run time is in the image, and the
+# login autostart starts it closed.
+case "$(rpmq -q layer-shell-qt 2>/dev/null)" in layer-shell-qt-*) ;; *) fail "layer-shell-qt is not installed (the sidebar is a layer-shell surface)" ;; esac
+[ -f "$root/usr/lib64/qt6/plugins/wayland-shell-integration/liblayer-shell.so" ] || fail "the layer-shell plugin is missing: the panel would open as a normal window"
+grep -qx 'Exec=nisse-panel --background' "$root/etc/xdg/autostart/nisse-panel-autostart.desktop" || fail "nothing starts the panel at login (/etc/xdg/autostart/nisse-panel-autostart.desktop)"
+
 # The nisse cursor theme (N-408): the two logo cursors replaced, everything else inherited from Breeze, and the default in both looks.
 cth="$root/usr/share/icons/nisse_cursors"
 grep -qx 'Inherits=breeze_cursors' "$cth/index.theme" || fail "nisse_cursors must inherit breeze_cursors"

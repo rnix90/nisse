@@ -29,6 +29,14 @@ rpm -qp --requires "$rpmf" | grep -q 'qt6-qtdeclarative' || fail "RPM must requi
 # N-205: the microphone check runs pw-dump, so the package must pull it in.
 rpm -qp --requires "$rpmf" | grep -qx 'pipewire-utils' || fail "RPM must require pipewire-utils (the notice is held back while a microphone is in use)"
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpmf")" = "GPL-2.0-or-later" ] || fail "License must be GPL-2.0-or-later"
+# N-415a: the panel is a docked sidebar that runs from login. It needs the layer-shell plugin at run time (loaded, not linked, so
+# only an explicit Requires finds it) and an autostart entry that starts it closed.
+rpm -qp --requires "$rpmf" | grep -qx 'layer-shell-qt' || fail "RPM must require layer-shell-qt (the sidebar is a layer-shell surface)"
+printf '%s
+' "$files" | grep -qxF /etc/xdg/autostart/nisse-panel-autostart.desktop || fail "RPM lacks the login autostart entry"
+grep -qx 'Exec=nisse-panel --background' "$root_dir/etc/xdg/autostart/nisse-panel-autostart.desktop" || fail "the autostart entry must start the panel with --background (closed)"
+grep -qx 'OnlyShowIn=KDE;' "$root_dir/etc/xdg/autostart/nisse-panel-autostart.desktop" || fail "the autostart entry must be for KDE only"
+grep -qx 'Exec=nisse-panel' "$root_dir/usr/share/applications/nisse-panel.desktop" || fail "the launcher must stay a plain 'nisse-panel' (a second launch toggles the running sidebar)"
 
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp" "$root_dir"' EXIT
 member usr/share/applications/nisse-panel.desktop > "$tmp/nisse-panel.desktop"

@@ -1,17 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "DaemonClient.h"
 #include "LauncherBadge.h"
+#include "LayerShellDock.h"
+#include "PanelService.h"
+#include "Sidebar.h"
 
 #include <QCoreApplication>
+#include <QEvent>
 #include <QGuiApplication>
+#include <QKeyEvent>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QQmlApplicationEngine>
+#include <QQuickWindow>
 #include <QQmlContext>
 #include <QMap>
 #include <QTextStream>
 #include <QTimer>
+#include <memory>
 
 // Headless check used by tests/e2e/panel_daemon.sh: one round trip through the daemon, then exit.
 static int selfTest(int argc, char *argv[])
@@ -316,6 +323,19 @@ static int selfTestEvents(int argc, char *argv[])
     return 0;
 }
 
+// Debug aid, only with NISSE_PANEL_DEBUG_KEYS=1: logs every key press the application receives and which object got it (used in the
+// live check to see whether Escape reaches the sidebar window at all, N-415a).
+class KeyLogger : public QObject
+{
+public:
+    bool eventFilter(QObject *obj, QEvent *event) override
+    {
+        if (event->type() == QEvent::KeyPress)
+            qInfo().noquote() << "nisse key press" << static_cast<QKeyEvent *>(event)->key() << "to" << obj->metaObject()->className();
+        return false;
+    }
+};
+
 int main(int argc, char *argv[])
 {
     for (int i = 1; i < argc; ++i) {
@@ -341,10 +361,40 @@ int main(int argc, char *argv[])
     app.setApplicationName(QStringLiteral("nisse-panel"));
     app.setDesktopFileName(QStringLiteral("nisse-panel"));
 
+    // The panel is ONE instance that runs from login and lives at the right screen edge as a sidebar (N-415a). A second launch (the
+    // pinned taskbar icon, Meta+N) tells the running one to toggle and exits; the login autostart passes --background. The
+    // screenshot options (--page, --demo-badge) and --windowed keep the old normal window and skip all of this.
+    const QStringList args = app.arguments().mid(1);
+    const bool windowed = args.contains(QStringLiteral("--windowed")) || args.contains(QStringLiteral("--page"))
+        || args.contains(QStringLiteral("--demo-badge"));
+    PanelService::Action action;
+    action.run = true;
+    if (!windowed) {
+        action = PanelService::actionFor(args, PanelService::running());
+        if (!action.run)
+            return PanelService::callRunning(action.method, qEnvironmentVariable("XDG_ACTIVATION_TOKEN")) ? 0 : 1;
+    }
+    const bool docked = !windowed && LayerShellDock::available();
+
+    constexpr int kSidebarWidth = 420;
+    KeyLogger keyLogger;
+    if (qEnvironmentVariableIsSet("NISSE_PANEL_DEBUG_KEYS"))
+        app.installEventFilter(&keyLogger);
+    QQuickWindow *panelWindow = nullptr;
+    Sidebar sidebar(kSidebarWidth, [&panelWindow](int margin) {
+        if (panelWindow)
+            LayerShellDock::setMargin(panelWindow, margin);
+    });
+    PanelService service(&sidebar);
+
     DaemonClient client;
-    client.enableNotifications([] { return QGuiApplication::applicationState() == Qt::ApplicationActive; });
+    // A desktop notice for a waiting approval is held back while the person is already looking at the panel: for the sidebar that is
+    // open and focused (N-205, N-415a); for the normal window it is the active window.
+    client.enableNotifications([&] {
+        return docked ? sidebar.isViewing(panelWindow && panelWindow->isActive()) : QGuiApplication::applicationState() == Qt::ApplicationActive;
+    });
     // The taskbar badge follows the number of approvals waiting. --demo-badge N shows N without a daemon, for the
-    // screenshot in the live image (N-207).
+    // screenshot in the live image (N-207). It sits on the pinned panel launcher, which stays in the taskbar as the opener.
     LauncherBadge badge;
     QObject::connect(&client, &DaemonClient::pendingCountChanged, &app, [&] { badge.update(client.pendingCount()); });
     badge.update(client.pendingCount());
@@ -358,11 +408,51 @@ int main(int argc, char *argv[])
         if (QByteArray(argv[i]) == "--page")
             startPage = qBound(0, QByteArray(argv[i + 1]).toInt(), 3);
     }
+    // the tray item (N-415b) and a clicked notice ask for the approvals page through the same signal
+    QObject::connect(&service, &PanelService::approvalsRequested, &client, &DaemonClient::showApprovalsRequested);
+
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("daemon"), &client);
+    engine.rootContext()->setContextProperty(QStringLiteral("sidebar"), &sidebar);
+    engine.rootContext()->setContextProperty(QStringLiteral("sidebarDocked"), docked);
     engine.rootContext()->setContextProperty(QStringLiteral("startPage"), startPage);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
                      Qt::QueuedConnection);
     engine.loadFromModule("Nisse.Panel", "Main");
+    panelWindow = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+
+    std::unique_ptr<EdgeStrip> strip;
+    if (docked && panelWindow) {
+        LayerShellDock::dockSidebar(panelWindow, kSidebarWidth); // before the first show: that is what makes it a layer surface
+        // Closed means UNMAPPED, and every open maps the surface fresh: KWin activates a layer surface when it is shown, but did not
+        // honor a later activation request (live check 2026-11-19, Wayland trace: one keyboard enter at the first map, no key after).
+        QObject::connect(&sidebar, &Sidebar::mapRequested, panelWindow, [&] { panelWindow->show(); });
+        QObject::connect(&sidebar, &Sidebar::unmapRequested, panelWindow, [&] { panelWindow->hide(); });
+        strip = std::make_unique<EdgeStrip>();
+        strip->dock();
+        QObject::connect(strip.get(), &EdgeStrip::entered, &sidebar, &Sidebar::edgeEntered);
+        QObject::connect(strip.get(), &EdgeStrip::left, &sidebar, &Sidebar::edgeLeft);
+        QObject::connect(panelWindow, &QQuickWindow::activeChanged, &app, [&] { if (!panelWindow->isActive()) sidebar.focusLost(); });
+        // Opened on purpose (tray, shortcut, notice, launch): ask the compositor to give the sidebar the keyboard. KWin gives an
+        // on-demand layer surface the keyboard only on a click or an activation token (live check 2026-11-19: opened over D-Bus with
+        // neither, the keys stayed with the window that had them), so the token of the launch that triggered this (Meta+N, a click on
+        // the pinned icon) is forwarded by the second instance and used here.
+        QObject::connect(&sidebar, &Sidebar::activateRequested, &app, [&] {
+            const QString token = service.takeActivationToken();
+            if (!token.isEmpty())
+                qputenv("XDG_ACTIVATION_TOKEN", token.toUtf8());
+            panelWindow->requestActivate();
+        });
+        strip->show();
+        if (!service.claim()) {
+            // another panel took the name between the check and now: hand over to it and leave
+            PanelService::callRunning(QStringLiteral("Toggle"));
+            return 0;
+        }
+        if (action.startOpen)
+            QTimer::singleShot(0, &sidebar, &Sidebar::show);
+    } else if (panelWindow) {
+        panelWindow->show();
+    }
     return app.exec();
 }
