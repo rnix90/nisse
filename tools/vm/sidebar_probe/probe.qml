@@ -5,7 +5,20 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
 
-Window {
+QtObject {
+  Window {
+    id: strip
+    width: 2
+    height: 600
+    visible: false
+    color: "#02000000"
+    flags: Qt.FramelessWindowHint
+    Component.onCompleted: { probe.strip(strip, 2); strip.visible = true }
+    HoverHandler { onHoveredChanged: probe.log("edge strip hover=" + hovered) }
+    TapHandler { onTapped: probe.log("edge strip tapped") }
+  }
+
+  Window {
     id: win
     width: 420
     height: 600
@@ -57,4 +70,5 @@ Window {
             else if (cmd === "focus") { win.requestActivate(); field.forceActiveFocus() }
         }
     }
+}
 }

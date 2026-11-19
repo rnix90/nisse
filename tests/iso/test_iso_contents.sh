@@ -5,7 +5,9 @@
 #   tests/iso/test_iso_contents.sh out/nisse-live.iso
 set -euo pipefail
 
-fail() { echo "FAIL: $*" >&2; exit 1; }
+failures=0
+# NISSE_KEEP_GOING=1 lists every failure in one pass (a rebuild-and-rerun cycle is slow); the default stops at the first.
+fail() { echo "FAIL: $*" >&2; if [ "${NISSE_KEEP_GOING:-}" = 1 ]; then failures=$((failures + 1)); return 0; fi; exit 1; }
 iso="${1:?usage: test_iso_contents.sh ISO}"
 [ -f "$iso" ] || fail "ISO not found: $iso"
 
@@ -178,7 +180,7 @@ grep -qx 'Icon=nisse-assistant' "$root/usr/share/applications/nisse-panel.deskto
 for f in scalable/apps/nisse-assistant.svg 48x48/apps/nisse-assistant.png 16x16/apps/nisse-assistant.png 512x512/apps/nisse-assistant.png; do
     [ -f "$root/usr/share/icons/hicolor/$f" ] || fail "the assistant icon $f is missing from hicolor"
 done
-launchers="$(grep -o 'applications:[a-zA-Z.-]*\.desktop\|preferred://[a-z]*' "$root/usr/share/plasma/look-and-feel/org.nisse.desktop/contents/layouts/org.kde.plasma.desktop-layout.js" | tr '\n' ' ')"
+launchers="$(grep -v '^ *//' "$root/usr/share/plasma/look-and-feel/org.nisse.desktop/contents/layouts/org.kde.plasma.desktop-layout.js" | grep -o 'applications:[a-zA-Z.-]*\.desktop\|preferred://[a-z]*' | tr '\n' ' ')"
 case "$launchers" in "applications:nisse-panel.desktop preferred://filemanager preferred://browser applications:org.kde.konsole.desktop applications:systemsettings.desktop ") ;; *) fail "the pinned taskbar launchers changed: $launchers" ;; esac
 
 # The live desktop's Install to Hard Drive launcher (N-410): liveinst.desktop names an icon that must resolve, or the launcher shows a
@@ -346,9 +348,9 @@ echo "snapshots: nisse-snapshots, snapper and the dnf5 hook are in the image; no
 case "$(rpmq -q nisse-boot 2>/dev/null)" in nisse-boot-*) ;; *) fail "nisse-boot is not installed in the image" ;; esac
 for p in grub2-tools grub2-tools-minimal; do rpmq -q "$p" >/dev/null 2>&1 || fail "$p is not installed (nisse-boot needs it)"; done
 for f in /usr/bin/nisse-boot /usr/libexec/nisse/nisse-boot-setup /etc/grub.d/09_nisse_fallback /etc/grub.d/11_nisse_snapshots          /usr/lib/systemd/system/nisse-boot-setup.service /usr/lib/systemd/system/nisse-boot-sync.path /usr/lib/systemd/user/grub-boot-success.service.d/10-nisse-armed.conf; do
-    [ -e "$root$f" ] || fail "$f missing from the image"
+    sudo test -e "$root$f" || fail "$f missing from the image"   # sudo: /etc/grub.d is mode 0700
 done
-[ -x "$root/usr/bin/nisse-boot" ] && [ -x "$root/etc/grub.d/09_nisse_fallback" ] && [ -x "$root/etc/grub.d/11_nisse_snapshots" ] || fail "nisse-boot or a GRUB snippet is not executable"
+sudo test -x "$root/usr/bin/nisse-boot" && sudo test -x "$root/etc/grub.d/09_nisse_fallback" && sudo test -x "$root/etc/grub.d/11_nisse_snapshots" || fail "nisse-boot or a GRUB snippet is not executable"
 for unit in nisse-boot-setup.service nisse-boot-sync.path; do
     state="$(sudo systemctl --root="$merged" is-enabled "$unit" 2>/dev/null || true)"
     case "$state" in enabled | enabled-runtime) ;; *) fail "$unit is '$state' after the image applies its presets, expected enabled" ;; esac
@@ -377,15 +379,15 @@ echo "health check: the runner, the four checks and the unit are in the image an
 # password, the AI works with no interruptions), the sudoers drop-in is the mode sudo requires (0440), and the shim and
 # the password popup helper are there for limited mode.
 case "$(rpmq -q nisse-sudo 2>/dev/null)" in nisse-sudo-*) ;; *) fail "nisse-sudo is not installed in the image" ;; esac
-grep -qx '%wheel ALL=(ALL) NOPASSWD: ALL' "$root/etc/sudoers.d/50-nisse-sudo" || fail "the image's sudo policy is not full mode (wheel passwordless)"
-[ "$(stat -c %a "$root/etc/sudoers.d/50-nisse-sudo")" = 440 ] || fail "the sudoers drop-in is not mode 0440 (sudo would ignore it)"
+sudo grep -qx '%wheel ALL=(ALL) NOPASSWD: ALL' "$root/etc/sudoers.d/50-nisse-sudo" || fail "the image's sudo policy is not full mode (wheel passwordless)"
+[ "$(sudo stat -c %a "$root/etc/sudoers.d/50-nisse-sudo")" = 440 ] || fail "the sudoers drop-in is not mode 0440 (sudo would ignore it)"
 [ "$(cat "$root/etc/nisse/sudo-mode")" = full ] || fail "the image's sudo mode file does not say full"
 for f in /usr/libexec/nisse/shims/sudo /usr/libexec/nisse/nisse-askpass /usr/share/nisse/sudo/sudoers-full /usr/share/nisse/sudo/sudoers-limited; do
     [ -f "$root$f" ] || fail "$f missing from the image"
 done
 [ -x "$root/usr/libexec/nisse/shims/sudo" ] && [ -x "$root/usr/libexec/nisse/nisse-askpass" ] || fail "the sudo shim or the popup helper is not executable"
 [ -f "$root/usr/bin/kdialog" ] || fail "kdialog is not in the image (the limited-mode password popup needs it)"
-grep -q 'UserGroups=.*wheel' "$root/etc/xdg/plasmasetuprc" || fail "the first-run user setup does not put the new user in wheel (the sudo policy is for wheel)"
+grep -q 'UserGroups=.*wheel' "$root/etc/xdg/nissesetuprc" || fail "the first-run user setup does not put the new user in wheel (the sudo policy is for wheel)"
 # The install choices framework (ledger N-306c): the engine is in the image, the sudo mode is a choice it knows, and the
 # apply service is enabled once the image applies its presets (and not on live media, which the unit itself skips).
 case "$(rpmq -q nisse-choices 2>/dev/null)" in nisse-choices-*) ;; *) fail "nisse-choices is not installed in the image" ;; esac
@@ -420,4 +422,5 @@ grep -q 'action id="org.nisse.setup.setchoice"' "$root/usr/share/polkit-1/action
 grep -q '"org.nisse.setup.setchoice"' "$root/usr/share/polkit-1/rules.d/nisse-setup-polkit.rules" || fail "polkit does not allow org.nisse.setup.setchoice for the wizard's user"
 echo "first boot: nisse-setup replaces plasma-setup, enabled, wheel, not finished; the choices page and its helper action are present"
 
+[ "$failures" = 0 ] || { echo "FAIL: $failures assertion(s) failed (NISSE_KEEP_GOING)" >&2; exit 1; }
 echo "PASS: ISO contents ($iso), Qt $qt"

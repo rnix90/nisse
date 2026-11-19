@@ -97,6 +97,20 @@ def main(iso, out, binary, tgz):
         time.sleep(2)
         vm.shot("07-shown-again.png")
 
+        # the pointer pushed against the right screen edge: does the thin strip surface see it? (the sidebar is shown, so the
+        # pointer is over the sidebar's area too; hide it first so the strip is the only thing at the edge)
+        cmd(vm, "hide")
+        time.sleep(2)
+        vm.monitor("mouse_move -4000 0")
+        time.sleep(1)
+        vm.monitor("mouse_move 4000 0")
+        time.sleep(1.5)
+        vm.shot("07b-pointer-at-right-edge.png")
+        log, _ = vm.sh("grep -E 'edge strip' /tmp/probe.log | tail -6", 20)
+        notes.append("pointer at the right edge (sidebar hidden):\n" + log)
+        cmd(vm, "show")
+        time.sleep(1)
+
         cmd(vm, "reserve")
         time.sleep(2)
         vm.shot("08-reserved.png")

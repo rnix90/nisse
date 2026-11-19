@@ -36,6 +36,23 @@ public:
         log(QStringLiteral("docked on %1, width %2").arg(edge).arg(width));
     }
 
+    // a thin transparent strip on the right edge, full height: does the pointer pushing against the screen edge reach it?
+    Q_INVOKABLE void strip(QWindow *w, int width)
+    {
+        auto *lw = LayerShellQt::Window::get(w);
+        lw->setScope(QStringLiteral("nisse-edge-probe"));
+        lw->setLayer(LayerShellQt::Window::LayerTop);
+        LayerShellQt::Window::Anchors a;
+        a.setFlag(LayerShellQt::Window::AnchorTop);
+        a.setFlag(LayerShellQt::Window::AnchorBottom);
+        a.setFlag(LayerShellQt::Window::AnchorRight);
+        lw->setAnchors(a);
+        lw->setExclusiveZone(0);
+        lw->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+        lw->setDesiredSize(QSize(width, 0));
+        log(QStringLiteral("edge strip docked, width %1").arg(width));
+    }
+
     // margin from..to in px on the docked edge; a negative margin pushes the surface off screen (verified by the screenshots)
     Q_INVOKABLE void slide(QWindow *w, int from, int to, int ms)
     {
