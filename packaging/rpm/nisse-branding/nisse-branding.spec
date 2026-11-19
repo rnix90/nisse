@@ -3,7 +3,7 @@
 
 Name:           nisse-branding
 Version:        0.2
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        nisse logo, icons and system artwork
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -32,6 +32,9 @@ install -d %{buildroot}%{_datadir}/icons
 cp -a %{nisse_root}/assets/logo/linux/hicolor %{buildroot}%{_datadir}/icons/
 # the nisse n (a small monogram, the nisse panel app's own icon): its own tree, merged into the same icon theme
 cp -a %{nisse_root}/assets/logo/n/hicolor/. %{buildroot}%{_datadir}/icons/hicolor/
+# the six panel tray icons (N-413, installed by N-415): symbolic, so Plasma colors them like the panel text
+install -d %{buildroot}%{_datadir}/icons/hicolor/scalable/status
+install -pm 0644 %{nisse_root}/assets/art/tray/svg/nisse-tray-*-symbolic.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/status/
 # the replacement artwork: assets/logo/system mirrors the file system (see tools/logo/build_system.py)
 cp -a %{nisse_root}/assets/logo/system/usr %{buildroot}/
 mkdir -p %{buildroot}/usr/share/icons/hicolor/scalable/places
@@ -41,6 +44,7 @@ ln -s ../apps/start-here.svg %{buildroot}/usr/share/icons/hicolor/scalable/place
 %license licenses/LICENSE
 %{_datadir}/icons/hicolor/*/apps/distributor-logo-nisse*
 %{_datadir}/icons/hicolor/*/apps/nisse-n*
+%{_datadir}/icons/hicolor/scalable/status/nisse-tray-*-symbolic.svg
 # directories that only generic-logos used to own
 %dir /usr/share/icons/oxygen
 %dir /usr/share/icons/oxygen/48x48
@@ -76,6 +80,9 @@ ln -s ../apps/start-here.svg %{buildroot}/usr/share/icons/hicolor/scalable/place
 /usr/share/icons/hicolor/scalable/places/start-here.svg
 
 %changelog
+* Thu Nov 19 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-6
+- Add the six panel tray icons (nisse-tray-idle, busy, needs-you, unread, paused and offline, symbolic) in hicolor status
+
 * Thu Nov 19 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-5
 - The installer (the Anaconda WebUI) gets the nisse look: a cockpit branding folder named after the os-release ID with the Ember palette for both looks and the nisse logo; Fedora's unused gnome-splash is no longer shipped (N-411)
 

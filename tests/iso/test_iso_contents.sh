@@ -106,6 +106,26 @@ for laf in org.nisse.desktop org.nisse.desktop.light; do
         || fail "$laf does not default to the nisse wallpaper (Image=nisse under [Wallpaper])"
 done
 
+# Every approved art asset (N-415): the path-by-path check of the whole manifest against the image.
+art_n=0
+while read -r path pkg task opts; do
+    case "$path" in ""|"#"*) continue ;; esac
+    case "$path" in
+        */)
+            min="${opts#min=}"; [ -n "$opts" ] || min=1
+            have="$(find "$root$path" -type f 2>/dev/null | wc -l)"
+            [ "$have" -ge "$min" ] || fail "approved art ($task, $pkg): $path has $have files in the image, expected at least $min"
+            ;;
+        *)
+            [ -e "$root$path" ] || fail "approved art ($task, $pkg): $path is not in the image"
+            [ -f "$root$path" ] || fail "approved art ($task, $pkg): $path does not resolve to a file (a broken link?)"
+            ;;
+    esac
+    art_n=$((art_n + 1))
+done < "$(dirname "$0")/../rpm/approved-art.txt"
+[ "$art_n" -ge 25 ] || fail "the approved-art manifest was read as only $art_n lines"
+echo "ok   $art_n approved art paths are in the image"
+
 # The nisse sound theme (N-414): a freedesktop sound theme that falls back to ocean, selected by the system default, with the names
 # Plasma 6.8 asks for (the startup sound plays desktop-login, the volume feedback audio-volume-change, error events dialog-error...).
 snd="$root/usr/share/sounds/nisse"

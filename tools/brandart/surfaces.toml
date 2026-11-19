@@ -10,7 +10,10 @@
 #                file is the preview, the others are listed as variants), e.g. one item per wallpaper
 #   kind         force the kind (png, svg, colors, sound, cursor); otherwise it follows the file extension
 #   icon_list    a text file of icon names, resolved against the Breeze theme (then hicolor)
-#   requests     graphics that do not exist yet but should: { title, seen }
+#   requests     graphics the inventory asks for: { title, seen } plus what became of each (N-415, checked by
+#                tools/brandart/tests/test_art_ownership.py): shipped = "<image path in tests/rpm/approved-art.txt>",
+#                owner = "<an OPEN ledger task that will build it>", repo = "<why it lives in the repository>" or
+#                decided = "<a DONE task>: <what was decided>"; shipped art nothing uses yet also names used_by = "<open task>"
 #
 # Verified against the Fedora 44 KDE image of 2026-11-02 (see docs/superpowers/plans/2026-11-02-brand-art-review-page.md).
 
@@ -31,8 +34,8 @@ patterns = [
   "usr/share/pixmaps/fedora-logo-sprite.svg",
 ]
 requests = [
-  { title = "Website and favicon mark", seen = "Browser tab and the project page" },
-  { title = "nisse panel tray icon (monochrome, all states)", seen = "System tray: idle, busy, needs-you, error" },
+  { title = "Website and favicon mark", seen = "Browser tab and the project page", repo = "N-413: the web set lives in assets/logo/favicon and assets/logo/social; a website is not part of the image" },
+  { title = "nisse panel tray icon (monochrome, all states)", seen = "System tray: idle, busy, needs-you, error", shipped = "/usr/share/icons/hicolor/scalable/status/nisse-tray-idle-symbolic.svg", used_by = "N-415a" },
 ]
 
 [[group]]
@@ -45,7 +48,7 @@ patterns = [
   "usr/share/icons/hicolor/scalable/apps/fedora-loves-kde.svg",
 ]
 requests = [
-  { title = "A nisse default user avatar set", seen = "Login screen and first-run user setup" },
+  { title = "A nisse default user avatar set", seen = "Login screen and first-run user setup", shipped = "/usr/share/plasma/avatars/" },
 ]
 
 [[group]]
@@ -62,10 +65,10 @@ patterns = [
 collapse_by = "usr/share/plymouth/themes/([^/]+)/"
 missing = true
 requests = [
-  { title = "GRUB boot menu background and logo", seen = "Boot menu: the image today has a plain text menu with no artwork" },
-  { title = "Plasma Login Manager background and theme", seen = "Login screen: plasmalogin ships no artwork of its own" },
-  { title = "Lock screen scene", seen = "When the screen locks (today it reuses the wallpaper)" },
-  { title = "Logout / shutdown / restart screen", seen = "The full-screen choice dialog" },
+  { title = "GRUB boot menu background and logo", seen = "Boot menu: the image today has a plain text menu with no artwork", owner = "N-502" },
+  { title = "Plasma Login Manager background and theme", seen = "Login screen: plasmalogin ships no artwork of its own", owner = "N-503" },
+  { title = "Lock screen scene", seen = "When the screen locks (today it reuses the wallpaper)", owner = "N-504" },
+  { title = "Logout / shutdown / restart screen", seen = "The full-screen choice dialog", owner = "N-504" },
 ]
 
 [[group]]
@@ -81,8 +84,8 @@ patterns = [
   "usr/share/pixmaps/bootloader/*.icns",
 ]
 requests = [
-  { title = "Welcome Center slides (the pages of the first-run tour)", seen = "Welcome to nisse! window on first boot" },
-  { title = "Desktop icon: Install to Hard Drive", seen = "Live session desktop" },
+  { title = "Welcome Center slides (the pages of the first-run tour)", seen = "Welcome to nisse! window on first boot", owner = "N-515" },
+  { title = "Desktop icon: Install to Hard Drive", seen = "Live session desktop", shipped = "/usr/share/icons/hicolor/scalable/apps/org.fedoraproject.AnacondaInstaller.svg" },
 ]
 
 [[group]]
@@ -98,7 +101,7 @@ patterns = [
 collapse_by = "usr/share/(?:wallpapers|backgrounds)/((?:[^/]+/)?[^/]+?)/(?:contents/)?(?:images|[^/]+\\.(?:png|jpg))"
 missing = true
 requests = [
-  { title = "nisse default wallpaper (light, dark and a time-of-day pair)", seen = "First thing on the desktop" },
+  { title = "nisse default wallpaper (light, dark and a time-of-day pair)", seen = "First thing on the desktop", shipped = "/usr/share/wallpapers/nisse/metadata.json" },
 ]
 
 [[group]]
@@ -110,7 +113,7 @@ patterns = [
   "usr/share/plasma/look-and-feel/*/contents/previews/fullscreenpreview.jpg",
 ]
 requests = [
-  { title = "Window decoration (title bar buttons, shadows, corners)", seen = "Every window; drawn in code by the Breeze decoration, so it needs a design brief, not a file" },
+  { title = "Window decoration (title bar buttons, shadows, corners)", seen = "Every window; drawn in code by the Breeze decoration, so it needs a design brief, not a file", decided = "N-106: Bert kept the Breeze window decoration" },
 ]
 
 [[group]]
@@ -132,7 +135,7 @@ title = "Color schemes"
 seen = "Window, view, button, selection and tooltip colors"
 patterns = ["usr/share/color-schemes/*.colors"]
 requests = [
-  { title = "nisse Ember color scheme (dark shell, light document areas)", seen = "Whole desktop; chosen palette is Ember, see docs/roadmap.md 1.1" },
+  { title = "nisse Ember color scheme (dark shell, light document areas)", seen = "Whole desktop; chosen palette is Ember, see docs/roadmap.md 1.1", shipped = "/usr/share/color-schemes/NisseEmber.colors" },
 ]
 
 [[group]]
@@ -153,5 +156,5 @@ title = "Sounds"
 seen = "Login, logout, notifications, errors and volume feedback (audio, not graphics)"
 patterns = ["usr/share/sounds/ocean/stereo/*.oga"]
 requests = [
-  { title = "nisse login sound", seen = "After login" },
+  { title = "nisse login sound", seen = "After login", shipped = "/usr/share/sounds/nisse/stereo/desktop-login.wav" },
 ]

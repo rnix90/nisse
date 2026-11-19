@@ -1,0 +1,46 @@
+# Every approved nisse art asset (N-415): its path in the installed image, the package that ships it, and the done task that made
+# it. tests/rpm/test_approved_art.sh checks each path against the built RPM (run in the build VM); tools/brandart/tests/
+# test_art_ownership.py checks the lines, and that every open art request in tools/brandart/surfaces.toml is shipped (a path
+# here), owned by an open task, kept in the repository, or decided.
+# Format: <path> <package> <task> [min=N]. A path ending in / is a folder: at least N files (default 1) must be under it.
+#
+# the logo and the marks (N-405) and the n with its hat (N-403)
+/usr/share/icons/hicolor/scalable/apps/distributor-logo-nisse.svg nisse-branding N-405
+/usr/share/icons/hicolor/symbolic/apps/distributor-logo-nisse-symbolic.svg nisse-branding N-405
+/usr/share/icons/hicolor/scalable/apps/start-here.svg nisse-branding N-405
+/usr/share/pixmaps/fedora-logo.png nisse-branding N-405
+/usr/share/icons/hicolor/scalable/apps/nisse-n.svg nisse-branding N-403
+# the installer launcher icon (N-410) and the installer look (N-411)
+/usr/share/icons/hicolor/scalable/apps/org.fedoraproject.AnacondaInstaller.svg nisse-branding N-410
+/usr/share/cockpit/branding/nisse/branding.css nisse-branding N-411
+/usr/share/cockpit/branding/nisse/logo.png nisse-branding N-411
+/usr/share/cockpit/branding/nisse/favicon.ico nisse-branding N-411
+# the six tray icons (N-413 drew them, N-415 installs them; the tray item that shows them is N-415a)
+/usr/share/icons/hicolor/scalable/status/nisse-tray-idle-symbolic.svg nisse-branding N-415
+/usr/share/icons/hicolor/scalable/status/nisse-tray-busy-symbolic.svg nisse-branding N-415
+/usr/share/icons/hicolor/scalable/status/nisse-tray-needs-you-symbolic.svg nisse-branding N-415
+/usr/share/icons/hicolor/scalable/status/nisse-tray-unread-symbolic.svg nisse-branding N-415
+/usr/share/icons/hicolor/scalable/status/nisse-tray-paused-symbolic.svg nisse-branding N-415
+/usr/share/icons/hicolor/scalable/status/nisse-tray-offline-symbolic.svg nisse-branding N-415
+# the avatars (N-406a): 17 gnome pictures and the nisse sticker
+/usr/share/plasma/avatars/ nisse-avatars N-406a min=17
+/usr/share/nisse/art-replacements/ nisse-avatars N-406a min=3
+# the wallpaper (N-407a)
+/usr/share/wallpapers/nisse/metadata.json nisse-wallpaper N-407a
+/usr/share/wallpapers/nisse/contents/images/1920x1080.png nisse-wallpaper N-407a
+/usr/share/wallpapers/nisse/contents/images_dark/1920x1080.png nisse-wallpaper N-407a
+# the cursors (N-408) and the icon themes (N-409)
+/usr/share/icons/nisse_cursors/index.theme nisse-cursors N-408
+/usr/share/icons/nisse_icons/index.theme nisse-icons N-409
+/usr/share/icons/nisse_icons_dark/index.theme nisse-icons N-409
+# the Ember color schemes (N-107)
+/usr/share/color-schemes/NisseEmber.colors nisse-theme N-107
+/usr/share/color-schemes/NisseEmberLight.colors nisse-theme N-107
+# the sound theme (N-414)
+/usr/share/sounds/nisse/index.theme nisse-sounds N-414
+/usr/share/sounds/nisse/stereo/desktop-login.wav nisse-sounds N-414
+/usr/share/sounds/nisse/stereo/desktop-logout.wav nisse-sounds N-414
+/usr/share/sounds/nisse/stereo/message-new-instant.wav nisse-sounds N-414
+/usr/share/sounds/nisse/stereo/nisse-needs-you.wav nisse-sounds N-414
+/usr/share/sounds/nisse/stereo/dialog-error.wav nisse-sounds N-414
+/usr/share/sounds/nisse/stereo/audio-volume-change.wav nisse-sounds N-414
