@@ -83,6 +83,7 @@ public:
     const TrayState::Inputs &inputs() const { return m_inputs; }
 
 signals:
+    void activationTokenProvided(const QString &token); // Plasma's tray sends the click's xdg-activation token just before Activate
     void activateRequested();            // a left click: slide the sidebar in or out
     void approvalsRequested();           // a middle click or the Approvals entry: open it on the approvals page
     void pauseRequested(bool pause);     // the pause entry: true = stop all AI activity, false = resume

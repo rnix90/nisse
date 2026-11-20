@@ -28,6 +28,13 @@ Item {
     // Total approvals waiting across all sessions, and sessions that finished unseen (the taskbar badges, N-207).
     property int needsYouCount: 0
     property int unreadCount: 0
+    // Whether the person can see the conversation (the sidebar is open, or the window is the one in front). A turn that finishes while
+    // they cannot, even in the selected tab, is unread for the tray item (N-415b): with one conversation and the sidebar closed no tab
+    // is ever "in the background", so the tab dots alone would never show it. Opening the sidebar clears it.
+    property bool viewing: true
+    property bool finishedAway: false
+    readonly property int trayUnread: unreadCount + (finishedAway ? 1 : 0)
+    onViewingChanged: if (viewing) finishedAway = false
     // Sessions with a turn running: by their own chunks or by the daemon's word (the tray item's busy state, N-415b).
     readonly property int workingCount: {
         var n = 0
@@ -56,6 +63,7 @@ Item {
         unreadMap = ({})
         needsYouCount = 0
         unreadCount = 0
+        finishedAway = false
         pendingSelect = ""
     }
 
@@ -352,6 +360,8 @@ Item {
                 u[sid] = true
                 root.unreadMap = u
                 root.countUnread()
+            } else if (sid === root.selectedId && !root.viewing) {
+                root.finishedAway = true
             }
         }
     }

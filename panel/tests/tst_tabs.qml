@@ -446,6 +446,45 @@ TestCase {
         compare(tabs.workingCount, 1)
     }
 
+    // the tray's unread state: a turn that finished while nobody was looking, even in the tab that is selected (with one conversation and
+    // the sidebar closed, no tab is ever "in the background")
+    function test_a_turn_finishing_while_the_sidebar_is_not_viewed_is_unread_for_the_tray() {
+        stub.add(false)
+        tabs.refresh()
+        tabs.viewing = false
+        tabs.chatFor("s1").submit("go")
+        stub.chunk("s1", "x")
+        stub.done("s1")
+        compare(tabs.trayUnread, 1)
+        compare(findChild(tabs, "tab-s1").status, "idle") // the tab's own dot is unchanged: it is the selected tab
+        tabs.viewing = true
+        compare(tabs.trayUnread, 0, "opening the sidebar is seeing it")
+        tabs.viewing = true
+    }
+
+    function test_a_turn_finishing_while_the_sidebar_is_viewed_is_not_unread() {
+        stub.add(false)
+        tabs.refresh()
+        tabs.viewing = true
+        tabs.chatFor("s1").submit("go")
+        stub.chunk("s1", "x")
+        stub.done("s1")
+        compare(tabs.trayUnread, 0)
+    }
+
+    function test_a_background_tab_and_an_away_finish_count_together() {
+        stub.add(false); stub.add(false)
+        tabs.refresh()
+        tabs.select("s1")
+        tabs.viewing = false
+        stub.chunk("s2", "x")
+        stub.done("s2")        // a background tab: its own unread dot
+        stub.chunk("s1", "y")
+        stub.done("s1")        // the selected tab, away
+        compare(tabs.unreadCount, 1)
+        compare(tabs.trayUnread, 2)
+    }
+
     function test_a_closed_tab_does_not_count_as_working() {
         stub.add(false); stub.add(false)
         tabs.refresh()

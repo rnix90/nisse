@@ -38,13 +38,15 @@ words, `panel/tests/tst_trayicon.cpp` proves every state and every pair.
 |---|---|
 | icon | `nisse-tray-<state>-symbolic`; Status is NeedsAttention only for needs you |
 | tooltip | the state in words with the approvals count ("2 approvals waiting", "AI paused", "Working", "1 conversation finished") |
-| left click | slides the sidebar in or out (`PanelService::Toggle`) |
+| left click | slides the sidebar in or out (`PanelService::Toggle`); Plasma's tray first hands the item the click's xdg-activation token (`ProvideXdgActivationToken`, verified in plasma-workspace 6.6.4's tray plugin and in KDE's own SNI library), which the panel forwards so the sidebar can be given the keyboard when it opens (N-415a: without a token or a click on it, typing does not arrive) |
 | middle click | opens the sidebar on the approvals page |
 | right-click menu | Open nisse; Approvals (N), shown only while something waits and the daemon is there; a separator; Pause AI / Resume AI (the kill switch, N-215, as the desktop device; disabled while the daemon is away) |
 
 The SNI protocol has no count slot, so the count is on the tooltip, in the menu entry and in the needs-you icon itself; the taskbar badge
 on the pinned launcher (N-207) stays as it was. The inputs come from `DaemonClient` (connection, approvals, kill switch) and from the
-conversation tabs (`SessionTabs.workingCount` and `unreadCount`, handed over through `TrayCounts`). `--demo-tray STATE[:N]` forces a state
+conversation tabs (`SessionTabs.workingCount` and `unreadCount`, handed over through `TrayCounts`). A turn that finishes while the sidebar is not open counts as unread for the tray even in the selected tab (`SessionTabs.finishedAway`;
+with one conversation and the sidebar closed no tab is ever "in the background", so the tab dots alone would never show it); opening the
+sidebar clears it. `--demo-tray STATE[:N]` forces a state
 for screenshots and checks.
 
 Checked: `tst_trayicon` (state mapping, 44 checks), `tst_trayitem` (the item and the menu on a private bus, 20 checks: registration with a

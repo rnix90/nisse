@@ -242,6 +242,21 @@ private slots:
         QTRY_COMPARE(spy.count(), 1);
     }
 
+    void theTokenOfAClickReachesTheSidebarBeforeTheActivation()
+    {
+        // Plasma's tray hands the item an xdg-activation token (the input event of the click) just before it calls Activate; the
+        // sidebar needs it to be given the keyboard when it opens (N-415a: without a token or a click on it, typing does not arrive)
+        TrayItem item(m_itemBus, 31);
+        QVERIFY(item.start());
+        m_service = item.serviceName();
+        QStringList order;
+        connect(&item, &TrayItem::activationTokenProvided, this, [&](const QString &t) { order << QStringLiteral("token:") + t; });
+        connect(&item, &TrayItem::activateRequested, this, [&] { order << QStringLiteral("activate"); });
+        call(QString::fromLatin1(TrayItem::kItemPath), kItemIface, QStringLiteral("ProvideXdgActivationToken"), {QStringLiteral("tok-123")});
+        call(QString::fromLatin1(TrayItem::kItemPath), kItemIface, QStringLiteral("Activate"), {0, 0});
+        QTRY_COMPARE(order, (QStringList{QStringLiteral("token:tok-123"), QStringLiteral("activate")}));
+    }
+
     void aMiddleClickAsksForTheApprovals()
     {
         TrayItem item(m_itemBus, 24);

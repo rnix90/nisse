@@ -427,6 +427,7 @@ int main(int argc, char *argv[])
     QObject::connect(&client, &DaemonClient::killSwitchChanged, &app, refreshTray);
     QObject::connect(&client, &DaemonClient::connectionChanged, &app, refreshTray);
     QObject::connect(&trayCounts, &TrayCounts::changed, &app, refreshTray);
+    QObject::connect(&tray, &TrayItem::activationTokenProvided, &service, &PanelService::SetActivationToken);
     QObject::connect(&tray, &TrayItem::activateRequested, &service, &PanelService::Toggle);
     QObject::connect(&tray, &TrayItem::approvalsRequested, &service, &PanelService::ShowApprovals);
     QObject::connect(&tray, &TrayItem::pauseRequested, &app, [&](bool pause) {

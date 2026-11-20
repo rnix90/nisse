@@ -177,6 +177,9 @@ public:
 
 public slots:
     void ContextMenu(int, int) {} // the menu is the dbusmenu at Menu
+    // KDE's extension of the protocol (Plasma 6.6.4's tray calls it before Activate): the token carries the click, so the sidebar can be
+    // given the keyboard when it opens
+    void ProvideXdgActivationToken(const QString &token) { emit m_item->activationTokenProvided(token); }
     void Activate(int, int) { emit m_item->activateRequested(); }
     void SecondaryActivate(int, int) { emit m_item->approvalsRequested(); }
     void Scroll(int, const QString &) {}
