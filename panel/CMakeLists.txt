@@ -16,6 +16,7 @@ qt_add_qml_module(nisse-panel
     SOURCES src/DaemonClient.h src/DaemonClient.cpp src/ApprovalNotifier.h src/ApprovalNotifier.cpp
             src/MicWatcher.h src/MicWatcher.cpp src/DesktopNotify.h src/DesktopNotify.cpp src/LauncherBadge.h src/LauncherBadge.cpp
             src/Sidebar.h src/Sidebar.cpp src/PanelService.h src/PanelService.cpp src/LayerShellDock.h src/LayerShellDock.cpp
+            src/TrayState.h src/TrayState.cpp src/TrayItem.h src/TrayItem.cpp src/TrayCounts.h
 )
 target_link_libraries(nisse-panel PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::DBus LayerShellQt::Interface)
 install(TARGETS nisse-panel RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -55,6 +56,20 @@ target_include_directories(tst_sidebar PRIVATE src)
 target_link_libraries(tst_sidebar PRIVATE Qt6::Test Qt6::Core)
 add_test(NAME tst_sidebar COMMAND tst_sidebar)
 set_tests_properties(tst_sidebar PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# The tray item's state mapping and wording (no bus, no window).
+add_executable(tst_trayicon tests/tst_trayicon.cpp src/TrayState.cpp)
+target_include_directories(tst_trayicon PRIVATE src)
+target_link_libraries(tst_trayicon PRIVATE Qt6::Test Qt6::Core)
+add_test(NAME tst_trayicon COMMAND tst_trayicon)
+set_tests_properties(tst_trayicon PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# The tray item and its menu on a private bus (run under dbus-run-session, so the person's own session bus is never touched).
+add_executable(tst_trayitem tests/tst_trayitem.cpp src/TrayItem.cpp src/TrayState.cpp)
+target_include_directories(tst_trayitem PRIVATE src)
+target_link_libraries(tst_trayitem PRIVATE Qt6::Test Qt6::Core Qt6::DBus)
+add_test(NAME tst_trayitem COMMAND dbus-run-session -- $<TARGET_FILE:tst_trayitem>)
+set_tests_properties(tst_trayitem PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_panelservice tests/tst_panelservice.cpp src/PanelService.cpp src/Sidebar.cpp)
 target_include_directories(tst_panelservice PRIVATE src)

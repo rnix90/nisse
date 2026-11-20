@@ -28,6 +28,14 @@ Item {
     // Total approvals waiting across all sessions, and sessions that finished unseen (the taskbar badges, N-207).
     property int needsYouCount: 0
     property int unreadCount: 0
+    // Sessions with a turn running: by their own chunks or by the daemon's word (the tray item's busy state, N-415b).
+    readonly property int workingCount: {
+        var n = 0
+        for (var i = 0; i < tabs.length; ++i)
+            if (tabs[i].running === true || workingMap[tabs[i].id] === true)
+                n += 1
+        return n
+    }
 
     property bool creating: false
     property string pendingSelect: ""

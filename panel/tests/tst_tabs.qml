@@ -428,6 +428,34 @@ TestCase {
         compare(tabs.chatFor("s2").messages.count, 0)
     }
 
+    // what the tray item shows (N-415b): how many sessions are working and how many finished unseen
+    function test_the_working_count_follows_turns_and_what_the_daemon_says_is_running() {
+        stub.add(false); stub.add(false); stub.add(false)
+        tabs.refresh()
+        compare(tabs.workingCount, 0)
+        tabs.chatFor("s1").submit("go")
+        stub.chunk("s1", "x")
+        stub.chunk("s2", "y")
+        compare(tabs.workingCount, 2)
+        stub.done("s1")
+        compare(tabs.workingCount, 1)
+        stub.list = stub.list.map(function (s) { if (s.id === "s3") s.running = true; return s })
+        tabs.refresh()
+        compare(tabs.workingCount, 2) // s2 by its chunks, s3 by the daemon's word
+        stub.done("s2")
+        compare(tabs.workingCount, 1)
+    }
+
+    function test_a_closed_tab_does_not_count_as_working() {
+        stub.add(false); stub.add(false)
+        tabs.refresh()
+        stub.chunk("s2", "x")
+        compare(tabs.workingCount, 1)
+        stub.list = stub.list.filter(function (s) { return s.id !== "s2" })
+        stub.sessionsChanged()
+        compare(tabs.workingCount, 0)
+    }
+
     function test_a_session_the_daemon_says_is_running_shows_working() {
         stub.add(true)
         stub.list = stub.list.map(function (s) { s.running = true; return s })

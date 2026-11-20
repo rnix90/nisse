@@ -27,6 +27,10 @@ ApplicationWindow {
         }
     }
 
+    // what the tray item shows besides the daemon's own state (N-415b)
+    Binding { target: trayCounts; property: "working"; value: tabs.workingCount }
+    Binding { target: trayCounts; property: "unread"; value: tabs.unreadCount }
+
     // the sidebar takes the keyboard when it is opened on purpose (tray, shortcut, a notice); the pointer at the edge does not
     // Asked for at once it is ignored while the surface is still sliding in from off screen (live check 2026-11-19: the window never
     // became active, so Escape and typing did nothing), so it waits for the slide to end, then focuses the chat input.
@@ -99,6 +103,7 @@ ApplicationWindow {
         Keys.onEscapePressed: window.closeSidebar()
 
         SessionTabs {
+            id: tabs
             client: daemon
         }
         ApprovalsView {

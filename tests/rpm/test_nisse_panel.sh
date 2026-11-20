@@ -26,6 +26,9 @@ for f in /usr/share/icons/hicolor/scalable/apps/nisse-assistant.svg /usr/share/i
 done
 rpm -qp --requires "$rpmf" | grep -q '^nisse-daemon' || fail "RPM must require nisse-daemon"
 rpm -qp --requires "$rpmf" | grep -q 'qt6-qtdeclarative' || fail "RPM must require qt6-qtdeclarative (QML runtime)"
+# N-415b: the tray item names its six icons (nisse-tray-<state>-symbolic); nisse-branding ships them from 0.2-6, so a panel without
+# that package would show a blank tray item.
+rpm -qp --requires "$rpmf" | grep -qE '^nisse-branding >= 0\.2-6' || fail "RPM must require nisse-branding >= 0.2-6 (the tray item's icons)"
 # N-205: the microphone check runs pw-dump, so the package must pull it in.
 rpm -qp --requires "$rpmf" | grep -qx 'pipewire-utils' || fail "RPM must require pipewire-utils (the notice is held back while a microphone is in use)"
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpmf")" = "GPL-2.0-or-later" ] || fail "License must be GPL-2.0-or-later"

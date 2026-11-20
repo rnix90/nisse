@@ -65,4 +65,7 @@ dbus-run-session -- bash tests/e2e/events_inner.sh "$daemon" "$panel" "$work"
 # N-221: device pairing through the real daemon with a loopback device that signs its calls.
 dbus-run-session -- bash tests/e2e/devices_inner.sh "$daemon" "$panel" "$work" "$probe"
 
+# N-415b: the tray item of the real panel on the bus, following the real daemon (icon per state, the menu's pause, offline).
+dbus-run-session -- bash tests/e2e/tray_inner.sh "$daemon" "$panel" "$work"
+
 echo "PASS: panel and daemon end to end"

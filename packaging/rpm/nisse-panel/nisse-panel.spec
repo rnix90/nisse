@@ -5,7 +5,7 @@
 
 Name:           nisse-panel
 Version:        0.1
-Release:        18%{?dist}
+Release:        19%{?dist}
 Summary:        nisse panel: chat with the AI that looks after this computer
 License:        GPL-2.0-or-later
 BuildRequires:  cmake
@@ -19,7 +19,8 @@ Requires:       nisse-daemon
 Requires:       qt6-qtdeclarative
 # the layer-shell plugin is loaded at run time, not linked, so it is not found by the automatic dependencies
 Requires:       layer-shell-qt
-Requires:       nisse-branding
+# the tray item's six state icons (nisse-tray-<state>-symbolic) are installed by nisse-branding from 0.2-6 (N-415)
+Requires:       nisse-branding >= 0.2-6
 Requires:       hicolor-icon-theme
 # The desktop notice for a waiting approval is held back while a microphone is in use; that is read with pw-dump.
 Requires:       pipewire-utils
@@ -29,11 +30,12 @@ Source2:        nisse-panel-autostart.desktop
 
 %description
 The nisse panel, a docked sidebar on the right screen edge. It runs from
-login and slides out on the tray click, Meta+N, a notice or the pointer at
-the edge. It has chat tabs for several sessions at once, an approvals view,
-an audit log view and the active backend. It talks to nisse-daemon over
-D-Bus and sends a desktop notice when an approval is waiting and you are not
-looking at the panel, except while a microphone is in use.
+login, shows a tray item and slides out on the tray click, Meta+N, a notice
+or the pointer at the edge. It has chat tabs for several sessions at once,
+an approvals view, an audit log view and the active backend. It talks to
+nisse-daemon over D-Bus and sends a desktop notice when an approval is
+waiting and you are not looking at the panel, except while a microphone is
+in use.
 
 %prep
 
@@ -66,6 +68,11 @@ find %{buildroot}%{_datadir}/icons/hicolor -type d -exec chmod 0755 {} +
 %{_datadir}/icons/hicolor/*/apps/nisse-assistant.*
 
 %changelog
+* Fri Nov 20 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-19
+- A tray item (a StatusNotifierItem on the session bus, N-415b): the icon follows the daemon's state (offline, needs you, paused, busy,
+  unread, idle, in that order of priority), the tooltip and the menu carry the approvals count, a click slides the sidebar, and the right-click
+  menu opens it, opens the approvals or pauses and resumes the AI (the kill switch). --demo-tray STATE[:N] forces a state
+
 * Thu Nov 19 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-18
 - The panel is a docked sidebar on the right screen edge (layer-shell, N-415a): one instance that starts at login, closed; the tray click,
   Meta+N, a notice click and the pointer at the edge open it; it stays open until closed and floats over windows. A second launch toggles it

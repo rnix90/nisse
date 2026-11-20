@@ -35,7 +35,7 @@ patterns = [
 ]
 requests = [
   { title = "Website and favicon mark", seen = "Browser tab and the project page", repo = "N-413: the web set lives in assets/logo/favicon and assets/logo/social; a website is not part of the image" },
-  { title = "nisse panel tray icon (monochrome, all states)", seen = "System tray: idle, busy, needs-you, error", shipped = "/usr/share/icons/hicolor/scalable/status/nisse-tray-idle-symbolic.svg", used_by = "N-415b" },
+  { title = "nisse panel tray icon (monochrome, all states)", seen = "System tray: idle, busy, needs-you, error", shipped = "/usr/share/icons/hicolor/scalable/status/nisse-tray-idle-symbolic.svg", decided = "N-415b: the panel's tray item shows them, one per daemon state" },
 ]
 
 [[group]]

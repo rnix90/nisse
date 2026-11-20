@@ -4,6 +4,8 @@
 #include "LayerShellDock.h"
 #include "PanelService.h"
 #include "Sidebar.h"
+#include "TrayCounts.h"
+#include "TrayItem.h"
 
 #include <QCoreApplication>
 #include <QEvent>
@@ -402,6 +404,43 @@ int main(int argc, char *argv[])
         if (QByteArray(argv[i]) == "--demo-badge")
             badge.update(QByteArray(argv[i + 1]).toInt());
     }
+    // The tray item (N-415b): Plasma's system tray shows it and it follows the daemon's state; a click slides the sidebar. The tabs
+    // keep two of its inputs (working and unread sessions) and hand them over through `trayCounts`. --demo-tray STATE[:N] forces a
+    // state, for the screenshots and the live check.
+    TrayCounts trayCounts;
+    TrayItem tray;
+    TrayState::Inputs forcedTray;
+    bool trayForced = false;
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (QByteArray(argv[i]) == "--demo-tray") {
+            trayForced = TrayState::demoInputs(QString::fromLocal8Bit(argv[i + 1]), &forcedTray);
+            if (!trayForced)
+                qWarning("--demo-tray: expected idle, busy, needs-you[:N], unread, paused or offline");
+        }
+    }
+    auto refreshTray = [&] {
+        tray.setInputs(trayForced ? forcedTray
+                                  : TrayState::inputsFrom(client.connectionState(), client.pendingCount(), client.killSwitchJson(),
+                                                          trayCounts.working(), trayCounts.unread()));
+    };
+    QObject::connect(&client, &DaemonClient::pendingCountChanged, &app, refreshTray);
+    QObject::connect(&client, &DaemonClient::killSwitchChanged, &app, refreshTray);
+    QObject::connect(&client, &DaemonClient::connectionChanged, &app, refreshTray);
+    QObject::connect(&trayCounts, &TrayCounts::changed, &app, refreshTray);
+    QObject::connect(&tray, &TrayItem::activateRequested, &service, &PanelService::Toggle);
+    QObject::connect(&tray, &TrayItem::approvalsRequested, &service, &PanelService::ShowApprovals);
+    QObject::connect(&tray, &TrayItem::pauseRequested, &app, [&](bool pause) {
+        // the kill switch (N-215): the click is recorded as the desktop device; the daemon's own change signal updates the icon
+        const QString error = pause ? client.engageKillSwitch(QStringLiteral("paused from the tray")) : client.releaseKillSwitch();
+        if (!error.isEmpty())
+            qWarning("tray: %s", qPrintable(error));
+    });
+    // Started once this panel owns the bus name (a second launch that hands over and exits must not show a second icon).
+    auto startTray = [&] {
+        refreshTray();
+        if (!tray.start())
+            qWarning("tray: could not register the tray item on the session bus");
+    };
     // --page N opens on that page (0 chat, 1 approvals, 2 audit log, 3 settings), for the screenshots in the live image (N-219).
     int startPage = 0;
     for (int i = 1; i + 1 < argc; ++i) {
@@ -414,6 +453,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("daemon"), &client);
     engine.rootContext()->setContextProperty(QStringLiteral("sidebar"), &sidebar);
+    engine.rootContext()->setContextProperty(QStringLiteral("trayCounts"), &trayCounts);
     engine.rootContext()->setContextProperty(QStringLiteral("sidebarDocked"), docked);
     engine.rootContext()->setContextProperty(QStringLiteral("startPage"), startPage);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
@@ -449,10 +489,13 @@ int main(int argc, char *argv[])
             PanelService::callRunning(QStringLiteral("Toggle"));
             return 0;
         }
+        startTray();
         if (action.startOpen)
             QTimer::singleShot(0, &sidebar, &Sidebar::show);
     } else if (panelWindow) {
         panelWindow->show();
+        if (!windowed || trayForced)
+            startTray(); // a normal window where docking is not possible (X11, tests) still gets the tray item
     }
     return app.exec();
 }
