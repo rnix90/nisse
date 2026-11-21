@@ -35,6 +35,9 @@ mkdir "$work/mnt"
 sudo mount -t erofs -o loop,ro "$work/root.erofs" "$work/mnt" || fail "the root image is not a mountable EROFS filesystem"
 root="$work/mnt"
 listing="$(sudo find "$root" -xdev -type f 2>/dev/null)"
+# a query against the image's own package database (defined here, before the first block that uses it: the N-415a block once
+# called it before it existed, and nothing noticed until the first rebuild that ran the test)
+rpmq() { rpm --dbpath "$root/usr/lib/sysimage/rpm" "$@"; }
 
 grep -qx 'ID=nisse' "$root/usr/lib/os-release" || fail "root filesystem os-release lacks ID=nisse"
 [ -d "$root/usr/share/fonts/nunito" ] || fail "Nunito font directory missing"
@@ -242,7 +245,6 @@ for unit in wireplumber.service pipewire-pulse.socket xdg-user-dirs.service; do
 done
 
 # Package database checks: the release-repo-only decision (Qt 6.10) and Fedora's KDE release package is gone.
-rpmq() { rpm --dbpath "$root/usr/lib/sysimage/rpm" "$@"; }
 case "$(rpmq -qf /usr/bin/pw-dump 2>/dev/null)" in pipewire-utils-*) ;; *) fail "pw-dump is not from pipewire-utils" ;; esac
 qt="$(rpmq -q --qf '%{version}' qt6-qtbase 2>/dev/null)" || fail "qt6-qtbase is not installed in the image"
 case "$qt" in 6.10*) ;; *) fail "qt6-qtbase is $qt, expected 6.10.x (release repo only, no updates)";; esac
