@@ -92,11 +92,28 @@ still listing every snapshot.
 | refuse | live media, a root that is not btrfs, snapshot 0 or a number that is not a snapshot, a snapshot whose kernel is no longer in `/boot` (a newer kernel against older modules ends in emergency mode), a default boot entry for another kernel with no boot entry for the snapshot's. Nothing is touched when it refuses. |
 | 1. copy | a writable btrfs snapshot of the snapshot, `root.rollback-new` (a leftover of a crashed run is deleted first) |
 | 2. record | written INTO the copy: `state=idle`, `last=rolled-back`, `rolled-back-at`, `snapshot`, `reason`, `rolled-back-from`, the failed update's fingerprint as `blocked-fingerprint`, its package list as `failed-changed.txt`, its health result as `failed-health`, and the arm record so the next boot's `nisse-boot reconcile` hands the snapshot back to snapper's cleanup. The failed update's files are read from the real root, never from the running system, so this also works from the fallback boot |
-| 3. swap | `.snapshots` moves into the copy, the running root is renamed `root.failed-<time>`, the copy becomes `root`. The last two are consecutive renames: a machine that lost power exactly between them has no `root` until `mv root.rollback-new root` from a rescue shell (the message says so). Failing before them undoes what it did |
+| 3. swap | `.snapshots` and every other subvolume nested in the running root move into the copy (below), the running root is renamed `root.failed-<time>`, the copy becomes `root`. The last two are consecutive renames: a machine that lost power exactly between them has no `root` until `mv root.rollback-new root` from a rescue shell (the message says so). Failing before them undoes what it did, including every subvolume already moved |
 | 4. boot | the default boot entry goes back to the snapshot's own kernel if the failed update had installed a newer one; GRUB is disarmed (`nisse-boot clear`) only after the swap; older `root.failed-*` are deleted, only the newest is kept for inspection |
 | 5. reboot | only with `--reboot` |
 
-home, `var_log` and `var_cache` are separate subvolumes and are never touched (N-312 proves it with a data subvolume).
+### What a rollback does not touch (N-312)
+
+- **Separate subvolumes** (`home`, `var_log`, `var_cache`, and any data subvolume mounted from fstab, such as a future model
+  store) are siblings of the root at the top level of the file system, so a rollback never touches them. Their files stay as they
+  are, including what was written after the snapshot. `tests/e2e/test_excluded_subvolumes.sh` proves it on a real installed disk
+  for home, `var_log`, `var_cache` and a data subvolume.
+- **A subvolume nested inside the root** is not in a snapshot (a snapshot holds an empty placeholder directory where it was), and
+  the swap moves the whole old root aside, so without care its files would seem to vanish into the kept old root. Bert decided
+  (2026-11-21) that they are carried across: every nested subvolume of the old root except `.snapshots` (outermost only, one inside
+  another goes with it) is moved to the same path in the restored root, an empty placeholder directory is removed first and a
+  missing parent is made. A path with anything else on it (a non-empty directory, a file) is left alone, the subvolume stays in the
+  kept old root, `nested-left=` in the record names it, and the rollback still goes through. The sequence matters and was checked
+  on a real btrfs first (`tools/spike/nested_subvolume_spike.sh`): `mv` onto an existing directory moves the subvolume INSIDE it,
+  so the path is made free with `rmdir` (which refuses anything that is not empty) and the subvolume is moved to the absent path.
+- **The limit, said plainly:** `fstab` is part of the root, so it comes back as it was at the snapshot. A mount line added for a data
+  subvolume AFTER the snapshot is gone from the restored `fstab`: the files are safe in their subvolume, but nothing mounts it until
+  the line is put back (the end-to-end test shows exactly this). The installer's own subvolumes are in `fstab` from the first
+  snapshot on, so they are never affected.
 Moving `.snapshots` empties the running system's snapshot list for the seconds before the reboot, so `nisse-boot-sync.path`
 removes the boot menu file; `nisse-boot-setup` writes it again at the next boot.
 

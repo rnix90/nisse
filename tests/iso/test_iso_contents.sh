@@ -394,6 +394,8 @@ echo "watchdog rollback: nisse-rollback, the watchdog, the after-rollback notice
 # Undo in the panel (ledger N-311): the list command the daemon runs, the limited-mode rule that lets it run without a password box
 # (and no passwordless rollback), and the guard binary that holds nisse-rollback for the AI are in the image.
 grep -q '^cmd_list() {' "$root/usr/bin/nisse-rollback" || fail "nisse-rollback in the image has no list command"
+# N-312: and it carries the subvolumes nested in the root across to the restored system
+grep -q '^nested_subvolumes() {' "$root/usr/bin/nisse-rollback" || fail "nisse-rollback in the image does not carry nested subvolumes across"
 sudo grep -qx '%wheel ALL=(root) NOPASSWD: /usr/bin/nisse-rollback list' "$root/usr/share/nisse/sudo/sudoers-limited" || fail "the limited sudo policy in the image does not allow 'nisse-rollback list' without a password"
 if sudo grep -E 'NOPASSWD:.*nisse-rollback' "$root/usr/share/nisse/sudo/sudoers-limited" | grep -vqx '%wheel ALL=(root) NOPASSWD: /usr/bin/nisse-rollback list'; then fail "the limited sudo policy makes more of nisse-rollback passwordless than 'list'"; fi
 [ -x "$root/usr/bin/nisse-guard-hook" ] || fail "nisse-guard-hook is missing from the image (it holds nisse-rollback for the AI)"

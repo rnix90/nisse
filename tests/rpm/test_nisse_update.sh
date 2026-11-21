@@ -58,6 +58,8 @@ fi
 # N-311: the panel's undo list reads `nisse-rollback list`, and the sudoers rule of limited mode names exactly that path
 grep -q '^cmd_list() {' "$scratch/usr/bin/nisse-rollback" || fail "nisse-rollback has no list command (the panel's undo list needs it)"
 grep -q 'usage: nisse-rollback run SNAPSHOT .* | list' "$scratch/usr/bin/nisse-rollback" || fail "nisse-rollback's usage does not mention list"
+# N-312: the rollback carries the subvolumes nested in the root across (btrfs-progs, which the package requires, lists them)
+grep -q '^nested_subvolumes() {' "$scratch/usr/bin/nisse-rollback" || fail "nisse-rollback does not carry nested subvolumes across"
 # N-310: the watchdog unit skips live media, runs the watchdog, is enabled by the preset; the notice starts at the KDE login;
 # the tools call each other by the names the package installs
 wd="$(cat "$scratch/usr/lib/systemd/system/nisse-update-watchdog.service")"

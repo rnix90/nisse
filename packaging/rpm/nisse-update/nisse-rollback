@@ -12,23 +12,28 @@
 #
 #   1. a writable copy of the snapshot is made beside the root           (root.rollback-new)
 #   2. the record of what happened is written INTO that copy              (state, the failed update's list and health result)
-#   3. .snapshots is moved into the copy, the running root is renamed root.failed-<time> and the copy becomes `root`
+#   3. .snapshots and every other subvolume nested in the running root are moved into the copy (a snapshot holds only an empty
+#      placeholder where a nested subvolume was, so it is carried across or its files would seem to vanish, N-312), the running
+#      root is renamed root.failed-<time> and the copy becomes `root`
 #   4. the default boot entry goes back to the snapshot's own kernel if the failed update had installed a newer one, GRUB's
 #      boot counter is disarmed (nisse-boot clear), and only the newest failed root is kept
 #   5. a reboot, only with --reboot
 #
 # Nothing is swapped until the copy and its record exist; a refusal or a failure before step 3 leaves the machine as it was.
-# home, var_log and var_cache are separate subvolumes and are never touched. It also works from the fallback boot, where
+# home, var_log and var_cache are separate subvolumes and are never touched; neither is any other subvolume that is mounted
+# from fstab. (A mount line added to fstab AFTER the snapshot is not in the restored fstab: the data stays in its subvolume, and
+# nothing mounts it until the line is put back.) It also works from the fallback boot, where
 # the running root is a read-only snapshot inside the real root: everything is read from and written to the top level.
 # Who decides to call it (the watchdog, the panel's undo button) is not this tool's business.
 #
-# Test overrides (never set in production): NISSE_TOP_DIR (a directory instead of the mounted btrfs top level), NISSE_BTRFS,
+# Test overrides (never set in production): NISSE_TOP_DIR (a directory instead of the mounted btrfs top level), NISSE_BTRFS, NISSE_MV,
 # NISSE_BOOT_DIR, NISSE_BOOT_TOOL, NISSE_GRUB_EDITENV, NISSE_SYSTEMCTL, NISSE_ROOT_FSTYPE, NISSE_ROOT_DEVICE, NISSE_FSROOT,
 # NISSE_CMDLINE_FILE, NISSE_NOW; for list: NISSE_SNAPPER, NISSE_SNAPPER_CONFDIR, NISSE_SNAPSHOTS_ROOT.
 set -u
 
 boot="${NISSE_BOOT_DIR:-/boot}"
 btrfs="${NISSE_BTRFS:-btrfs}"
+mvbin="${NISSE_MV:-mv}"
 boot_tool="${NISSE_BOOT_TOOL:-/usr/bin/nisse-boot}"
 editenv="${NISSE_GRUB_EDITENV:-/usr/bin/grub2-editenv}"
 systemctl="${NISSE_SYSTEMCTL:-/usr/bin/systemctl}"
@@ -92,6 +97,25 @@ default_kernel() {
 old_value() {
     [ -f "$1" ] || return 0
     sed -n "s/^$2=//p" "$1" | tail -n 1
+}
+
+# The subvolumes nested in the running root, as paths below it, outermost only (one inside another goes with it), never .snapshots
+# or what is in it (those move on their own). `btrfs subvolume list -o` prints each as "ID n gen n top level n path root/opt/data".
+nested_subvolumes() {
+    "$btrfs" subvolume list -o "$cur" 2>/dev/null |
+        sed -n 's/^ID [0-9]* gen [0-9]* top level [0-9]* path //p' |
+        awk -v p="$prefix/" 'index($0, p) == 1 { print substr($0, length(p) + 1) }' |
+        grep -v '^\.snapshots\($\|/\)' |
+        LC_ALL=C sort |
+        awk '{ for (i = 1; i <= n; i++) if (index($0, keep[i] "/") == 1) next; keep[++n] = $0; print }'
+}
+
+# Puts the subvolumes moved into the new root back into the running one, newest first.
+undo_moves() {
+    printf '%s\n' "$moved" | while IFS= read -r r; do
+        [ -n "$r" ] || continue
+        "$mvbin" "$new/$r" "$cur/$r" 2>/dev/null
+    done
 }
 
 mounted=""
@@ -192,18 +216,60 @@ cmd_run() {
         mkdir -p "$new/$boot_state_dir" && cp -f "$cur/$boot_state_dir/armed" "$new/$boot_state_dir/armed"
     fi
 
-    # --- 3. the swap: .snapshots first (the running root is still `root` then), then two renames in a row
+    # --- 3. the swap: .snapshots and the nested subvolumes first (the running root is still `root` then), then two renames in a row.
+    # Every subvolume moved is remembered (newest first), so a failure anywhere puts them all back and the machine is as it was.
     rmdir "$new/.snapshots" 2>/dev/null
-    if ! mv "$cur/.snapshots" "$new/.snapshots"; then
+    if ! "$mvbin" "$cur/.snapshots" "$new/.snapshots"; then
         "$btrfs" subvolume delete "$new" >/dev/null 2>&1
         die "cannot move .snapshots into the new root, nothing was changed"
     fi
-    if ! mv "$cur" "$top/$failed"; then
-        mv "$new/.snapshots" "$cur/.snapshots" 2>/dev/null
+    moved=".snapshots"
+    # A subvolume nested in the root is not in the snapshot (its copy holds an empty directory where it was), so it is carried to
+    # the same place in the new root, or it would stay behind in the kept old root and its files would seem to vanish (N-312,
+    # Bert's decision). Only a path that is free is moved to: an empty placeholder directory is removed first, a missing parent is
+    # made, and a path with anything else on it is left alone, because `mv` onto an existing directory would move the subvolume
+    # INSIDE it (checked on a real btrfs, tools/spike/nested_subvolume_spike.sh).
+    carried=""
+    left=""
+    ncarried=0
+    nested="$(nested_subvolumes)"
+    while IFS= read -r r; do
+        [ -n "$r" ] || continue
+        if [ -e "$new/$r" ] || [ -L "$new/$r" ]; then
+            if ! rmdir "$new/$r" 2>/dev/null; then
+                left="$left$r,"
+                say "left the nested subvolume $r in $failed: something is already at that path in the restored system"
+                continue
+            fi
+        elif ! mkdir -p "$(dirname "$new/$r")" 2>/dev/null; then
+            left="$left$r,"
+            say "left the nested subvolume $r in $failed: its parent directory could not be made in the restored system"
+            continue
+        fi
+        if ! "$mvbin" "$cur/$r" "$new/$r"; then
+            undo_moves
+            "$btrfs" subvolume delete "$new" >/dev/null 2>&1
+            die "cannot carry the nested subvolume $r across, nothing was changed"
+        fi
+        moved="$r
+$moved"
+        ncarried=$((ncarried + 1))
+        carried="$carried$r, "
+    done <<EOF
+$nested
+EOF
+    if [ "$ncarried" -gt 0 ]; then
+        say "carried $ncarried nested subvolume$([ "$ncarried" = 1 ] || echo s) across to the restored system: ${carried%, }"
+    fi
+    if [ -n "$left" ]; then
+        printf 'nested-left=%s\n' "${left%,}" >> "$nu/state"
+    fi
+    if ! "$mvbin" "$cur" "$top/$failed"; then
+        undo_moves
         "$btrfs" subvolume delete "$new" >/dev/null 2>&1
         die "cannot rename the running root, nothing was changed"
     fi
-    if ! mv "$new" "$cur"; then
+    if ! "$mvbin" "$new" "$cur"; then
         die "THE SWAP STOPPED HALFWAY: the running root is now '$failed' and the new root is '$prefix.rollback-new'. From a rescue shell, mount the top level (mount -o subvolid=5) and run: mv $prefix.rollback-new $prefix"
     fi
     sync

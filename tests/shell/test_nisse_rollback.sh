@@ -54,6 +54,17 @@ fresh() {
     cat > "$work/btrfs" <<'STUB'
 #!/bin/sh
 echo "btrfs $*" >> "$STUB_DIR/calls"
+if [ "$1 $2" = "subvolume list" ]; then
+    # list -o PATH: the subvolumes nested under PATH, printed the way btrfs prints them (the path from the top level). In this fake
+    # a directory is a subvolume when it holds a file called .nisse-subvol.
+    [ "$3" = "-o" ] || exit 1
+    find "$4" -name .nisse-subvol | sort | while read -r m; do
+        d="${m%/.nisse-subvol}"
+        echo "ID 300 gen 9 top level 5 path ${d#$NISSE_TOP_DIR/}"
+    done
+    [ -f "$STUB_DIR/list.extra" ] && cat "$STUB_DIR/list.extra"
+    exit 0
+fi
 [ "$1 $2" = "subvolume snapshot" ] || [ "$1 $2" = "subvolume delete" ] || exit 1
 if [ "$2" = snapshot ]; then
     [ -n "${BTRFS_FAIL:-}" ] && { echo "ERROR: cannot snapshot" >&2; exit 1; }
@@ -210,6 +221,90 @@ out="$(run run 41 --reason "the updated system never finished starting")"; rc=$?
 [ "$rc" = 0 ] && [ "$(cat "$top/root/etc/marker")" = old ] && [ -d "$top/root/.snapshots/42/snapshot" ] && ok "from a snapshot boot: the same swap works on the real root" || bad "snapshot boot: rc=$rc $out"
 new_has "blocked-fingerprint=abc123" && ok "from a snapshot boot: the failed update's state is read from the real root, not from the running snapshot" || bad "snapshot boot: state $(new_state)"
 export NISSE_FSROOT=/root
+
+# ---- nested subvolumes (N-312): a subvolume nested inside the root is not in a snapshot (the copy holds an empty placeholder
+# directory where it was), so the swap carries it across, or it would stay behind in the kept old root and its files would seem to
+# vanish. Checked first on a real btrfs (tools/spike/nested_subvolume_spike.sh): the placeholder is removed, then the subvolume is
+# moved to the path that is now free (mv onto an existing directory moves it INSIDE that directory, so a path is never moved onto).
+nested_fresh() {
+    fresh
+    # the copy of snapshot 41 has an empty placeholder where /opt/data was a subvolume
+    mkdir -p "$top/root/.snapshots/41/snapshot/opt/data"
+    # in the running root /opt/data is a subvolume (a directory holding .nisse-subvol in this fake) with a file
+    mkdir -p "$top/root/opt/data"; touch "$top/root/opt/data/.nisse-subvol"; echo precious > "$top/root/opt/data/file"
+    # .snapshots and every snapshot are subvolumes too: they move on their own and must never be carried as nested ones
+    touch "$top/root/.snapshots/.nisse-subvol" "$top/root/.snapshots/41/snapshot/.nisse-subvol" "$top/root/.snapshots/42/snapshot/.nisse-subvol"
+}
+nested_fresh
+out="$(run run 41)"; rc=$?
+fd="$(failed_dir)"
+[ "$rc" = 0 ] && [ "$(cat "$top/root/opt/data/file" 2>/dev/null)" = precious ] && [ -e "$top/root/opt/data/.nisse-subvol" ] && ok "nested: a subvolume nested in the old root is carried to the same place in the restored root, with its files" || bad "nested: rc=$rc file='$(cat "$top/root/opt/data/file" 2>&1)' out=$out"
+[ -n "$fd" ] && [ ! -e "$fd/opt/data" ] && ok "nested: it is no longer in the kept old root" || bad "nested: still in the kept root: $(ls "$fd/opt" 2>&1)"
+case "$out" in *"carried 1 nested subvolume"*"opt/data"*) ok "nested: the output says what was carried" ;; *) bad "nested: no word about the carried subvolume: $out" ;; esac
+[ -d "$top/root/.snapshots/41/snapshot" ] && [ -e "$top/root/.snapshots/.nisse-subvol" ] && [ -e "$top/root/.snapshots/41/snapshot/.nisse-subvol" ] && ok "nested: .snapshots and the snapshots in it are not treated as nested subvolumes (they moved on their own, once)" || bad "nested: the snapshots were disturbed"
+printf '%s\n' "$out" | grep -q 'carried.*\.snapshots' && bad "nested: .snapshots was carried as a nested subvolume" || ok "nested: .snapshots is not in the list of carried subvolumes"
+has_call 'btrfs subvolume list -o ' && ok "nested: the old root's nested subvolumes come from btrfs subvolume list -o" || bad "nested: no list -o call: $(grep btrfs "$work/calls")"
+nested_fresh
+mkdir -p "$top/root/srv/new/deeper/vol"; touch "$top/root/srv/new/deeper/vol/.nisse-subvol"; echo late > "$top/root/srv/new/deeper/vol/file"
+out="$(run run 41)"; rc=$?
+[ "$rc" = 0 ] && [ "$(cat "$top/root/srv/new/deeper/vol/file" 2>/dev/null)" = late ] && ok "nested: one made AFTER the snapshot, under parents the restored root does not have, is carried too (its parents are made)" || bad "nested after the snapshot: rc=$rc $out"
+case "$out" in *"carried 2 nested"*) ok "nested: both are counted" ;; *) bad "nested: count: $out" ;; esac
+nested_fresh
+mkdir -p "$top/root/opt/data/inner"; touch "$top/root/opt/data/inner/.nisse-subvol"; echo deep > "$top/root/opt/data/inner/file"
+out="$(run run 41)"; rc=$?
+[ "$rc" = 0 ] && [ "$(cat "$top/root/opt/data/inner/file" 2>/dev/null)" = deep ] && ok "nested: a subvolume inside a nested one goes with it" || bad "nested in nested: rc=$rc $out"
+case "$out" in *"carried 1 nested"*) ok "nested: only the outer one is moved (it takes the inner one along)" ;; *) bad "nested in nested: moved separately: $out" ;; esac
+case "$out" in *left*) bad "nested in nested: the inner one was reported as left behind: $out" ;; *) ok "nested: the inner one is not reported as left behind (it went with the outer one)" ;; esac
+new_state | grep -q '^nested-left=' && bad "nested in nested: the record says something was left: $(new_state)" || ok "nested: and the record names nothing as left"
+# the listing may name .snapshots or a snapshot in it (a real btrfs does until .snapshots has been moved): never carried
+nested_fresh
+printf 'ID 301 gen 9 top level 5 path root/.snapshots\nID 302 gen 9 top level 5 path root/.snapshots/41/snapshot\nID 303 gen 9 top level 5 path root/.snapshots/42/snapshot\n' > "$work/list.extra"
+out="$(run run 41)"; rc=$?
+[ "$rc" = 0 ] && [ "$(cat "$top/root/opt/data/file" 2>/dev/null)" = precious ] && ok "nested: .snapshots and the snapshots named in the listing are skipped, the real nested subvolume is still carried" || bad "nested with .snapshots in the listing: rc=$rc $out"
+case "$out" in *"carried 1 nested"*) ok "nested: and only that one is counted" ;; *) bad "nested with .snapshots in the listing: $out" ;; esac
+case "$out" in *left*) bad "nested: .snapshots was reported as a nested subvolume left behind: $out" ;; *) ok "nested: nothing about .snapshots is reported as left behind" ;; esac
+new_state | grep -q '^nested-left=' && bad "nested: the record names .snapshots as left: $(new_state)" || ok "nested: and the record names nothing as left"
+fresh
+out="$(run run 41)"
+printf '%s\n' "$out" | grep -qi 'nested' && bad "nested: said something about nested subvolumes when there are none: $out" || ok "nested: nothing nested, nothing said"
+
+# a conflict: something is already at that path in the restored root. The subvolume is LEFT in the kept old root, the rollback still
+# goes through, and the record says which were left.
+nested_fresh
+echo x > "$top/root/.snapshots/41/snapshot/opt/data/in-the-way"
+out="$(run run 41)"; rc=$?
+fd="$(failed_dir)"
+[ "$rc" = 0 ] && [ "$(cat "$top/root/opt/data/in-the-way" 2>/dev/null)" = x ] && [ ! -e "$top/root/opt/data/file" ] && ok "nested conflict: a non-empty directory in the way is left alone (nothing is moved into it or over it)" || bad "nested conflict: rc=$rc $out"
+[ -n "$fd" ] && [ "$(cat "$fd/opt/data/file" 2>/dev/null)" = precious ] && ok "nested conflict: the subvolume stays in the kept old root, files intact" || bad "nested conflict: not kept: $(ls "$fd/opt" 2>&1)"
+case "$out" in *"left"*"opt/data"*) ok "nested conflict: the output says it was left, and where" ;; *) bad "nested conflict: no word: $out" ;; esac
+new_has "nested-left=opt/data" && ok "nested conflict: the record names it (nested-left=)" || bad "nested conflict: state $(new_state)"
+nested_fresh
+rm -rf "$top/root/.snapshots/41/snapshot/opt/data"; echo x > "$top/root/.snapshots/41/snapshot/opt/data"
+out="$(run run 41)"; rc=$?
+[ "$rc" = 0 ] && [ -f "$top/root/opt/data" ] && new_has "nested-left=opt/data" && ok "nested conflict: a regular file in the way is left alone too" || bad "nested conflict with a file: rc=$rc $out"
+
+# a failure while carrying, or in the renames after it, undoes everything: the machine is as it was
+nested_fresh
+cat > "$work/mv" <<'STUB'
+#!/bin/sh
+# fails when the destination is /opt/data (the carried subvolume), otherwise really moves
+case "$2" in */opt/data) echo "mv: cannot move" >&2; exit 1 ;; esac
+exec mv "$@"
+STUB
+chmod +x "$work/mv"; export NISSE_MV="$work/mv"
+out="$(run run 41)"; rc=$?
+[ "$rc" != 0 ] && untouched && [ -e "$top/root/opt/data/.nisse-subvol" ] && [ "$(cat "$top/root/opt/data/file")" = precious ] && ok "nested failure: a failed move undoes everything (.snapshots is back, the subvolume is where it was, no new root is left)" || bad "nested failure: rc=$rc out=$out top=$(ls "$top")"
+! has_call 'nisse-boot clear' && ok "nested failure: GRUB stays armed" || bad "nested failure: disarmed GRUB"
+nested_fresh
+cat > "$work/mv" <<'STUB'
+#!/bin/sh
+# fails when the running root is renamed away
+case "$2" in */root.failed-*) echo "mv: cannot rename" >&2; exit 1 ;; esac
+exec mv "$@"
+STUB
+out="$(run run 41)"; rc=$?
+[ "$rc" != 0 ] && untouched && [ -e "$top/root/opt/data/.nisse-subvol" ] && [ "$(cat "$top/root/opt/data/file")" = precious ] && ok "nested: a failed rename of the running root also brings the carried subvolume and .snapshots back" || bad "rename failure: rc=$rc out=$out top=$(ls "$top")"
+unset NISSE_MV
 
 # ---- an undo by hand (the panel's undo button, N-311): there is no failed update behind it, so no fingerprint, maybe no state at
 # all. The first version of the record's write counted "no fingerprint" as a failed write (the end-to-end test of N-311 found it).

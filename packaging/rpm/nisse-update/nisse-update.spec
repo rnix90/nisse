@@ -3,7 +3,7 @@
 
 Name:           nisse-update
 Version:        0.1
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Update the system with a way back: snapshot, update, verify
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -101,6 +101,9 @@ install -d %{buildroot}%{_sharedstatedir}/nisse/update
 %dir %{_sharedstatedir}/nisse/update
 
 %changelog
+* Sat Nov 21 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-5
+- nisse-rollback carries every subvolume nested in the root across to the restored system, and says so; one it cannot place is left in the kept old root and named (N-312)
+
 * Sat Nov 21 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-4
 - nisse-rollback list: the snapshots nisse made, for the panel's undo list (N-311)
 
