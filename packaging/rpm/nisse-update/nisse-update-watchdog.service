@@ -1,0 +1,15 @@
+[Unit]
+Description=nisse: undo an update that fails its checks
+Documentation=file:///usr/share/doc/nisse-update/safe-apply.md
+# nisse-boot-setup first: it fixes the GRUB environment and drops a stale arm, which this reads
+After=nisse-boot-setup.service
+ConditionKernelCommandLine=!rd.live.image
+
+[Service]
+# simple: while an update waits for its health checks this watches them for up to ten minutes, then counts down 60 seconds
+# before it undoes the update. With nothing to watch it ends at once.
+Type=simple
+ExecStart=/usr/bin/nisse-update-watchdog run
+
+[Install]
+WantedBy=multi-user.target

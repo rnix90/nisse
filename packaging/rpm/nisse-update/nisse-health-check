@@ -17,8 +17,10 @@
 # adds its own checks (and service lists) without touching this one. The four that ship: 10-boot, 20-network, 30-services,
 # 40-display. Bert's decision for the network check: the stack must work, not the internet.
 #
+# The result file says which boot it is about (boot-id=, the kernel's boot id) so the watchdog (N-310) never compares clocks.
+#
 # Test overrides (never set in production): NISSE_HEALTH_DIR, NISSE_STATE_DIR, NISSE_APPLY_UPDATES, NISSE_HEALTH_INTERVAL,
-# NISSE_CHECK_TIMEOUT, NISSE_NOW.
+# NISSE_CHECK_TIMEOUT, NISSE_NOW, NISSE_BOOT_ID_FILE.
 set -u
 
 health_dir="${NISSE_HEALTH_DIR:-/usr/lib/nisse/health.d}"
@@ -142,6 +144,9 @@ write_result() {
     {
         echo "result=$res"
         echo "checked-at=$at"
+        # which boot this result is about: the watchdog (N-310) must tell this boot's verdict from an older one, and clocks are
+        # not a way to do it (a clock that steps during boot, a flat CMOS battery, broke the comparison in the end-to-end test)
+        echo "boot-id=$(cat "${NISSE_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}" 2>/dev/null)"
         echo "checks=$names"
         if [ -n "$failed_names" ]; then echo "failed=$failed_names"; fi
         if [ -n "$extra_file" ] && [ -f "$extra_file" ]; then cat "$extra_file"; fi

@@ -55,3 +55,15 @@ fails, `fail-*.log` copies of the installer's logs.
   below the UI, but not the UI or the choices it makes (see finding 2).
 - Serial console only: it proves "boots to a login", not a pretty screen (the screenshot harness `regress.py` does that).
 - The first install on a new ISO takes the whole run; there is no resume.
+
+## Running tests on the installed disk (found at N-310)
+
+The end-to-end tests that boot the installed disk (`tools/vm/vmserver.py`, `tests/e2e/test_*.sh`) need two things:
+
+- **A local work folder.** The machine runs on a throwaway overlay it writes all the time. On the T: share (where the repo
+  lives) it crawled: systemd gave up starting ("Failed to start up manager") and a boot reached 99 s of kernel time in 420 s of
+  waiting. `vmserver.py serve` now refuses a network drive or UNC path and says so; the tests make their folder with `mktemp`.
+- **Packages installed from the release repository only.** The installed disk has Fedora's updates repository enabled, and a
+  plain `dnf install` of a nisse RPM drags in newer versions of its dependencies (`dnf5` 5.4.1 became 5.4.8 on 2026-11-21).
+  That upgrade killed the serial console session in the middle of the install and the test waited out its 30 minute limit. The
+  tests install with `--disablerepo=updates`, which also keeps them reproducible as the updates repository moves.

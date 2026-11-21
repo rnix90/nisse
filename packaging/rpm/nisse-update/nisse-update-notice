@@ -1,0 +1,42 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-update-notice: tell the person, once, that an update was undone (ledger N-310). Started at every graphical login by
+# /etc/xdg/autostart/nisse-update-notice.desktop, as that person. The state file is world-readable; what this person has
+# already been told is one number in their own state folder (the time of the rollback), so a later rollback is told again
+# and nobody else's reading of the state changes anything.
+#
+# Plasma's notification service may not be up yet at login, so a notice that cannot be sent is tried again for about a minute
+# and is only remembered once it was sent.
+#
+# Test overrides (never set in production): NISSE_STATE_DIR, NISSE_NOTIFY, NISSE_SLEEP, XDG_STATE_HOME.
+set -u
+
+state_dir="${NISSE_STATE_DIR:-/var/lib/nisse/update}"
+notify="${NISSE_NOTIFY:-notify-send}"
+sleeper="${NISSE_SLEEP:-sleep}"
+state_file="$state_dir/state"
+marker_dir="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/nisse"
+marker="$marker_dir/update-notice-seen"
+
+value() { [ -f "$state_file" ] && sed -n "s/^$1=//p" "$state_file" | tail -n 1; }
+
+[ "$(value last)" = rolled-back ] || exit 0
+at="$(value rolled-back-at)"
+[ -n "$at" ] || exit 0
+[ "$(cat "$marker" 2>/dev/null)" = "$at" ] && exit 0
+
+reason="$(value reason | tr -cd 'A-Za-z0-9 ._:,;+/()=-' | cut -c1-300)"
+body="The update did not pass its checks after restarting"
+[ -n "$reason" ] && body="$body ($reason)"
+body="$body, so nisse undid it and the system is back as it was before. Your files were not changed. nisse tries again when newer versions are available."
+
+tries=0
+while [ "$tries" -lt 20 ]; do
+    if "$notify" --app-name=nisse -- "nisse undid the last update" "$body" >/dev/null 2>&1; then
+        mkdir -p "$marker_dir" && printf '%s\n' "$at" > "$marker"
+        exit 0
+    fi
+    tries=$((tries + 1))
+    "$sleeper" 3
+done
+exit 1

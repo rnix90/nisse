@@ -32,7 +32,7 @@ fresh() {
     echo 41 > "$work/next"
     printf 'bash-5.2-1\nkernel-core-6.19.10-300\nfirefox-130-1\n' > "$work/rpmdb"
     : > "$work/calls"
-    unset DNF_FAIL DNF_NOCHANGE SNAPPER_FAIL BOOT_FAIL HW_FAIL
+    unset DNF_FAIL DNF_NOCHANGE SNAPPER_FAIL BOOT_FAIL HW_FAIL REPOQUERY_FAIL
     cat > "$work/snapper" <<'STUB'
 #!/bin/sh
 echo "snapper $*" >> "$STUB_DIR/calls"
@@ -49,9 +49,18 @@ case "$verb" in
 esac
 exit 0
 STUB
+    # unsorted and with a duplicate on purpose: the fingerprint must be of the sorted, unique list
+    printf 'kernel-core-0:7.3.4-200.fc44.x86_64\nfirefox-0:131-1.fc44.x86_64\nkernel-core-0:7.3.4-200.fc44.x86_64\n' > "$work/candidates"
     cat > "$work/dnf" <<'STUB'
 #!/bin/sh
-echo "dnf $*" >> "$STUB_DIR/calls"
+printf 'dnf %s\n' "$*" >> "$STUB_DIR/calls"
+if [ "$1" = repoquery ]; then
+    [ -n "${REPOQUERY_FAIL:-}" ] && exit 1
+    echo "Updating and loading repositories:"
+    echo "Repositories loaded."
+    cat "$STUB_DIR/candidates"
+    exit 0
+fi
 echo "skip=${NISSE_SNAPSHOT_SKIP:-}" >> "$STUB_DIR/dnfenv"
 [ -n "${DNF_FAIL:-}" ] && { echo "Error: a package failed" >&2; exit 1; }
 if [ -z "${DNF_NOCHANGE:-}" ]; then
@@ -142,7 +151,7 @@ export DNF_FAIL=1; out="$(run run --reboot)"
 has_call 'systemctl reboot' && bad "dnf failure with --reboot: rebooted" || ok "dnf failure with --reboot: still no reboot"
 fresh
 export SNAPPER_FAIL=1; out="$(run run)"; rc=$?
-[ "$rc" != 0 ] && ! has_call 'dnf' && ok "no snapshot, no update: a failed pre snapshot stops before dnf" || bad "update went ahead without a snapshot (rc=$rc)"
+[ "$rc" != 0 ] && ! has_call 'dnf upgrade' && ok "no snapshot, no update: a failed pre snapshot stops before dnf upgrade" || bad "update went ahead without a snapshot (rc=$rc)"
 fresh
 export HW_FAIL=1; out="$(run run)"; rc=$?
 [ "$rc" != 0 ] && ! has_call 'nisse-boot arm' && state_has "state=failed" && ok "hardware step failure: failed, nothing armed" || bad "hwroute failure: rc=$rc state=$(cat "$work/state/state")"
@@ -216,6 +225,53 @@ out="$(run reboot)"; rc=$?
 fresh
 out="$(run reboot)"; rc=$?
 [ "$rc" != 0 ] && ! has_call 'systemctl reboot' && ok "reboot: refuses when nothing is pending" || bad "reboot with nothing pending: rc=$rc"
+
+# ---- N-310: an update that was rolled back is not tried again until it changes
+fp_of() { sort -u "$work/candidates" | sha256sum | cut -c1-32; }
+fresh
+run run >/dev/null
+state_has "fingerprint=$(fp_of)" && ok "fingerprint: the pending state records a fingerprint of the packages the update installs" || bad "fingerprint: $(cat "$work/state/state")"
+has_call 'dnf repoquery --upgrades' && ok "fingerprint: it asks dnf what the upgrade would install" || bad "fingerprint: no repoquery: $(cat "$work/calls")"
+[ "$(sed -n '1p' "$work/candidates")" = "kernel-core-0:7.3.4-200.fc44.x86_64" ] && [ "$(sort "$work/candidates" | uniq -d)" != "" ] && ok "fingerprint: dnf's list in this test is unsorted with a duplicate, so the hash above proves the tool sorts and de-duplicates" || bad "fingerprint: test setup is not unsorted"
+fresh
+run run --dnf-arg --repofrompath=e2e,file:///x >/dev/null
+has_call 'dnf repoquery .*--repofrompath=e2e,file:///x' && ok "fingerprint: the extra dnf arguments reach the query too (it must see the same repositories)" || bad "fingerprint: extras not passed: $(grep repoquery "$work/calls")"
+fresh
+export REPOQUERY_FAIL=1
+out="$(run run)"; rc=$?
+[ "$rc" = 0 ] && state_has "state=pending-verify" && ! grep -q '^fingerprint=' "$work/state/state" && ok "fingerprint: when dnf cannot say, the update still goes ahead (no fingerprint, so nothing can be blocked)" || bad "fingerprint: query failure rc=$rc $(cat "$work/state/state")"
+
+# blocked: the same set that was rolled back is skipped
+fresh
+printf 'state=idle\nlast=rolled-back\nrolled-back-at=1699999000\nsnapshot=41\nreason=the network check failed\nblocked-fingerprint=%s\n' "$(fp_of)" > "$work/state/state"
+out="$(run run)"; rc=$?
+[ "$rc" = 0 ] && ok "blocked: exit 0 (skipping is not an error)" || bad "blocked: rc=$rc $out"
+! has_call 'snapper' && ! has_call 'dnf upgrade' && ! has_call 'nisse-boot arm' && ok "blocked: no snapshot, no upgrade, nothing armed" || bad "blocked: went ahead: $(cat "$work/calls")"
+case "$out" in *"rolled back"*"newer"*) ok "blocked: says why and when it will try again" ;; *) bad "blocked: no explanation: $out" ;; esac
+state_has "last=rolled-back" && state_has "rolled-back-at=1699999000" && state_has "blocked-fingerprint=$(fp_of)" && ok "blocked: the rollback record is kept (the notice and the block stay)" || bad "blocked: state $(cat "$work/state/state")"
+state_has "skipped-at=1700000000" && ok "blocked: records that it skipped, and when" || bad "blocked: no skipped-at"
+# the next day the repository offers different versions
+printf 'firefox-0:131-2.fc44.x86_64\nkernel-core-0:7.3.4-200.fc44.x86_64\n' > "$work/candidates"
+: > "$work/calls"
+out="$(run run)"; rc=$?
+[ "$rc" = 0 ] && has_call 'dnf upgrade -y' && state_has "state=pending-verify" && ok "blocked: once the repository offers different versions the update is tried" || bad "blocked: still skipped after the set changed: rc=$rc $(cat "$work/state/state")"
+! grep -q '^blocked-fingerprint=' "$work/state/state" && state_has "fingerprint=$(fp_of)" && ok "blocked: the new update's own fingerprint replaces the block" || bad "blocked: block not replaced: $(cat "$work/state/state")"
+# a rollback record without a fingerprint (an undo by hand) never blocks
+fresh
+printf 'state=idle\nlast=rolled-back\nrolled-back-at=1699999000\nsnapshot=41\n' > "$work/state/state"
+out="$(run run)"; rc=$?
+[ "$rc" = 0 ] && has_call 'dnf upgrade -y' && ok "blocked: a rollback with no fingerprint (an undo by hand) blocks nothing" || bad "blocked: blocked without a fingerprint"
+# pending verification still comes first
+fresh
+printf 'state=pending-verify\nsnapshot=41\n' > "$work/state/state"
+out="$(run run)"; rc=$?
+[ "$rc" != 0 ] && case "$out" in *pending*) ok "blocked: a pending update is still refused as before" ;; *) bad "pending reason lost: $out" ;; esac || bad "pending update accepted"
+# a verified update clears everything
+fresh
+printf 'state=idle\nlast=rolled-back\nblocked-fingerprint=%s\n' "$(fp_of)" > "$work/state/state"
+printf 'other-0:1-1.fc44.noarch\n' > "$work/candidates"
+run run >/dev/null; run verified >/dev/null
+! grep -q 'blocked-fingerprint' "$work/state/state" && ok "verified: leaves no block behind" || bad "verified: block survived: $(cat "$work/state/state")"
 
 # ---- usage
 out="$(run)"; rc=$?

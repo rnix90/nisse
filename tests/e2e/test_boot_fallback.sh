@@ -52,7 +52,7 @@ ok "the installed disk booted to a login (on a throwaway overlay)"
 for p in nisse-boot nisse-snapshots; do
     V put "/tmp/$p.rpm" "$(cygpath -m "$(ls "$pulled"/"$p"-[0-9]*.rpm | head -1)")" >/dev/null
 done
-out="$(V run 'S dnf install -y /tmp/nisse-snapshots.rpm /tmp/nisse-boot.rpm 2>&1 | tail -3; echo "RES: $(rpm -q nisse-boot nisse-snapshots | tr "\n" " ")"' 900)"
+out="$(V run 'S dnf install -y --disablerepo=updates /tmp/nisse-snapshots.rpm /tmp/nisse-boot.rpm 2>&1 | tail -3; echo "RES: $(rpm -q nisse-boot nisse-snapshots | tr "\n" " ")"' 900)"
 case "$out" in *"RES: nisse-boot-"*"nisse-snapshots-"*) ok "nisse-boot and nisse-snapshots install on the installed system" ;; *) bad "install failed: $(echo "$out" | tail -5)"; exit 1 ;; esac
 
 # ---- the first-boot fixes: env_block (the installed system really has it), snippets in grub.cfg, the snapper config

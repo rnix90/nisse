@@ -381,6 +381,16 @@ state="$(sudo systemctl --root="$merged" is-enabled nisse-health-check.service 2
 case "$state" in enabled | enabled-runtime) ;; *) fail "nisse-health-check.service is '$state' after the image applies its presets, expected enabled" ;; esac
 echo "health check: the runner, the four checks and the unit are in the image and enabled"
 
+# The watchdog rollback (ledger N-310): the rollback tool, the watchdog, the notice after a rollback and the countdown notice's
+# sender are in the image, the watchdog unit is enabled, the notice starts at the KDE login, and the tools it needs are there.
+for f in /usr/bin/nisse-rollback /usr/bin/nisse-update-watchdog /usr/bin/nisse-update-notice /usr/bin/notify-send /usr/sbin/btrfs /usr/bin/runuser /usr/bin/loginctl; do
+    [ -x "$root$f" ] || [ -x "$root/usr/bin/$(basename "$f")" ] || fail "$f is missing or not executable"
+done
+[ -f "$root/etc/xdg/autostart/nisse-update-notice.desktop" ] || fail "the notice after a rollback has no autostart entry"
+state="$(sudo systemctl --root="$merged" is-enabled nisse-update-watchdog.service 2>/dev/null || true)"
+case "$state" in enabled | enabled-runtime) ;; *) fail "nisse-update-watchdog.service is '$state' after the image applies its presets, expected enabled" ;; esac
+echo "watchdog rollback: nisse-rollback, the watchdog, the after-rollback notice, notify-send and the unit are in the image, the unit is enabled"
+
 # nisse's sudo policy (ledger N-306a): the package is in the image in its default, full mode (wheel runs sudo with no
 # password, the AI works with no interruptions), the sudoers drop-in is the mode sudo requires (0440), and the shim and
 # the password popup helper are there for limited mode.

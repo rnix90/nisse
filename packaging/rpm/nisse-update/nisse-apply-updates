@@ -17,8 +17,16 @@
 #
 # The state file (/var/lib/nisse/update/state) is what N-309 (health check) and N-310 (watchdog) read:
 #   state=idle | running | pending-verify | failed      snapshot=N (before)   post-snapshot=N   applied-at=EPOCH
-#   changed=N   kernel-changed=yes|no   message=ONE LINE   last=verified|nothing-to-do
+#   changed=N   kernel-changed=yes|no   message=ONE LINE   last=verified|nothing-to-do|rolled-back
+#   fingerprint=HASH (pending-verify)   blocked-fingerprint=HASH rolled-back-at=EPOCH reason=ONE LINE rolled-back-from=NAME (idle,
+#   after a rollback: written by nisse-rollback)   skipped-at=EPOCH
 # A failure never arms anything and never reboots: an update that could not be armed has no way back.
+#
+# An update that was rolled back (nisse-rollback, the watchdog, N-310) is not tried again until it changes: `run` asks dnf which
+# packages the upgrade would install and keeps a fingerprint of that list in the pending state (fingerprint=). A rollback
+# carries it into the restored system as blocked-fingerprint=; while dnf still offers exactly that set, `run` skips (exit 0,
+# state untouched, skipped-at=) and tries again as soon as the repositories offer different versions (Bert, 2026-11-21).
+# When dnf cannot say there is no fingerprint and nothing is blocked.
 #
 # Test overrides (never set in production): NISSE_STATE_DIR, NISSE_SNAPPER, NISSE_DNF, NISSE_RPM, NISSE_BOOT_TOOL,
 # NISSE_HWROUTE, NISSE_SYSTEMCTL, NISSE_SNAPPER_CONFDIR, NISSE_ROOT_FSTYPE, NISSE_FREE_PERCENT, NISSE_CMDLINE_FILE, NISSE_NOW,
@@ -86,6 +94,18 @@ fail_run() {
     exit 1
 }
 
+# The fingerprint of the set of packages this update would install: a hash of dnf's own sorted list of upgrades (through the
+# same extra dnf arguments, so it sees the same repositories). Nothing when dnf cannot say or has nothing to upgrade.
+fingerprint() {
+    set -- repoquery --upgrades --refresh --queryformat '%{full_nevra}\n'
+    while IFS= read -r a; do
+        set -- "$@" "$a"
+    done < "$extra"
+    list="$("$dnf" "$@" 2>/dev/null | grep -E '^[^ ]+-[^ ]+\.[A-Za-z0-9_]+$' | sort -u)"
+    [ -n "$list" ] || return 1
+    printf '%s\n' "$list" | sha256sum | cut -c1-32
+}
+
 cmd_run() {
     reboot_after=no
     tries="$default_tries"
@@ -135,6 +155,17 @@ cmd_run() {
         exec 9> "$state_dir/lock"
         flock -n 9 || die "another run is in progress"
     fi
+    # --- an update that was rolled back is not tried again until it changes
+    fp="$(fingerprint)" || fp=""
+    blocked="$(state_value blocked-fingerprint)"
+    if [ -n "$fp" ] && [ "$fp" = "$blocked" ]; then
+        tmp="$state_file.new"
+        grep -v '^skipped-at=' "$state_file" > "$tmp" 2>/dev/null
+        printf 'skipped-at=%s\n' "$now" >> "$tmp"
+        mv -f "$tmp" "$state_file" || die "cannot write $state_file"
+        say "skipped: the last update was rolled back ($(state_value reason)) and dnf still offers exactly the same packages; nisse tries again when newer versions are available"
+        return 0
+    fi
     [ "$(current_state)" = running ] && say "a previous run did not finish; carrying on"
     write_state "state=running" "started-at=$now"
 
@@ -181,7 +212,11 @@ cmd_run() {
     is_number "$post" || post=""
 
     # --- 6. pending verification; GRUB is armed last
-    write_state "state=pending-verify" "snapshot=$pre" "post-snapshot=$post" "applied-at=$now" "changed=$count" "kernel-changed=$kernel"
+    if [ -n "$fp" ]; then
+        write_state "state=pending-verify" "snapshot=$pre" "post-snapshot=$post" "applied-at=$now" "changed=$count" "kernel-changed=$kernel" "fingerprint=$fp"
+    else
+        write_state "state=pending-verify" "snapshot=$pre" "post-snapshot=$post" "applied-at=$now" "changed=$count" "kernel-changed=$kernel"
+    fi
     if ! out="$("$boot_tool" arm --tries "$tries" "$pre" 2>&1)"; then
         fail_run "the update is applied but nisse-boot could not arm the boot fallback (no way back by itself, so no reboot): $out"
     fi

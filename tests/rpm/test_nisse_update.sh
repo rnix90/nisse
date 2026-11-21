@@ -10,20 +10,22 @@ rpmf="$(ls -v out/rpmbuild/RPMS/noarch/nisse-update-[0-9]*.rpm 2>/dev/null | tai
 
 files="$(rpm -qlp "$rpmf")"
 for f in /usr/bin/nisse-apply-updates /usr/bin/nisse-health-check /usr/share/doc/nisse-update/safe-apply.md /var/lib/nisse/update \
+         /usr/bin/nisse-rollback /usr/bin/nisse-update-watchdog /usr/bin/nisse-update-notice \
+         /usr/lib/systemd/system/nisse-update-watchdog.service /etc/xdg/autostart/nisse-update-notice.desktop \
          /usr/lib/nisse/health.d/10-boot /usr/lib/nisse/health.d/20-network /usr/lib/nisse/health.d/30-services /usr/lib/nisse/health.d/40-display \
          /usr/share/nisse/health/services.d/00-core.list /usr/lib/systemd/system/nisse-health-check.service /usr/lib/systemd/system-preset/85-nisse-update.preset; do
     grep -qxF "$f" <<< "$files" || fail "RPM lacks $f"
 done
 
 reqs="$(rpm -qp --requires "$rpmf")"
-for r in dnf5 snapper nisse-boot nisse-snapshots util-linux-core; do
+for r in dnf5 snapper nisse-boot nisse-snapshots util-linux-core btrfs-progs /usr/bin/notify-send; do
     grep -qx "$r" <<< "$reqs" || fail "RPM must require $r"
 done
 # nisse-hw is optional (a machine without hardware routing still updates)
 rpm -qp --recommends "$rpmf" | grep -qx nisse-hw || fail "RPM should recommend nisse-hw"
 
 modes="$(rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpmf")"
-for x in /usr/bin/nisse-apply-updates /usr/bin/nisse-health-check /usr/lib/nisse/health.d/10-boot /usr/lib/nisse/health.d/20-network /usr/lib/nisse/health.d/30-services /usr/lib/nisse/health.d/40-display; do
+for x in /usr/bin/nisse-apply-updates /usr/bin/nisse-health-check /usr/bin/nisse-rollback /usr/bin/nisse-update-watchdog /usr/bin/nisse-update-notice /usr/lib/nisse/health.d/10-boot /usr/lib/nisse/health.d/20-network /usr/lib/nisse/health.d/30-services /usr/lib/nisse/health.d/40-display; do
     grep -q "^-rwxr-xr-x $x\$" <<< "$modes" || fail "$x must be mode 0755 (the runner only runs executable checks)"
 done
 
@@ -33,7 +35,7 @@ sh -n "$scratch/usr/bin/nisse-apply-updates" || fail "nisse-apply-updates has a 
 # it must use the state directory the RPM creates, and the tools the requirements bring
 grep -q 'state_dir="${NISSE_STATE_DIR:-/var/lib/nisse/update}"' "$scratch/usr/bin/nisse-apply-updates" || fail "the state directory does not match the RPM's"
 grep -q 'boot_tool="${NISSE_BOOT_TOOL:-/usr/bin/nisse-boot}"' "$scratch/usr/bin/nisse-apply-updates" || fail "it must call /usr/bin/nisse-boot"
-for x in usr/bin/nisse-health-check usr/lib/nisse/health.d/10-boot usr/lib/nisse/health.d/20-network usr/lib/nisse/health.d/30-services usr/lib/nisse/health.d/40-display; do
+for x in usr/bin/nisse-health-check usr/bin/nisse-rollback usr/bin/nisse-update-watchdog usr/bin/nisse-update-notice usr/lib/nisse/health.d/10-boot usr/lib/nisse/health.d/20-network usr/lib/nisse/health.d/30-services usr/lib/nisse/health.d/40-display; do
     sh -n "$scratch/$x" || fail "$x has a syntax error"
 done
 # the runner's default check folder and the services check's list folder match what the package installs
@@ -53,6 +55,27 @@ if command -v systemd-analyze >/dev/null 2>&1; then
     out="$(systemd-analyze verify "$scratch/usr/lib/systemd/system/nisse-health-check.service" 2>&1 | grep -v -E 'Command .* is not executable|Failed to prepare filename|^$' || true)"
     [ -z "$out" ] || fail "systemd-analyze verify: $out"
 fi
+# N-310: the watchdog unit skips live media, runs the watchdog, is enabled by the preset; the notice starts at the KDE login;
+# the tools call each other by the names the package installs
+wd="$(cat "$scratch/usr/lib/systemd/system/nisse-update-watchdog.service")"
+for want in 'ConditionKernelCommandLine=!rd.live.image' 'ExecStart=/usr/bin/nisse-update-watchdog run' 'WantedBy=multi-user.target'; do
+    grep -qx "$want" <<< "$wd" || fail "nisse-update-watchdog.service lacks: $want"
+done
+grep -q '^After=.*nisse-boot-setup.service' <<< "$wd" || fail "the watchdog must start after nisse-boot-setup.service (the GRUB environment is fixed by then)"
+grep -qx 'enable nisse-update-watchdog.service' "$scratch/usr/lib/systemd/system-preset/85-nisse-update.preset" || fail "the preset must enable the watchdog"
+grep -q '^Exec=/usr/bin/nisse-update-notice$' "$scratch/etc/xdg/autostart/nisse-update-notice.desktop" || fail "the autostart entry must run /usr/bin/nisse-update-notice"
+grep -q '^OnlyShowIn=KDE;$' "$scratch/etc/xdg/autostart/nisse-update-notice.desktop" || fail "the autostart entry must be for KDE"
+grep -q 'rollback="${NISSE_ROLLBACK:-/usr/bin/nisse-rollback}"' "$scratch/usr/bin/nisse-update-watchdog" || fail "the watchdog must call /usr/bin/nisse-rollback"
+grep -q 'boot_tool="${NISSE_BOOT_TOOL:-/usr/bin/nisse-boot}"' "$scratch/usr/bin/nisse-rollback" || fail "nisse-rollback must call /usr/bin/nisse-boot"
+grep -q 'state_dir="${NISSE_STATE_DIR:-/var/lib/nisse/update}"' "$scratch/usr/bin/nisse-update-watchdog" || fail "the watchdog's state directory does not match the RPM's"
+if command -v systemd-analyze >/dev/null 2>&1; then
+    out="$(systemd-analyze verify "$scratch/usr/lib/systemd/system/nisse-update-watchdog.service" 2>&1 | grep -v -E 'Command .* is not executable|Failed to prepare filename|^$' || true)"
+    [ -z "$out" ] || fail "systemd-analyze verify (watchdog): $out"
+fi
+out="$(sh "$scratch/usr/bin/nisse-rollback" 2>&1 || true)"
+grep -q '^usage: nisse-rollback' <<< "$out" || fail "nisse-rollback prints no usage line: $out"
+out="$(sh "$scratch/usr/bin/nisse-update-watchdog" 2>&1 || true)"
+grep -q '^usage: nisse-update-watchdog' <<< "$out" || fail "nisse-update-watchdog prints no usage line: $out"
 # the usage is printed with no argument and fails (a smoke test of the real script)
 out="$(sh "$scratch/usr/bin/nisse-apply-updates" 2>&1 || true)"
 grep -q '^usage: nisse-apply-updates' <<< "$out" || fail "no usage line: $out"

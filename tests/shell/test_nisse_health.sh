@@ -151,6 +151,8 @@ runner_fresh() {
     fresh
     mkdir -p "$work/health.d"
     export NISSE_HEALTH_DIR="$work/health.d"
+    export NISSE_BOOT_ID_FILE="$work/boot_id"
+    echo "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0" > "$work/boot_id"
     export NISSE_APPLY_UPDATES="$work/apply"
     cat > "$work/apply" <<'STUB'
 #!/bin/sh
@@ -173,12 +175,14 @@ out="$(rrun run --deadline 3)"; rc=$?
 grep -q 'apply verified' "$work/calls" && ok "runner: healthy means nisse-apply-updates verified" || bad "runner: verified not called: $(cat "$work/calls")"
 grep -qx 'result=healthy' "$work/state/health" && grep -q '^checks=10-a 20-b$' "$work/state/health" && ok "runner: writes health with result=healthy and the checks that ran" || bad "runner: health file: $(cat "$work/state/health")"
 grep -qx 'checked-at=1700000000' "$work/state/health" && ok "runner: records when" || bad "runner: no checked-at"
+grep -qx 'boot-id=0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0' "$work/state/health" && ok "runner: records WHICH boot it checked (the boot id), so the watchdog never has to compare clocks: a clock that steps during boot (a flat CMOS battery, the first network time sync) made the time comparison wrong in the end-to-end test" || bad "runner: no boot-id: $(cat "$work/state/health")"
 
 runner_fresh; mkcheck 10-a 0; mkcheck 20-b 1 "the thing is broken"
 out="$(rrun run --deadline 2)"; rc=$?
 [ "$rc" != 0 ] && ok "runner: a failing check at the deadline: exit non-zero" || bad "runner unhealthy: exit 0"
 ! grep -q 'apply verified' "$work/calls" && ok "runner: unhealthy never calls verified" || bad "runner: verified called despite a failure"
 grep -qx 'result=unhealthy' "$work/state/health" && grep -qx 'failed=20-b' "$work/state/health" && ok "runner: health says unhealthy and which check" || bad "runner: unhealthy health file: $(cat "$work/state/health")"
+grep -qx 'boot-id=0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0' "$work/state/health" && ok "runner: an unhealthy result records the boot id too" || bad "runner: unhealthy result has no boot-id"
 grep -qx 'message-20-b=the thing is broken' "$work/state/health" && ok "runner: and the reason the check printed" || bad "runner: reason missing: $(cat "$work/state/health")"
 grep -qx 'state=pending-verify' "$work/state/state" && ok "runner: the update stays pending (rolling back is N-310's job)" || bad "runner changed the update state"
 

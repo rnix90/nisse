@@ -42,7 +42,7 @@ fourth starts the snapshot (the counter shows -1); it keeps starting the snapsho
 - **A hung boot does not reboot itself.** The counter moves once per GRUB pass. A machine that hangs before or after the
   login needs a power-cycle (or the watchdog of N-310) to count; once it is back at GRUB it counts and falls back.
 - **The snapshot boot is read-only.** Starting from the menu is for looking around and as an emergency way in. The real
-  undo is the rollback of N-310.
+  undo is the rollback of N-310 (`nisse-rollback`).
 - **A corrupted `nisse-rollback.cfg` cannot come from the tool**: it never puts a file in place that
   `grub2-script-check` rejects. If one is damaged anyway (or names a kernel that is gone) the machine still boots
   normally; both were checked.
@@ -66,5 +66,9 @@ fourth starts the snapshot (the counter shows -1); it keeps starting the snapsho
 ## Handed on
 
 - N-308 arms it after the update snapshot (`nisse-boot arm SNAPSHOT`) and reboots; N-309's health check calls
-  `nisse-boot clear` when it passes; N-310 adds the writable rollback (`snapper rollback` does not apply, see the table).
+  `nisse-boot clear` when it passes; N-310 (done) added the writable rollback, `nisse-rollback`, which swaps subvolumes at the
+  btrfs top level because `snapper rollback` does not apply (see the table) and which settles a fallback boot instead of leaving
+  the machine on the read-only snapshot: `docs/safe-apply.md`, section "The watchdog rollback".
+- The snapshot menu file is deleted for a moment by a rollback (it moves `.snapshots` out from under the running system, and
+  `nisse-boot-sync.path` reacts) and written again by `nisse-boot-setup` at the next boot.
 - The first boot of an installed image regenerates `grub.cfg` once; a hand check on a real graphical install is queued.

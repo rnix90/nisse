@@ -1,0 +1,235 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-rollback: put the system back to a snapshot for good (ledger N-310). The undo of the rollback net.
+#
+#   nisse-rollback run SNAPSHOT [--reason TEXT] [--reboot]
+#
+# `snapper rollback` does not work on this layout (verified, docs/boot-recovery.md): the system boots by an explicit
+# `subvol=root` on the kernel line and in fstab, which a changed default subvolume does not override. So this swaps the
+# subvolumes at the btrfs top level and leaves fstab and the kernel line alone (proven on an installed disk first,
+# tools/spike/rollback_swap_spike.sh):
+#
+#   1. a writable copy of the snapshot is made beside the root           (root.rollback-new)
+#   2. the record of what happened is written INTO that copy              (state, the failed update's list and health result)
+#   3. .snapshots is moved into the copy, the running root is renamed root.failed-<time> and the copy becomes `root`
+#   4. the default boot entry goes back to the snapshot's own kernel if the failed update had installed a newer one, GRUB's
+#      boot counter is disarmed (nisse-boot clear), and only the newest failed root is kept
+#   5. a reboot, only with --reboot
+#
+# Nothing is swapped until the copy and its record exist; a refusal or a failure before step 3 leaves the machine as it was.
+# home, var_log and var_cache are separate subvolumes and are never touched. It also works from the fallback boot, where
+# the running root is a read-only snapshot inside the real root: everything is read from and written to the top level.
+# Who decides to call it (the watchdog, the panel's undo button) is not this tool's business.
+#
+# Test overrides (never set in production): NISSE_TOP_DIR (a directory instead of the mounted btrfs top level), NISSE_BTRFS,
+# NISSE_BOOT_DIR, NISSE_BOOT_TOOL, NISSE_GRUB_EDITENV, NISSE_SYSTEMCTL, NISSE_ROOT_FSTYPE, NISSE_ROOT_DEVICE, NISSE_FSROOT,
+# NISSE_CMDLINE_FILE, NISSE_NOW.
+set -u
+
+boot="${NISSE_BOOT_DIR:-/boot}"
+btrfs="${NISSE_BTRFS:-btrfs}"
+boot_tool="${NISSE_BOOT_TOOL:-/usr/bin/nisse-boot}"
+editenv="${NISSE_GRUB_EDITENV:-/usr/bin/grub2-editenv}"
+systemctl="${NISSE_SYSTEMCTL:-/usr/bin/systemctl}"
+cmdline_file="${NISSE_CMDLINE_FILE:-/proc/cmdline}"
+update_dir=var/lib/nisse/update
+boot_state_dir=var/lib/nisse/boot
+
+say() { echo "nisse-rollback: $*"; }
+die() {
+    echo "nisse-rollback: $*" >&2
+    exit 1
+}
+
+is_number() {
+    case "$1" in
+        '' | *[!0-9]*) return 1 ;;
+    esac
+    return 0
+}
+
+one_line() {
+    printf '%s' "$*" | tr '\n\r' '  ' | tr -cd 'A-Za-z0-9 ._:,;+/()=-' | cut -c1-200
+}
+
+# The part of the root subvolume's path above the snapshots ("root" on a standard nisse install), also when the machine is
+# running from a snapshot (then FSROOT is root/.snapshots/N/snapshot).
+subvol_prefix() {
+    fsroot="${NISSE_FSROOT:-$(findmnt -no FSROOT / 2>/dev/null)}"
+    fsroot="${fsroot#/}"
+    fsroot="${fsroot%%/.snapshots/*}"
+    [ -n "$fsroot" ] || return 1
+    printf '%s\n' "$fsroot"
+}
+
+# The newest kernel in the snapshot at $1 that /boot still has (kernel and initramfs both).
+kernel_for() {
+    modules="$1/usr/lib/modules"
+    [ -d "$modules" ] || return 1
+    for v in $(ls -1 "$modules" 2>/dev/null | sort -rV); do
+        if [ -e "$boot/vmlinuz-$v" ] && [ -e "$boot/initramfs-$v.img" ]; then
+            printf '%s\n' "$v"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# The kernel GRUB would start now: the saved entry's, or the newest in /boot when none is saved.
+default_kernel() {
+    id="$("$editenv" list 2>/dev/null | sed -n 's/^saved_entry=//p' | tail -1)"
+    if [ -n "$id" ]; then
+        printf '%s\n' "${id#*-}"
+        return 0
+    fi
+    ls -1 "$boot" 2>/dev/null | sed -n 's/^vmlinuz-//p' | grep -v '^0-rescue' | sort -rV | head -n 1
+}
+
+old_value() {
+    [ -f "$1" ] || return 0
+    sed -n "s/^$2=//p" "$1" | tail -n 1
+}
+
+mounted=""
+cleanup() {
+    if [ -n "$mounted" ]; then
+        umount "$mounted" 2>/dev/null
+        rmdir "$mounted" 2>/dev/null
+    fi
+}
+
+cmd_run() {
+    snap=""
+    reason="rolled back"
+    reboot_after=no
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --reboot) reboot_after=yes; shift ;;
+            --reason)
+                [ $# -ge 2 ] || die "--reason needs some text"
+                reason="$2"
+                shift 2
+                ;;
+            -*) echo "nisse-rollback: unknown option: $1" >&2; exit 2 ;;
+            *)
+                [ -z "$snap" ] || die "give one snapshot number"
+                snap="$1"
+                shift
+                ;;
+        esac
+    done
+    [ -n "$snap" ] || die "usage: nisse-rollback run SNAPSHOT [--reason TEXT] [--reboot]"
+    is_number "$snap" || die "the snapshot must be a number, not '$snap'"
+    [ "$snap" -gt 0 ] || die "snapshot 0 is the running system, pick a real snapshot"
+    now="${NISSE_NOW:-$(date +%s)}"
+    reason="$(one_line "$reason")"
+
+    grep -qw rd.live.image "$cmdline_file" 2>/dev/null && die "this is live media: there is nothing to roll back"
+    fstype="${NISSE_ROOT_FSTYPE:-$(findmnt -no FSTYPE / 2>/dev/null)}"
+    [ "$fstype" = btrfs ] || die "the root file system is '$fstype', not btrfs: there are no snapshots to go back to"
+    prefix="$(subvol_prefix)" || die "cannot tell which subvolume holds the root file system"
+
+    # the top level of the file system, where the subvolumes can be renamed
+    if [ -n "${NISSE_TOP_DIR:-}" ]; then
+        top="$NISSE_TOP_DIR"
+    else
+        dev="${NISSE_ROOT_DEVICE:-$(findmnt -no SOURCE / 2>/dev/null | sed 's/\[.*//')}"
+        [ -n "$dev" ] || die "cannot tell which device holds the root file system"
+        mounted="$(mktemp -d /run/nisse-rollback.XXXXXX)" || die "cannot make a mount point"
+        trap cleanup EXIT
+        mount -o subvolid=5 "$dev" "$mounted" || die "cannot mount the top level of $dev"
+        top="$mounted"
+    fi
+
+    cur="$top/$prefix"
+    snapdir="$cur/.snapshots/$snap/snapshot"
+    new="$top/$prefix.rollback-new"
+    failed="$prefix.failed-$now"
+    [ -d "$cur" ] || die "the root subvolume '$prefix' is not at the top level of the file system"
+    [ -d "$snapdir" ] || die "there is no snapshot $snap"
+
+    # a snapshot is only bootable with the kernel whose modules it holds
+    kver="$(kernel_for "$snapdir")" || die "snapshot $snap has no kernel that is still in $boot, so it could not boot (a newer kernel against its older modules ends in emergency mode)"
+    entry=""
+    if [ "$(default_kernel)" != "$kver" ]; then
+        entry="$(ls -1 "$boot"/loader/entries/*-"$kver".conf 2>/dev/null | head -n 1)"
+        [ -n "$entry" ] || die "the default boot entry is another kernel and $boot has no boot entry for $kver: refusing, the machine would start the wrong kernel"
+        entry="$(basename "$entry" .conf)"
+    fi
+
+    # --- 1. the copy (a leftover of a crashed run goes first)
+    if [ -e "$new" ]; then
+        "$btrfs" subvolume delete "$new" >/dev/null 2>&1 || rm -rf "$new" || die "cannot clear the leftover $new"
+    fi
+    "$btrfs" subvolume snapshot "$snapdir" "$new" >/dev/null || die "cannot make the writable copy of snapshot $snap, nothing was changed"
+
+    # --- 2. the record, written into the copy (the old root's state is read from the real root, whatever is running)
+    old="$cur/$update_dir"
+    nu="$new/$update_dir"
+    mkdir -p "$nu" || die "cannot write into the new root, nothing was changed"
+    {
+        echo "state=idle"
+        echo "last=rolled-back"
+        echo "rolled-back-at=$now"
+        echo "snapshot=$snap"
+        echo "reason=$reason"
+        echo "rolled-back-from=$failed"
+        fp="$(old_value "$old/state" fingerprint)"
+        [ -n "$fp" ] && echo "blocked-fingerprint=$fp"
+    } > "$nu/state" || die "cannot write the state into the new root, nothing was changed"
+    [ -f "$old/changed.txt" ] && cp -f "$old/changed.txt" "$nu/failed-changed.txt"
+    [ -f "$old/health" ] && cp -f "$old/health" "$nu/failed-health"
+    if [ -f "$cur/$boot_state_dir/armed" ]; then
+        # the next boot's nisse-boot reconcile hands that snapshot back to snapper's cleanup, once it sees GRUB disarmed
+        mkdir -p "$new/$boot_state_dir" && cp -f "$cur/$boot_state_dir/armed" "$new/$boot_state_dir/armed"
+    fi
+
+    # --- 3. the swap: .snapshots first (the running root is still `root` then), then two renames in a row
+    rmdir "$new/.snapshots" 2>/dev/null
+    if ! mv "$cur/.snapshots" "$new/.snapshots"; then
+        "$btrfs" subvolume delete "$new" >/dev/null 2>&1
+        die "cannot move .snapshots into the new root, nothing was changed"
+    fi
+    if ! mv "$cur" "$top/$failed"; then
+        mv "$new/.snapshots" "$cur/.snapshots" 2>/dev/null
+        "$btrfs" subvolume delete "$new" >/dev/null 2>&1
+        die "cannot rename the running root, nothing was changed"
+    fi
+    if ! mv "$new" "$cur"; then
+        die "THE SWAP STOPPED HALFWAY: the running root is now '$failed' and the new root is '$prefix.rollback-new'. From a rescue shell, mount the top level (mount -o subvolid=5) and run: mv $prefix.rollback-new $prefix"
+    fi
+    sync
+
+    # --- 4. the boot entry, GRUB, the old failed roots
+    if [ -n "$entry" ]; then
+        "$editenv" - set "saved_entry=$entry" || die "swapped, but the default boot entry could not be set to $entry: set it by hand (grub2-set-default $entry) before rebooting"
+        say "the default boot entry is now the snapshot's kernel ($kver)"
+    fi
+    "$boot_tool" clear || die "swapped, but GRUB could not be disarmed: run nisse-boot clear before rebooting"
+    for d in "$top/$prefix".failed-*; do
+        [ -d "$d" ] || continue
+        [ "$d" = "$top/$failed" ] && continue
+        "$btrfs" subvolume delete "$d" >/dev/null 2>&1 || rm -rf "$d"
+    done
+    say "rolled back to snapshot $snap; the replaced root is kept as $failed until the next rollback"
+
+    # --- 5. the reboot, only when asked
+    if [ "$reboot_after" = yes ]; then
+        say "rebooting"
+        "$systemctl" reboot
+    else
+        say "a reboot is needed to start the restored system"
+    fi
+    return 0
+}
+
+case "${1:-}" in
+    run)
+        shift
+        cmd_run "$@"
+        ;;
+    *)
+        echo "usage: nisse-rollback run SNAPSHOT [--reason TEXT] [--reboot]" >&2
+        exit 2
+        ;;
+esac

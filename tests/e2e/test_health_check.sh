@@ -72,7 +72,7 @@ for p in nisse-update nisse-boot nisse-snapshots; do
     V put "/tmp/$p.rpm" "$(cygpath -m "$(ls "$pulled"/"$p"-[0-9]*.rpm | head -1)")" >/dev/null
 done
 V put /tmp/probe-repos.tgz "$(cygpath -m "$pulled/probe-repos.tgz")" >/dev/null
-out="$(V run 'S dnf install -y /tmp/nisse-snapshots.rpm /tmp/nisse-boot.rpm /tmp/nisse-update.rpm 2>&1 | tail -2; echo "RES: $(rpm -q nisse-update nisse-boot nisse-snapshots | tr "\n" " ")"' 1800)"
+out="$(V run 'S dnf install -y --disablerepo=updates /tmp/nisse-snapshots.rpm /tmp/nisse-boot.rpm /tmp/nisse-update.rpm 2>&1 | tail -2; echo "RES: $(rpm -q nisse-update nisse-boot nisse-snapshots | tr "\n" " ")"' 1800)"
 case "$out" in *"RES: nisse-update-"*) ok "nisse-update, nisse-boot and nisse-snapshots install on the installed system" ;; *) bad "install failed: $(echo "$out" | tail -4)"; exit 1 ;; esac
 V run 'S systemctl start nisse-snapshot-setup.service; S systemctl start nisse-boot-setup.service; S mkdir -p /var/lib/e2e; S tar -C /var/lib/e2e -xzf /tmp/probe-repos.tgz; S dnf install -y /var/lib/e2e/probe-1.0.rpm >/dev/null 2>&1' 600 >/dev/null
 [ "$(g 'echo "RES: $(systemctl is-enabled nisse-health-check.service 2>&1)"' 30)" = enabled ] && ok "the package's preset enabled nisse-health-check.service" || bad "the health check unit is not enabled"

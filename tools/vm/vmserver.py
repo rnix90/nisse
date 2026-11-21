@@ -33,6 +33,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import livevm  # noqa: E402
 
 QEMU_IMG = livevm.QEMU_DIR / "qemu-img.exe"
+DRIVE_REMOTE = 4   # GetDriveType: a network drive
+
+
+def _windows_drive_type(root):
+    import ctypes
+    return ctypes.windll.kernel32.GetDriveTypeW(root)
+
+
+def is_network_path(path, drive_type=None):
+    """True when PATH is on a network drive: a UNC path, or a drive letter that is mapped to a share (the T: drive the repo is on).
+
+    The overlay of a running machine is written all the time; on a share the machine crawls (systemd gave up starting, ledger
+    N-310), so the work folder must be a local disk."""
+    p = str(path)
+    if p.startswith("\\\\") or p.startswith("//"):
+        return True
+    if len(p) >= 2 and p[1] == ":":
+        try:
+            return (drive_type or _windows_drive_type)(p[:2] + "\\") == DRIVE_REMOTE
+        except (AttributeError, OSError):   # not Windows: there is no drive to ask about
+            return False
+    return False
 
 
 def make_overlay(base, overlay):
@@ -120,6 +142,9 @@ def handler_for(machine, work):
 
 
 def serve(args):
+    if is_network_path(args.work):
+        sys.exit(f"vmserver: the work folder {args.work} is on a network drive. The machine writes its overlay all the time and "
+                 "crawls there (systemd gives up starting); use a local folder, for example one under the temp directory.")
     work = Path(args.work)
     work.mkdir(parents=True, exist_ok=True)
     overlay = work / "overlay.qcow2"

@@ -1,0 +1,222 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-update-watchdog: decides when an update is undone (ledger N-310). Policy only: the swap is nisse-rollback.
+#
+#   nisse-update-watchdog run        what nisse-update-watchdog.service runs on every boot (it ends at once when there is nothing to do)
+#
+# It acts in three cases, and in each one the person gets a notice with a Cancel button and COUNTDOWN seconds (60; Bert's
+# decision, 2026-11-21) before anything happens:
+#   1. UNHEALTHY  the health check of THIS boot (nisse-health-check, N-309) ended unhealthy while the update still waits for it
+#   2. HANG       the machine has been up for HANG_LIMIT seconds (600: ten minutes, Bert's decision) and the update is still
+#                 waiting for its verdict, because the checks, or the boot before them, never finished
+#   3. FALLBACK   GRUB gave up on the updated system after the armed boots (nisse-boot: fell-back) and started the snapshot: the
+#                 running root is that read-only snapshot, so it settles the matter with a real rollback to it
+# then `nisse-rollback run SNAPSHOT --reboot`. Cancel keeps the update for the rest of this boot (the update stays pending and
+# GRUB stays armed, so a machine that cannot boot still falls back); the next boot starts clean. With nobody logged in to a
+# graphical session there is nobody to show the notice to: the countdown runs anyway. A failed rollback fails the unit loudly
+# and leaves the state pending-verify.
+#
+# Test overrides (never set in production): NISSE_STATE_DIR, NISSE_RUNTIME_DIR, NISSE_ROLLBACK, NISSE_BOOT_TOOL, NISSE_LOGINCTL,
+# NISSE_RUNUSER, NISSE_NOTIFY, NISSE_SLEEP, NISSE_UPTIME_FILE, NISSE_BOOT_ID_FILE, NISSE_CMDLINE_FILE, NISSE_FSROOT,
+# NISSE_COUNTDOWN, NISSE_HANG_LIMIT, NISSE_POLL.
+set -u
+
+state_dir="${NISSE_STATE_DIR:-/var/lib/nisse/update}"
+runtime_dir="${NISSE_RUNTIME_DIR:-/run/nisse-update}"
+rollback="${NISSE_ROLLBACK:-/usr/bin/nisse-rollback}"
+boot_tool="${NISSE_BOOT_TOOL:-/usr/bin/nisse-boot}"
+loginctl="${NISSE_LOGINCTL:-loginctl}"
+runuser="${NISSE_RUNUSER:-runuser}"
+notify="${NISSE_NOTIFY:-notify-send}"
+sleeper="${NISSE_SLEEP:-sleep}"
+cmdline_file="${NISSE_CMDLINE_FILE:-/proc/cmdline}"
+countdown="${NISSE_COUNTDOWN:-60}"
+hang_limit="${NISSE_HANG_LIMIT:-600}"
+poll="${NISSE_POLL:-5}"
+state_file="$state_dir/state"
+health_file="$state_dir/health"
+
+say() { echo "nisse-update-watchdog: $*"; }
+
+state_value() {
+    [ -f "$state_file" ] || return 0
+    sed -n "s/^$1=//p" "$state_file" | tail -n 1
+}
+
+# The hang limit counts the kernel's monotonic uptime, which a stepped clock cannot change.
+uptime_seconds() {
+    cut -d' ' -f1 "${NISSE_UPTIME_FILE:-/proc/uptime}" | cut -d. -f1
+}
+
+one_line() {
+    printf '%s' "$*" | tr '\n\r' '  ' | tr -cd 'A-Za-z0-9 ._:,;+/()=-' | cut -c1-300
+}
+
+is_number() {
+    case "$1" in
+        '' | *[!0-9]*) return 1 ;;
+    esac
+    return 0
+}
+
+# The snapshot number when the running root is a snapshot (FSROOT is root/.snapshots/N/snapshot), otherwise nothing.
+running_snapshot() {
+    fsroot="${NISSE_FSROOT:-$(findmnt -no FSROOT / 2>/dev/null)}"
+    case "$fsroot" in
+        */.snapshots/*/snapshot)
+            n="${fsroot#*/.snapshots/}"
+            n="${n%%/*}"
+            is_number "$n" && printf '%s\n' "$n"
+            ;;
+    esac
+}
+
+# The health check of THIS boot said unhealthy. An older result in the file is another boot's verdict, and the result says which
+# boot it is about by the kernel's boot id: comparing its time with "now minus uptime" does not work when the clock steps
+# during boot (a flat CMOS battery, the first network time sync), which the end-to-end test hit. A result with no boot id (from
+# an older nisse-update) cannot be told from another boot's, so it does not count.
+unhealthy_this_boot() {
+    [ -f "$health_file" ] || return 1
+    [ "$(sed -n 's/^result=//p' "$health_file" | tail -n 1)" = unhealthy ] || return 1
+    id="$(sed -n 's/^boot-id=//p' "$health_file" | tail -n 1)"
+    [ -n "$id" ] && [ "$id" = "$(cat "${NISSE_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}" 2>/dev/null)" ]
+}
+
+unhealthy_reason() {
+    failed="$(sed -n 's/^failed=//p' "$health_file" | tail -n 1)"
+    out=""
+    for c in $failed; do
+        m="$(sed -n "s/^message-$c=//p" "$health_file" | tail -n 1)"
+        out="$out$c ($m); "
+    done
+    one_line "the health check failed after the update: ${out%; }"
+}
+
+limit_words() {
+    if [ $((hang_limit % 60)) = 0 ]; then
+        m=$((hang_limit / 60))
+        if [ "$m" = 1 ]; then echo "1 minute"; else echo "$m minutes"; fi
+    else
+        echo "$hang_limit seconds"
+    fi
+}
+
+# "name uid" of every person with an active graphical session (not the login screen, not a serial or text login)
+graphical_users() {
+    for id in $("$loginctl" list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do
+        info="$("$loginctl" show-session "$id" -p Type -p Class -p State -p Name -p User 2>/dev/null)"
+        type="$(printf '%s\n' "$info" | sed -n 's/^Type=//p')"
+        class="$(printf '%s\n' "$info" | sed -n 's/^Class=//p')"
+        st="$(printf '%s\n' "$info" | sed -n 's/^State=//p')"
+        name="$(printf '%s\n' "$info" | sed -n 's/^Name=//p')"
+        uid="$(printf '%s\n' "$info" | sed -n 's/^User=//p')"
+        case "$type" in wayland | x11 | mir) ;; *) continue ;; esac
+        [ "$class" = user ] && [ "$st" = active ] || continue
+        [ -n "$name" ] && is_number "$uid" && echo "$name $uid"
+    done | sort -u
+}
+
+# Show the countdown notice to every graphical user and wait COUNTDOWN seconds, a second at a time. Returns 1 when somebody
+# pressed Cancel, 0 when the time ran out.
+countdown_notice() {
+    reason="$1"
+    answers="$(mktemp -d)" || answers=""
+    pids=""
+    if [ -n "$answers" ]; then
+        graphical_users > "$answers/users"
+        i=0
+        while read -r name uid; do
+            i=$((i + 1))
+            (
+                "$runuser" -u "$name" -- env "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" "XDG_RUNTIME_DIR=/run/user/$uid" \
+                    "$notify" --app-name=nisse --urgency=critical --expire-time=$((countdown * 1000)) \
+                    "--action=cancel=Keep the update" --wait -- \
+                    "nisse is undoing the last update" \
+                    "$reason. Unless you press Keep the update, nisse goes back to how the system was before it in $countdown seconds and restarts. Your files are not changed." \
+                    > "$answers/$i" 2>/dev/null
+            ) &
+            pids="$pids $!"
+        done < "$answers/users"
+    fi
+    waited=0
+    cancelled=no
+    while [ "$waited" -lt "$countdown" ]; do
+        if [ -n "$answers" ] && cat "$answers"/[0-9]* 2>/dev/null | grep -qx cancel; then
+            cancelled=yes
+            break
+        fi
+        "$sleeper" 1
+        waited=$((waited + 1))
+    done
+    [ "$cancelled" = no ] && [ -n "$answers" ] && cat "$answers"/[0-9]* 2>/dev/null | grep -qx cancel && cancelled=yes
+    for p in $pids; do kill "$p" 2>/dev/null; done
+    [ -n "$answers" ] && rm -rf "$answers"
+    [ "$cancelled" = no ]
+}
+
+# act REASON SNAPSHOT
+act() {
+    reason="$1"
+    snap="$2"
+    if [ -e "$runtime_dir/cancelled" ]; then
+        say "the person kept the update earlier in this boot: not asking again"
+        return 0
+    fi
+    is_number "$snap" || {
+        echo "nisse-update-watchdog: cannot undo the update: no snapshot is recorded" >&2
+        return 1
+    }
+    say "undoing the update in $countdown seconds: $reason"
+    if ! countdown_notice "$reason"; then
+        mkdir -p "$runtime_dir" && : > "$runtime_dir/cancelled"
+        say "the person pressed Cancel: the update stays (pending, GRUB still armed), asked again at the next boot"
+        return 0
+    fi
+    "$rollback" run "$snap" --reason "$reason" --reboot || {
+        echo "nisse-update-watchdog: the rollback failed; the update stays pending" >&2
+        return 1
+    }
+    return 0
+}
+
+cmd_run() {
+    grep -qw rd.live.image "$cmdline_file" 2>/dev/null && return 0
+
+    # 3. FALLBACK: GRUB fell back and the machine runs the snapshot
+    if "$boot_tool" status 2>/dev/null | grep -qx 'fell-back=yes'; then
+        snap="$(running_snapshot)"
+        if [ -n "$snap" ]; then
+            act "the machine fell back to snapshot $snap after the updated system kept failing to start" "$snap"
+            return $?
+        fi
+    fi
+
+    [ "$(state_value state)" = pending-verify ] || return 0
+    snap="$(state_value snapshot)"
+    say "an update waits for its health checks (snapshot $snap): watching"
+    while :; do
+        [ "$(state_value state)" = pending-verify ] || {
+            say "the update was verified: done"
+            return 0
+        }
+        # 1. UNHEALTHY
+        if unhealthy_this_boot; then
+            act "$(unhealthy_reason)" "$snap"
+            return $?
+        fi
+        # 2. HANG
+        if [ "$(uptime_seconds)" -ge "$hang_limit" ]; then
+            act "the updated system did not finish its health checks within $(limit_words)" "$snap"
+            return $?
+        fi
+        "$sleeper" "$poll"
+    done
+}
+
+case "${1:-}" in
+    run) cmd_run ;;
+    *)
+        echo "usage: nisse-update-watchdog run" >&2
+        exit 2
+        ;;
+esac
