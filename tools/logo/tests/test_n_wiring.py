@@ -36,7 +36,9 @@ def test_the_branding_package_ships_the_n_icons():
 
 def test_the_panel_package_ships_its_own_icon_and_was_rebuilt():
     spec = (ROOT / "packaging" / "rpm" / "nisse-panel" / "nisse-panel.spec").read_text(encoding="utf-8")
-    assert re.search(r"^Release:\s+17%\{\?dist\}$", spec, re.M), "the panel changed again (N-409a), so its release is 17"
+    # the release went to 17 at N-409a (the panel's own icon) and has only gone up since; pinning 17 broke at every later panel change
+    release = re.search(r"^Release:\s+(\d+)%\{\?dist\}$", spec, re.M)
+    assert release and int(release.group(1)) >= 17, "the panel changed again at N-409a, so its release is 17 or later"
     assert "assets/art/assistant/hicolor" in spec and "nisse-assistant" in spec
     assert "- The panel's own icon is the three-star sparkle" in spec
 
