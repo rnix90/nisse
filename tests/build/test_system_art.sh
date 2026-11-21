@@ -26,8 +26,12 @@ while read -r kind path sha spec; do
 done < <(grep '^R ' tests/rpm/placeholder-paths.txt)
 [ "$missing" = 0 ] && ok "every replaced path in tests/rpm/placeholder-paths.txt has artwork"
 
-# nothing may be left over that the manifest does not list (a stray file would ship in the RPM)
-extra="$(cd assets/logo/system && find . -type f | sed 's|^\.||' | sort | while read -r f; do grep -q "^R $f " ../../../tests/rpm/placeholder-paths.txt || echo "$f"; done)"
+# nothing may be left over that a manifest does not list (a stray file would ship in the RPM): a file either replaces Fedora art
+# (an R line of placeholder-paths.txt) or is approved nisse art (a line of approved-art.txt, N-415, e.g. the installer icon and the
+# cockpit branding, which replace no placeholder)
+extra="$(cd assets/logo/system && find . -type f | sed 's|^\.||' | sort | while read -r f; do
+    grep -q "^R $f " ../../../tests/rpm/placeholder-paths.txt || grep -q "^$f " ../../../tests/rpm/approved-art.txt || echo "$f"
+done)"
 [ -z "$extra" ] && ok "assets/logo/system holds only listed files" || bad "unlisted files in assets/logo/system: $extra"
 
 # The About page shows system-logo-white.png (kde-settings' /etc/xdg/kcm-about-distrorc) on a light or a dark page, and

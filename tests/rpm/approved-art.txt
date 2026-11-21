@@ -15,6 +15,7 @@
 /usr/share/cockpit/branding/nisse/branding.css nisse-branding N-411
 /usr/share/cockpit/branding/nisse/logo.png nisse-branding N-411
 /usr/share/cockpit/branding/nisse/favicon.ico nisse-branding N-411
+/usr/share/cockpit/branding/nisse/apple-touch-icon.png nisse-branding N-411
 # the six tray icons (N-413 drew them, N-415 installs them; the tray item that shows them is N-415b, done)
 /usr/share/icons/hicolor/scalable/status/nisse-tray-idle-symbolic.svg nisse-branding N-415
 /usr/share/icons/hicolor/scalable/status/nisse-tray-busy-symbolic.svg nisse-branding N-415
