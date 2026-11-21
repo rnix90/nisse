@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-# nisse sudo mode LIMITED. Only the nisse snapshot helper is passwordless (it checks its own arguments). Every other sudo
-# needs the wheel user's password: a terminal asks on the terminal, and sudo run by an AI session (no terminal) opens a
-# password popup through the nisse sudo shim. One answer is remembered for a few minutes for every caller with no terminal,
-# so a session that needs several commands is asked once. Switch with: sudo nisse-sudo-mode full
+# nisse sudo mode LIMITED. Only the nisse snapshot helper and the read-only snapshot list are passwordless (the helper checks
+# its own arguments; the list changes nothing). Every other sudo needs the wheel user's password: a terminal asks on the
+# terminal, and sudo run by an AI session (no terminal) opens a password popup through the nisse sudo shim. That includes
+# the rollback itself: the panel's undo button asks for the password in the same popup. One answer is remembered for a few
+# minutes for every caller with no terminal, so a session that needs several commands is asked once. Switch with:
+# sudo nisse-sudo-mode full
 Defaults:%wheel timestamp_type=global
 %wheel ALL=(root) NOPASSWD: /usr/libexec/nisse/nisse-snapshot-batch
+%wheel ALL=(root) NOPASSWD: /usr/bin/nisse-rollback list

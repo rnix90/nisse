@@ -5,6 +5,7 @@ use std::time::Duration;
 use nisse_daemon::dbus::Daemon;
 use nisse_daemon::runner::{default_settings_path, AgentRunner, ClaudeCliRunner, FakeRunner};
 use nisse_daemon::snapshots::ScriptSnapshots;
+use nisse_daemon::undo::ScriptUndo;
 
 #[tokio::main]
 async fn main() -> zbus::Result<()> {
@@ -45,6 +46,12 @@ async fn main() -> zbus::Result<()> {
         daemon = daemon.with_snapshots(Arc::new(ScriptSnapshots::from_settings(
             std::env::var("NISSE_SNAPSHOT_BATCH").ok().as_deref(),
             std::env::var("NISSE_SNAPSHOT_SUDO").ok().as_deref(),
+        )));
+        // The undo list and the undo itself (N-311), under the same switches. NISSE_ROLLBACK_TOOL names another tool.
+        daemon = daemon.with_undo(Arc::new(ScriptUndo::from_settings(
+            std::env::var("NISSE_ROLLBACK_TOOL").ok().as_deref(),
+            std::env::var("NISSE_SNAPSHOT_SUDO").ok().as_deref(),
+            std::path::Path::new(nisse_daemon::undo::DEFAULT_ASKPASS),
         )));
     }
     daemon.sweep_orphan_events().await;

@@ -124,6 +124,8 @@ arguments name the client device (required where listed); the pairing in N-221 w
 | `ListDevices` | the paired devices (`Device` per string), revoked ones included |
 | `RevokeDevice(id, by)` | revokes a device at once |
 | `DeviceCall(request_json)` | a signed call from a paired device (see above) |
+| `ListUndo` | the changes nisse made that a person can go back to (N-311), newest first, one `UndoEntry` JSON per string (see below); empty without the undo tool; a failing tool is an error in words |
+| `Undo(snapshot, by)` | goes back to the state BEFORE the change `snapshot` (an entry's `id`) and restarts the computer at once; refused, in words, while any chat is working, for a number `ListUndo` does not list and for a snapshot that cannot boot; the audit record `rollback` is written first |
 
 | Signal | When |
 |---|---|
@@ -135,6 +137,29 @@ arguments name the client device (required where listed); the pairing in N-221 w
 | `RemoteAccessChanged(status_json)` | the remote access status changed |
 | `DevicesChanged` | a device was paired or revoked |
 | `MessageChunk(session, text)`, `SessionDone(session)`, `SessionError(session, message)` | the older per-kind signals; repeats of the events |
+
+### Undo (N-311)
+
+`ListUndo` returns one JSON object per change; the daemon builds them from `nisse-rollback list` (run as root through `sudo -n`; in
+limited sudo mode that exact command is passwordless) and its own sessions. An AI turn's before and after snapshots are one entry,
+an update (`nisse=safe-apply`) and a package change (`nisse=package-transaction`) are one each. Going back to an entry means going
+back to its BEFORE snapshot, so it also undoes everything made after it.
+
+| Field | Meaning |
+|---|---|
+| `id` | the BEFORE snapshot: the number `Undo` takes |
+| `kind` | `ai-turn`, `update` or `package` |
+| `at` | unix milliseconds |
+| `session`, `title` | for an AI turn, the chat and what the person called it (`null` when untitled or no longer known) |
+| `post` | the AFTER snapshot, `null` when it was never taken |
+| `bootable`, `reason` | false (with the reason) when the snapshot's kernel has left `/boot`, so it cannot be rolled back to |
+
+An AI turn that is still running is not listed (its before snapshot is not a change yet). `Undo` runs `nisse-rollback run SNAPSHOT
+--reason ... --reboot` through `sudo -A` (full mode needs no password; limited mode opens nisse's password popup) and answers
+`{"snapshot": N, "restarting": true}`. Audit records: `rollback` (before the tool runs, with the snapshot, the kind and the chat) and
+`rollback-failed` (with the error). A paired phone cannot undo or list: both are on the "this computer only" list, so a `DeviceCall` of either is refused with that
+reason (the computer restarts, so it is for the person sitting at it). The AI cannot run `nisse-rollback` itself either: the
+guardrail holds it for approval.
 
 ## Checking it
 

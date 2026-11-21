@@ -5,7 +5,7 @@
 
 Name:           nisse-panel
 Version:        0.1
-Release:        19%{?dist}
+Release:        20%{?dist}
 Summary:        nisse panel: chat with the AI that looks after this computer
 License:        GPL-2.0-or-later
 BuildRequires:  cmake
@@ -68,6 +68,9 @@ find %{buildroot}%{_datadir}/icons/hicolor -type d -exec chmod 0755 {} +
 %{_datadir}/icons/hicolor/*/apps/nisse-assistant.*
 
 %changelog
+* Sat Nov 21 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-20
+- System history in Settings: the changes nisse made, grouped by day, each with an Undo button and a confirmation that says home and data are not covered and that the computer restarts (N-311)
+
 * Fri Nov 20 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-19
 - A tray item (a StatusNotifierItem on the session bus, N-415b): the icon follows the daemon's state (offline, needs you, paused, busy,
   unread, idle, in that order of priority), the tooltip and the menu carry the approvals count, a click slides the sidebar, and the right-click

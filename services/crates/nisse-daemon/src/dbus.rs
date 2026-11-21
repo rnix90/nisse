@@ -25,6 +25,7 @@ use crate::remote::{RemoteAccess, RemoteOptions};
 use crate::runner::{AgentRunner, ApprovalHook, RunEvent, RunRequest};
 use crate::snapshots::{close_turn, is_read_only_tool, no_snapshot_notice, NoSnapshot, SnapshotTool};
 use crate::state::{Keep, SessionStore};
+use crate::undo::{build_entries, UndoTool};
 use crate::usage::{parse_usage_text, UsageTracker};
 use nisse_proto::{EventKind, Session};
 
@@ -114,6 +115,8 @@ struct Core {
     config_error: Arc<std::sync::Mutex<Option<String>>>,
     /// Takes the snapshot pair around each turn (N-306); `None` when the daemon was built without it.
     snapshots: Option<Arc<dyn SnapshotTool>>,
+    /// Lists the snapshots nisse made and puts the system back to one (N-311); `None` when the daemon was built without it.
+    undo: Option<Arc<dyn UndoTool>>,
     /// The sessions already told that a turn could not be snapshotted, so the notice is not repeated every turn.
     snapshot_told: Arc<std::sync::Mutex<HashSet<String>>>,
     /// Where the nisse sudo shim lives; sessions find it first on their PATH when it is installed (N-306a).
@@ -133,6 +136,27 @@ impl Core {
         if let Ok(log) = AuditLog::open(&self.audit_path) {
             let _ = log.append(&record);
         }
+    }
+
+    /// What the undo list needs to know about the chats: the title of each (`None` for an untitled one) and which have a turn in
+    /// progress.
+    async fn undo_context(&self) -> (HashMap<String, Option<String>>, HashSet<String>) {
+        let titles = self
+            .sessions
+            .list()
+            .await
+            .into_iter()
+            .map(|info| (info.id, info.title))
+            .collect();
+        let running = self
+            .runs
+            .lock()
+            .await
+            .iter()
+            .filter(|(_, r)| r.running)
+            .map(|(id, _)| id.clone())
+            .collect();
+        (titles, running)
     }
 
     fn events_dir(&self) -> Option<PathBuf> {
@@ -323,6 +347,7 @@ impl Daemon {
                 runs: Arc::new(Mutex::new(HashMap::new())),
                 config_error: Arc::new(std::sync::Mutex::new(None)),
                 snapshots: None,
+                undo: None,
                 snapshot_told: Arc::new(std::sync::Mutex::new(HashSet::new())),
                 sudo_shim_dir: PathBuf::from(crate::sudo::DEFAULT_SHIM_DIR),
             },
@@ -479,6 +504,12 @@ impl Daemon {
         self
     }
 
+    /// Lets a person list the snapshots nisse made and go back to one (N-311): `ListUndo` and `Undo`.
+    pub fn with_undo(mut self, tool: Arc<dyn UndoTool>) -> Daemon {
+        self.core.undo = Some(tool);
+        self
+    }
+
     /// Replaces how a backend's reachability is checked (tests use a switchboard instead of the network).
     pub fn with_prober(mut self, prober: Arc<dyn Prober>) -> Daemon {
         self.core.resolver = Arc::new(Resolver::new(prober, HealthOptions::default()));
@@ -525,7 +556,14 @@ fn device_method_role(method: &str) -> Option<Role> {
 fn device_never(method: &str) -> bool {
     matches!(
         method,
-        "StartPairing" | "CancelPairing" | "CompletePairing" | "ListDevices" | "RevokeDevice" | "DeviceCall"
+        "StartPairing"
+            | "CancelPairing"
+            | "CompletePairing"
+            | "ListDevices"
+            | "RevokeDevice"
+            | "DeviceCall"
+            | "ListUndo"
+            | "Undo" // going back to a snapshot restarts the computer (N-311)
     )
 }
 
@@ -1364,6 +1402,74 @@ impl Daemon {
             Err(_) => "not-started",
         };
         serde_json::json!({ "claude": claude }).to_string()
+    }
+
+    /// The changes a person can go back to (N-311), newest first, one `UndoEntry` JSON per string: `id` (the BEFORE snapshot, the
+    /// number `Undo` takes), `kind` (`ai-turn`, `update` or `package`), `at` (unix ms), `session` and `title` of the chat of an AI
+    /// turn, `post`, `bootable` and, when not, `reason`. An AI turn still running is not listed. Empty when this daemon was built
+    /// without the undo tool (live media and a root that is not btrfs have nothing to list either); a tool that fails is an error
+    /// in words, not an empty list.
+    async fn list_undo(&self) -> zbus::fdo::Result<Vec<String>> {
+        let Some(tool) = self.core.undo.clone() else {
+            return Ok(Vec::new());
+        };
+        let rows = tool.list().await.map_err(zbus::fdo::Error::Failed)?;
+        let (titles, running) = self.core.undo_context().await;
+        Ok(build_entries(&rows, &titles, &running)
+            .iter()
+            .filter_map(|e| serde_json::to_string(e).ok())
+            .collect())
+    }
+
+    /// Puts the system back to the state BEFORE the change `snapshot` (an `id` of `ListUndo`) and restarts the computer at once.
+    /// That undoes every change made since, not just this one; home and data are not covered (they are not in the snapshots).
+    /// Refused, in words: while any chat is working (the restart would cut it off), for a number `ListUndo` does not list, and for
+    /// a snapshot that cannot boot any more. `by` names the device (required). The audit record is written BEFORE the tool runs,
+    /// because the computer restarts as it ends. Returns `{"snapshot": N, "restarting": true}`.
+    async fn undo(&self, snapshot: u64, by: String) -> zbus::fdo::Result<String> {
+        if by.trim().is_empty() {
+            return Err(zbus::fdo::Error::InvalidArgs("by must name the device".into()));
+        }
+        let Some(tool) = self.core.undo.clone() else {
+            return Err(zbus::fdo::Error::Failed(
+                "undo is not available on this system (it needs the installed system with snapshots)".into(),
+            ));
+        };
+        let (titles, running) = self.core.undo_context().await;
+        if !running.is_empty() {
+            return Err(zbus::fdo::Error::Failed(
+                "a chat is still working: stop it first, because the restart would cut it off".into(),
+            ));
+        }
+        let rows = tool.list().await.map_err(zbus::fdo::Error::Failed)?;
+        let entries = build_entries(&rows, &titles, &running);
+        let Some(entry) = entries.iter().find(|e| e.id == snapshot) else {
+            return Err(zbus::fdo::Error::Failed(
+                "that is not a change nisse can undo (it may be gone already: look at the list again)".into(),
+            ));
+        };
+        if !entry.bootable {
+            return Err(zbus::fdo::Error::Failed(format!(
+                "that change cannot be undone any more: {}",
+                entry.reason.as_deref().unwrap_or("its snapshot cannot boot")
+            )));
+        }
+        self.core.audit(
+            entry.session.as_deref(),
+            by.trim(),
+            "rollback",
+            serde_json::json!({ "snapshot": snapshot, "kind": entry.kind, "post": entry.post, "at": entry.at }),
+        );
+        if let Err(error) = tool.rollback(snapshot, "undone from the panel").await {
+            self.core.audit(
+                entry.session.as_deref(),
+                by.trim(),
+                "rollback-failed",
+                serde_json::json!({ "snapshot": snapshot, "error": error }),
+            );
+            return Err(zbus::fdo::Error::Failed(error));
+        }
+        Ok(serde_json::json!({ "snapshot": snapshot, "restarting": true }).to_string())
     }
 
     /// Whether the kill switch is on, as JSON: `engaged`, `by` (the device), `reason`, `since` (unix seconds).

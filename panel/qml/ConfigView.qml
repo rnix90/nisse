@@ -9,6 +9,8 @@ import QtQuick.Layouts
 Item {
     id: root
     property var client
+    // How many chats have a turn in progress (the undo list is disabled while any does, N-311).
+    property int chatsWorking: 0
 
     readonly property var categories: ["chat", "vision", "background"]
 
@@ -415,6 +417,15 @@ Item {
             KillSwitchBar {
                 Layout.fillWidth: true
                 client: root.client
+            }
+
+            // ---- going back (N-311)
+            Label { text: "System history"; font.bold: true }
+            UndoView {
+                objectName: "undoView"
+                Layout.fillWidth: true
+                client: root.client
+                chatsWorking: root.chatsWorking
             }
 
             Label { text: "Terminal sessions"; font.bold: true }

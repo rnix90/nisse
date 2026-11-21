@@ -116,6 +116,7 @@ ApplicationWindow {
         }
         ConfigView {
             client: daemon
+            chatsWorking: tabs.workingCount
         }
     }
 

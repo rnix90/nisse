@@ -48,6 +48,14 @@ else
     echo "note: visudo not installed, sudoers syntax not checked here"
 fi
 
+# N-311: the panel's undo list opens without a password box in limited mode (exactly `nisse-rollback list`, read-only), and the
+# rollback itself is not passwordless there (the person types the password in the popup)
+limited="$scratch/usr/share/nisse/sudo/sudoers-limited"
+grep -qx '%wheel ALL=(root) NOPASSWD: /usr/bin/nisse-rollback list' "$limited" || fail "limited mode must allow exactly 'nisse-rollback list' without a password"
+if grep -E 'NOPASSWD:.*nisse-rollback' "$limited" | grep -vqx '%wheel ALL=(root) NOPASSWD: /usr/bin/nisse-rollback list'; then
+    fail "limited mode must not make anything but 'nisse-rollback list' passwordless"
+fi
+
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpmf")" = "GPL-2.0-or-later" ] || fail "License must be GPL-2.0-or-later"
 out="$(rpmlint -r tests/rpm/nisse-sudo.rpmlintrc "$rpmf" 2>&1 || true)"
 echo "$out" | tail -3

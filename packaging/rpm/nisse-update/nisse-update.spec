@@ -3,7 +3,7 @@
 
 Name:           nisse-update
 Version:        0.1
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Update the system with a way back: snapshot, update, verify
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -101,6 +101,9 @@ install -d %{buildroot}%{_sharedstatedir}/nisse/update
 %dir %{_sharedstatedir}/nisse/update
 
 %changelog
+* Sat Nov 21 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-4
+- nisse-rollback list: the snapshots nisse made, for the panel's undo list (N-311)
+
 * Sat Nov 21 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-3
 - Add the watchdog rollback (N-310): nisse-rollback (swap a copy of a snapshot in for the root subvolume), the watchdog
   with its countdown notice and Cancel button, the notice after a rollback, and the rule that a rolled-back update is

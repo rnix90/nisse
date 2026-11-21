@@ -2911,6 +2911,8 @@ mod device_calls {
             "CancelPairing",
             "WaitApproval",
             "RequestApproval",
+            "ListUndo",
+            "Undo",
             "Nonsense",
         ] {
             let r = call(&s, &k, &id, method, serde_json::json!([])).await;
@@ -2923,6 +2925,16 @@ mod device_calls {
             ),
             "pairing stays on the computer"
         );
+        // N-311: going back to a snapshot restarts the computer, so it is for the person sitting at it, and the refusal says so
+        for method in ["Undo", "ListUndo"] {
+            assert!(
+                refused(
+                    &call(&s, &k, &id, method, serde_json::json!([41, "phone"])).await,
+                    "this computer"
+                ),
+                "{method} stays on the computer"
+            );
+        }
     }
 
     #[tokio::test]

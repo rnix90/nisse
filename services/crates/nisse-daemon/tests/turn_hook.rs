@@ -76,7 +76,17 @@ impl Env {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
-        child.stdin.take().unwrap().write_all(payload.as_bytes()).unwrap();
+        // The hook may exit without reading its input (NISSE_NO_SNAPSHOTS=1 is the fast path): then the pipe is already closed
+        // when this writes, which is not a failure of the test. Any other write error is.
+        let mut stdin = child.stdin.take().unwrap();
+        if let Err(error) = stdin.write_all(payload.as_bytes()) {
+            assert_eq!(
+                error.kind(),
+                std::io::ErrorKind::BrokenPipe,
+                "writing to the hook: {error}"
+            );
+        }
+        drop(stdin);
         child.wait_with_output().unwrap()
     }
 

@@ -220,3 +220,23 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
   phone with Full access could change the settings, including the authority switch: revoke it here, and know that the
   daemon only checks that a call comes from a paired key, not what it asks for.
 - The daemon side and the signed-call rules are in `docs/daemon-protocol.md`. No network listener exists yet (N-D08).
+
+## System history: undo (N-311)
+
+- The Settings tab has a System history section (decided with Bert, 2026-11-21: a section in Settings, not a tab of its own, and
+  rows labeled with the chat's title and the time). It lists the changes nisse made to the system, newest first and grouped by
+  day (Today, Yesterday, then the date): each AI turn (the chat's title, or "Untitled chat", and "AI turn"), each update ("System
+  update") and each package change ("Package change"). A turn that only read things has no row (its snapshot was removed at
+  once) and a turn still running has none yet.
+- Each row has an Undo button. It is disabled, with the reason in words, while a chat is working (the restart would cut it off)
+  and for a change whose snapshot cannot boot any more (its kernel has left /boot).
+- Undo asks first, in place of the list: "Go back to before ..."; it says that every change made after that point is undone too
+  (and lists up to six of them, then "and N more"), that the files in the home folder and the data are not covered, and that the
+  computer restarts right away, so save your work first. The buttons are Cancel and Undo and restart (Bert: restart at once, no
+  second question, because the swap leaves the running system without its snapshot list until the restart).
+- The list is read when the page is shown, when the daemon comes back and when a turn ends while the page is showing; a daemon
+  that is away, or a tool that fails, shows its words instead of an empty list.
+- The daemon does the work (`ListUndo`, `Undo` in `docs/daemon-protocol.md`; `nisse-rollback` underneath, `docs/safe-apply.md`).
+  The AI cannot run `nisse-rollback` itself: the guardrail holds it for approval, and a paired phone cannot call either method.
+- Tests: `panel/tests/tst_undo.qml` (the view against a stand-in daemon, mutation-checked), `services/crates/nisse-daemon/tests/undo.rs`,
+  `tests/e2e/test_undo.sh` (a real package install undone on a real installed disk). The look in the real sidebar is a GATE 3 hand check.

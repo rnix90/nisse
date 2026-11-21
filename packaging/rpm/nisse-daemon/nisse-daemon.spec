@@ -5,7 +5,7 @@
 
 Name:           nisse-daemon
 Version:        0.1
-Release:        22%{?dist}
+Release:        23%{?dist}
 Summary:        nisse daemon: AI sessions for the nisse panel
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
@@ -16,6 +16,7 @@ Requires:       nisse-release-common
 Recommends:     nisse-snapshots
 Recommends:     sudo
 Recommends:     nisse-sudo
+Recommends:     nisse-update
 
 Source1:        nisse-daemon.service
 Source2:        org.nisse.Daemon1.service
@@ -72,6 +73,9 @@ install -Dpm 0644 %{nisse_root}/services/crates/nisse-proto/schema/daemon-protoc
 %config(noreplace) %{_sysconfdir}/claude-code/managed-settings.json
 
 %changelog
+* Sat Nov 21 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-23
+- ListUndo and Undo: the changes nisse made as a list a person can go back to, and the undo through nisse-rollback and sudo -A (N-311)
+
 * Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-22
 - nisse-turn-hook: a snapshot pair around each turn of a terminal or remote-access Claude session, from the machine-wide managed settings (UserPromptSubmit, PreToolUse, Stop); daemon sessions are skipped (N-306b)
 

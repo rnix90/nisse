@@ -3,6 +3,7 @@
 # nisse-rollback: put the system back to a snapshot for good (ledger N-310). The undo of the rollback net.
 #
 #   nisse-rollback run SNAPSHOT [--reason TEXT] [--reboot]
+#   nisse-rollback list        the snapshots nisse made, for the panel's undo list (N-311), one line each
 #
 # `snapper rollback` does not work on this layout (verified, docs/boot-recovery.md): the system boots by an explicit
 # `subvol=root` on the kernel line and in fstab, which a changed default subvolume does not override. So this swaps the
@@ -23,7 +24,7 @@
 #
 # Test overrides (never set in production): NISSE_TOP_DIR (a directory instead of the mounted btrfs top level), NISSE_BTRFS,
 # NISSE_BOOT_DIR, NISSE_BOOT_TOOL, NISSE_GRUB_EDITENV, NISSE_SYSTEMCTL, NISSE_ROOT_FSTYPE, NISSE_ROOT_DEVICE, NISSE_FSROOT,
-# NISSE_CMDLINE_FILE, NISSE_NOW.
+# NISSE_CMDLINE_FILE, NISSE_NOW; for list: NISSE_SNAPPER, NISSE_SNAPPER_CONFDIR, NISSE_SNAPSHOTS_ROOT.
 set -u
 
 boot="${NISSE_BOOT_DIR:-/boot}"
@@ -32,6 +33,9 @@ boot_tool="${NISSE_BOOT_TOOL:-/usr/bin/nisse-boot}"
 editenv="${NISSE_GRUB_EDITENV:-/usr/bin/grub2-editenv}"
 systemctl="${NISSE_SYSTEMCTL:-/usr/bin/systemctl}"
 cmdline_file="${NISSE_CMDLINE_FILE:-/proc/cmdline}"
+snapper="${NISSE_SNAPPER:-/usr/bin/snapper}"
+confdir="${NISSE_SNAPPER_CONFDIR:-/etc/snapper/configs}"
+snaps="${NISSE_SNAPSHOTS_ROOT:-/.snapshots}"
 update_dir=var/lib/nisse/update
 boot_state_dir=var/lib/nisse/boot
 
@@ -175,7 +179,11 @@ cmd_run() {
         echo "reason=$reason"
         echo "rolled-back-from=$failed"
         fp="$(old_value "$old/state" fingerprint)"
-        [ -n "$fp" ] && echo "blocked-fingerprint=$fp"
+        # an if, not "[ -n ... ] && echo": with no fingerprint (an undo by hand) that test is the group's last command and its
+        # exit status 1 would be taken for a failed write
+        if [ -n "$fp" ]; then
+            echo "blocked-fingerprint=$fp"
+        fi
     } > "$nu/state" || die "cannot write the state into the new root, nothing was changed"
     [ -f "$old/changed.txt" ] && cp -f "$old/changed.txt" "$nu/failed-changed.txt"
     [ -f "$old/health" ] && cp -f "$old/health" "$nu/failed-health"
@@ -223,13 +231,49 @@ cmd_run() {
     return 0
 }
 
+# The snapshots nisse made, one per line, for the panel's undo list (N-311):
+#   NUMBER;TYPE;PRE;EPOCH;BOOTABLE;USERDATA
+# TYPE is pre, post or single; PRE is the number of the pre snapshot a post one pairs with (empty otherwise); EPOCH is the time in
+# seconds; BOOTABLE is yes, or no:REASON when the snapshot cannot be rolled back to (its kernel has left /boot, see cmd_run);
+# USERDATA is snapper's own "nisse=KIND, session=ID" text. Only snapshots tagged nisse=ai-batch, safe-apply or
+# package-transaction are listed, never the running system (0) or one a person made by hand. Empty (and exit 0) on live media, on a
+# root that is not btrfs and before snapper has its root config. Needs root, like everything here that reads snapper.
+cmd_list() {
+    [ $# = 0 ] || {
+        echo "usage: nisse-rollback list" >&2
+        exit 2
+    }
+    grep -qw rd.live.image "$cmdline_file" 2>/dev/null && return 0
+    fstype="${NISSE_ROOT_FSTYPE:-$(findmnt -no FSTYPE / 2>/dev/null)}"
+    [ "$fstype" = btrfs ] || return 0
+    [ -f "$confdir/root" ] || return 0
+    rows="$("$snapper" --no-dbus -c root --csvout --separator ';' list --columns number,type,pre-number,date,userdata)" || die "snapper could not list the snapshots"
+    printf '%s\n' "$rows" | tail -n +2 | while IFS=';' read -r num type pre when user; do
+        is_number "$num" || continue
+        [ "$num" -gt 0 ] || continue
+        case "$user" in *nisse=ai-batch* | *nisse=safe-apply* | *nisse=package-transaction*) ;; *) continue ;; esac
+        epoch="$(date -d "$when" +%s 2>/dev/null)" || epoch=0
+        if kernel_for "$snaps/$num/snapshot" >/dev/null; then
+            bootable=yes
+        else
+            bootable="no:its kernel is no longer in /boot"
+        fi
+        user="$(printf '%s' "$user" | tr ';' ',' | tr -cd 'A-Za-z0-9 =,._:/-' | cut -c1-200)"
+        printf '%s;%s;%s;%s;%s;%s\n' "$num" "$type" "$pre" "$epoch" "$bootable" "$user"
+    done
+}
+
 case "${1:-}" in
     run)
         shift
         cmd_run "$@"
         ;;
+    list)
+        shift
+        cmd_list "$@"
+        ;;
     *)
-        echo "usage: nisse-rollback run SNAPSHOT [--reason TEXT] [--reboot]" >&2
+        echo "usage: nisse-rollback run SNAPSHOT [--reason TEXT] [--reboot] | list" >&2
         exit 2
         ;;
 esac

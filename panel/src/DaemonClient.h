@@ -92,6 +92,13 @@ public:
     Q_INVOKABLE QString revokeDevice(const QString &id);
     // The last n audit records, one JSON object per string.
     Q_INVOKABLE QStringList auditTail(int n);
+    // The changes nisse made that can be undone (N-311): the daemon's ListUndo as one JSON object {entries: [...], error: "..."}.
+    // `error` is the daemon's or D-Bus's own words when the list could not be had (the daemon away, the tool failing), and the
+    // entries are then empty.
+    Q_INVOKABLE QString undoList();
+    // Goes back to the state before the change `snapshot` (an entry's id) and restarts the computer, as the "desktop" device.
+    // Returns the daemon's refusal in words, or an empty string when it accepted it.
+    Q_INVOKABLE QString undo(qulonglong snapshot);
     Q_INVOKABLE void refreshBackend();
 
     // The approvals queue (N-205). `state` is pending, approved, denied or expired; empty means all. One JSON object

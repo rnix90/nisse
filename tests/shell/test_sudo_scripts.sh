@@ -33,6 +33,8 @@ for t in full limited; do
 done
 grep -qx '%wheel ALL=(ALL) NOPASSWD: ALL' "$dir/sudoers-full" && ok "full: wheel runs anything without a password" || bad "full: wrong rule"
 grep -qx '%wheel ALL=(root) NOPASSWD: /usr/libexec/nisse/nisse-snapshot-batch' "$dir/sudoers-limited" && ok "limited: only the snapshot helper is passwordless" || bad "limited: wrong helper rule"
+grep -qx '%wheel ALL=(root) NOPASSWD: /usr/bin/nisse-rollback list' "$dir/sudoers-limited" && ok "limited: listing the snapshots (nisse-rollback list, read-only, exactly that argument) is passwordless, so the panel's undo list opens without a password box" || bad "limited: no passwordless rollback list"
+if grep -E 'NOPASSWD:.*nisse-rollback' "$dir/sudoers-limited" | grep -vqx '%wheel ALL=(root) NOPASSWD: /usr/bin/nisse-rollback list'; then bad "limited: nisse-rollback is passwordless for more than 'list' (the rollback itself must ask for the password)"; else ok "limited: the rollback itself is not passwordless (the person types the password in the popup)"; fi
 grep -qx 'Defaults:%wheel timestamp_type=global' "$dir/sudoers-limited" && ok "limited: one answer is remembered for callers with no terminal" || bad "limited: no global timestamp"
 if grep -q 'NOPASSWD: ALL' "$dir/sudoers-limited"; then bad "limited must not allow everything"; else ok "limited does not allow everything"; fi
 

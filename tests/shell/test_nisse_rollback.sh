@@ -211,6 +211,94 @@ out="$(run run 41 --reason "the updated system never finished starting")"; rc=$?
 new_has "blocked-fingerprint=abc123" && ok "from a snapshot boot: the failed update's state is read from the real root, not from the running snapshot" || bad "snapshot boot: state $(new_state)"
 export NISSE_FSROOT=/root
 
+# ---- an undo by hand (the panel's undo button, N-311): there is no failed update behind it, so no fingerprint, maybe no state at
+# all. The first version of the record's write counted "no fingerprint" as a failed write (the end-to-end test of N-311 found it).
+fresh
+printf 'state=idle\nlast=verified\n' > "$top/root/var/lib/nisse/update/state"
+rm -f "$top/root/var/lib/nisse/update/changed.txt" "$top/root/var/lib/nisse/update/health" "$top/root/var/lib/nisse/boot/armed"
+out="$(run run 41 --reason "undone from the panel")"; rc=$?
+[ "$rc" = 0 ] && [ "$(cat "$top/root/etc/marker")" = old ] && ok "undo by hand: with no fingerprint in the old state the rollback still goes through (exit $rc)" || bad "undo by hand, no fingerprint: rc=$rc $out"
+new_has "last=rolled-back" && new_has "reason=undone from the panel" && ok "undo by hand: the record says last=rolled-back and why" || bad "undo by hand: state $(new_state)"
+new_state | grep -q '^blocked-fingerprint=' && bad "undo by hand: a blocked-fingerprint was invented" || ok "undo by hand: no blocked-fingerprint (an undo by hand blocks no update)"
+[ ! -e "$top/root/var/lib/nisse/update/failed-changed.txt" ] && [ ! -e "$top/root/var/lib/nisse/update/failed-health" ] && ok "undo by hand: no failed-update files are invented either" || bad "undo by hand: failed-* files exist"
+fresh
+rm -rf "$top/root/var/lib/nisse"
+out="$(run run 41)"; rc=$?
+[ "$rc" = 0 ] && [ "$(cat "$top/root/etc/marker")" = old ] && new_has "last=rolled-back" && ok "undo by hand: a system that has never had an update state at all can be rolled back" || bad "undo by hand, no state at all: rc=$rc $out"
+
+# ---- list (N-311): the snapshots nisse made, for the panel's undo list. Run as root through sudo by the daemon.
+# A fake snapper prints what `snapper --csvout --separator ';' list --columns number,type,pre-number,date,userdata` prints.
+list_fresh() {
+    fresh
+    export NISSE_SNAPPER="$work/snapper"
+    export NISSE_SNAPPER_CONFDIR="$work/confdir"
+    export NISSE_SNAPSHOTS_ROOT="$top/root/.snapshots"
+    mkdir -p "$work/confdir"; : > "$work/confdir/root"
+    # snapshot 43 has a kernel that /boot no longer has
+    mkdir -p "$top/root/.snapshots/43/snapshot/usr/lib/modules/5.0.0-1.fc44.x86_64"
+    for n in 44 46 47; do mkdir -p "$top/root/.snapshots/$n/snapshot/usr/lib/modules/$KVER"; done
+    cat > "$work/snapper.csv" <<'CSV'
+number;type;pre-number;date;userdata
+0;single;;;nisse=safe-apply
+41;pre;;2026-11-21 12:00:00;nisse=ai-batch, session=s-one
+42;post;41;2026-11-21 12:01:30;nisse=ai-batch, session=s-one
+43;pre;;2026-11-20 09:30:00;nisse=safe-apply
+44;post;43;2026-11-20 09:45:10;nisse=safe-apply
+45;single;;2026-11-19 08:00:00;
+46;pre;;2026-11-18 07:00:00;nisse=package-transaction
+47;post;46;2026-11-18 07:00:20;nisse=package-transaction
+48;single;;2026-11-17 06:00:00;important=yes
+CSV
+    cat > "$work/snapper" <<'STUB'
+#!/bin/sh
+echo "snapper $*" >> "$STUB_DIR/calls"
+[ -n "${SNAPPER_FAIL:-}" ] && { echo "snapper broke" >&2; exit 1; }
+case "$*" in
+    *--csvout*list*) cat "$STUB_DIR/snapper.csv" ;;
+esac
+STUB
+    chmod +x "$work/snapper"
+}
+lines() { printf '%s\n' "$out" | grep -c .; }
+list_fresh
+out="$(run list)"; rc=$?
+[ "$rc" = 0 ] && ok "list: exit 0" || bad "list: exit $rc: $out"
+ask="$(grep 'snapper' "$work/calls" | head -1)"
+case "$ask" in *"--no-dbus"*"-c root"*"--csvout"*"--separator ;"*"list --columns number,type,pre-number,date,userdata"*) ok "list: asks snapper (no dbus, the root config) for exactly those columns" ;; *) bad "list: snapper call: $ask" ;; esac
+e41="$(date -d '2026-11-21 12:00:00' +%s)"
+printf '%s\n' "$out" | grep -qx "41;pre;;$e41;yes;nisse=ai-batch, session=s-one" && ok "list: an AI turn's before snapshot: number, type, no pre, the time as epoch seconds, bootable, its userdata" || bad "list: 41: $(printf '%s\n' "$out" | grep '^41;')"
+printf '%s\n' "$out" | grep -qx "42;post;41;$(date -d '2026-11-21 12:01:30' +%s);yes;nisse=ai-batch, session=s-one" && ok "list: the after snapshot names the before one it pairs with" || bad "list: 42: $(printf '%s\n' "$out" | grep '^42;')"
+printf '%s\n' "$out" | grep -q '^46;pre;;.*;nisse=package-transaction$' && ok "list: package transactions (the dnf hook's pairs) are listed" || bad "list: no package transaction"
+printf '%s\n' "$out" | grep -q '^43;pre;;.*;nisse=safe-apply$' && ok "list: safe-apply updates are listed" || bad "list: no safe-apply row"
+printf '%s\n' "$out" | grep -q '^\(0\|45\|48\);' && bad "list: a snapshot nisse did not make is listed: $(printf '%s\n' "$out" | grep '^\(0\|45\|48\);')" || ok "list: the running system (0), a plain single snapshot and one made by hand are not listed"
+[ "$(lines)" = 6 ] && ok "list: exactly the six nisse snapshots (41, 42, 43, 44, 46, 47)" || bad "list: $(lines) lines: $out"
+printf '%s\n' "$out" | grep -q '^43;pre;;[0-9]*;no:' && ok "list: a snapshot whose kernel has left /boot is marked not bootable" || bad "list: 43 should be marked no: $(printf '%s\n' "$out" | grep '^43;')"
+printf '%s\n' "$out" | grep '^43;' | grep -q 'kernel' && ok "list: and says why, in a word of its own" || bad "list: no reason for 43"
+printf '%s\n' "$out" | grep -v '^43;' | grep -q ';no:' && bad "list: another snapshot is marked not bootable: $(printf '%s\n' "$out" | grep ';no:')" || ok "list: the others (whose kernel is in /boot) are bootable"
+printf '%s\n' "$out" | awk -F';' 'NF != 6 { bad = 1 } END { exit bad }' && ok "list: every line has exactly six fields (number, type, pre, epoch, bootable, userdata)" || bad "list: a line without six fields: $(printf '%s\n' "$out" | awk -F';' 'NF != 6')"
+if LC_ALL=C printf '%s' "$out" | grep -q -P '[^\x00-\x7F]'; then bad "list: non-ASCII in the output"; else ok "list: plain ASCII"; fi
+list_fresh
+export SNAPPER_FAIL=1
+out="$(run list)"; rc=$?
+[ "$rc" != 0 ] && case "$out" in *snapper*) ok "list: a failing snapper is an error that says so (exit $rc), not an empty list" ;; *) bad "list: failure without a message: $out" ;; esac || bad "list: snapper failure gave exit 0"
+unset SNAPPER_FAIL
+list_fresh
+echo "BOOT_IMAGE=x root=live:CDLABEL=x rd.live.image" > "$work/cmdline"
+out="$(run list)"; rc=$?
+[ "$rc" = 0 ] && [ -z "$out" ] && ok "list: live media has nothing to list (empty, exit 0)" || bad "list: live media: rc=$rc out=$out"
+list_fresh
+export NISSE_ROOT_FSTYPE=ext4
+out="$(run list)"; rc=$?
+[ "$rc" = 0 ] && [ -z "$out" ] && ok "list: a root that is not btrfs has nothing to list (empty, exit 0)" || bad "list: ext4: rc=$rc out=$out"
+list_fresh
+rm -f "$work/confdir/root"
+out="$(run list)"; rc=$?
+[ "$rc" = 0 ] && [ -z "$out" ] && ok "list: no snapper root config yet: empty, exit 0" || bad "list: no config: rc=$rc out=$out"
+list_fresh
+out="$(run list extra 2>&1)"; rc=$?
+[ "$rc" = 2 ] && ok "list: takes no arguments" || bad "list with an argument: rc=$rc"
+! grep -q 'mount\|btrfs' "$work/calls" && ok "list: needs no top-level mount and runs no btrfs command" || bad "list ran btrfs"
+
 # ---- a reason is plain ASCII, one line, and cut
 fresh
 long="$(printf 'x%.0s' $(seq 1 400))"

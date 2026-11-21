@@ -55,6 +55,9 @@ if command -v systemd-analyze >/dev/null 2>&1; then
     out="$(systemd-analyze verify "$scratch/usr/lib/systemd/system/nisse-health-check.service" 2>&1 | grep -v -E 'Command .* is not executable|Failed to prepare filename|^$' || true)"
     [ -z "$out" ] || fail "systemd-analyze verify: $out"
 fi
+# N-311: the panel's undo list reads `nisse-rollback list`, and the sudoers rule of limited mode names exactly that path
+grep -q '^cmd_list() {' "$scratch/usr/bin/nisse-rollback" || fail "nisse-rollback has no list command (the panel's undo list needs it)"
+grep -q 'usage: nisse-rollback run SNAPSHOT .* | list' "$scratch/usr/bin/nisse-rollback" || fail "nisse-rollback's usage does not mention list"
 # N-310: the watchdog unit skips live media, runs the watchdog, is enabled by the preset; the notice starts at the KDE login;
 # the tools call each other by the names the package installs
 wd="$(cat "$scratch/usr/lib/systemd/system/nisse-update-watchdog.service")"

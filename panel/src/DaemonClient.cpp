@@ -13,6 +13,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QStandardPaths>
 #include <QJsonObject>
@@ -265,6 +266,33 @@ QString DaemonClient::saveConfig(const QString &configJson)
         return QString();
     }
     return reply.errorMessage();
+}
+
+QString DaemonClient::undoList()
+{
+    QJsonObject out;
+    QJsonArray entries;
+    const QDBusMessage reply = invoke(QStringLiteral("ListUndo"));
+    if (reply.type() != QDBusMessage::ReplyMessage) {
+        out.insert(QStringLiteral("entries"), entries);
+        out.insert(QStringLiteral("error"), reply.errorMessage());
+    } else {
+        const QStringList lines = reply.arguments().value(0).toStringList();
+        for (const QString &line : lines) {
+            const QJsonDocument doc = QJsonDocument::fromJson(line.toUtf8());
+            if (doc.isObject())
+                entries.append(doc.object()); // a damaged entry is skipped
+        }
+        out.insert(QStringLiteral("entries"), entries);
+        out.insert(QStringLiteral("error"), QString());
+    }
+    return QString::fromUtf8(QJsonDocument(out).toJson(QJsonDocument::Compact));
+}
+
+QString DaemonClient::undo(qulonglong snapshot)
+{
+    const QDBusMessage reply = invoke(QStringLiteral("Undo"), snapshot, QStringLiteral("desktop"));
+    return reply.type() == QDBusMessage::ReplyMessage ? QString() : reply.errorMessage();
 }
 
 QString DaemonClient::searchAudit(const QString &queryJson)

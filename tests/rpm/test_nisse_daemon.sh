@@ -20,6 +20,8 @@ rpm -qp --requires "$rpmf" | grep -q 'nisse-release-common' || fail "nisse-daemo
 # without them a turn still runs and the audit log says why there is no snapshot)
 recs="$(rpm -qp --recommends "$rpmf")"
 for r in nisse-snapshots sudo nisse-sudo; do grep -qx "$r" <<< "$recs" || fail "nisse-daemon must recommend $r"; done
+# N-311: the undo list and the undo itself run nisse-rollback (package nisse-update) through sudo
+grep -qx 'nisse-update' <<< "$recs" || fail "nisse-daemon must recommend nisse-update (the undo list and the undo run nisse-rollback)"
 member usr/share/nisse/claude-settings.json | grep -q '/usr/bin/nisse-audit-hook' || fail "settings must register nisse-audit-hook"
 settings="$(member usr/share/nisse/claude-settings.json)"
 for event in PreToolUse PostToolUse; do

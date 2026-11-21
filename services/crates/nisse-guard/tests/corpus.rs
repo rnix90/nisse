@@ -227,6 +227,34 @@ fn corpus() -> Vec<(&'static str, (String, Value), Want)> {
         ),
         ("rm -rf star", bash("rm -rf *"), Guard(Delete)),
         ("sudo rm -rf", bash("sudo rm -rf /var/lib/foo"), Guard(Delete)),
+        // N-311: going back to a snapshot undoes every system change since; only a person does that (the panel's undo button
+        // goes through the daemon, not through the AI's shell)
+        ("nisse-rollback run", bash("nisse-rollback run 41"), Guard(Delete)),
+        (
+            "sudo nisse-rollback run reboot",
+            bash("sudo nisse-rollback run 41 --reason x --reboot"),
+            Guard(Delete),
+        ),
+        (
+            "sudo -A nisse-rollback by path",
+            bash("sudo -A /usr/bin/nisse-rollback run 3"),
+            Guard(Delete),
+        ),
+        (
+            "nisse-rollback in bash -c",
+            bash("bash -c \"sudo nisse-rollback run 41\""),
+            Guard(Delete),
+        ),
+        (
+            "nisse-rollback with no arguments",
+            bash("nisse-rollback"),
+            Guard(Delete),
+        ),
+        (
+            "nisse-rollback list is read-only",
+            bash("sudo nisse-rollback list"),
+            Free,
+        ),
         ("rm after a cd", bash("cd /tmp && rm -rf /home/u/x"), Guard(Delete)),
         ("rm in bash -c", bash("bash -c \"rm -rf ~/x\""), Guard(Delete)),
         ("rm after a semicolon", bash("echo x; rm -rf ~/y"), Guard(Delete)),

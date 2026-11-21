@@ -79,6 +79,7 @@ again until it changes**.
 ### nisse-rollback: the swap
 
     nisse-rollback run SNAPSHOT [--reason TEXT] [--reboot]
+    nisse-rollback list                       (N-311: the snapshots nisse made, one line each, for the panel's undo list)
 
 `snapper rollback` does not work on this layout (docs/boot-recovery.md), so the rollback swaps subvolumes at the top level of
 the btrfs file system and leaves fstab and the kernel line alone, because both say `subvol=root`. Proven on an installed disk
@@ -98,6 +99,13 @@ still listing every snapshot.
 home, `var_log` and `var_cache` are separate subvolumes and are never touched (N-312 proves it with a data subvolume).
 Moving `.snapshots` empties the running system's snapshot list for the seconds before the reboot, so `nisse-boot-sync.path`
 removes the boot menu file; `nisse-boot-setup` writes it again at the next boot.
+
+`nisse-rollback list` (root, through sudo) prints one line per snapshot nisse made, never the running system (0) or one made by
+hand: `NUMBER;TYPE;PRE;EPOCH;BOOTABLE;USERDATA`. `TYPE` is pre, post or single; `PRE` is the pre snapshot a post one pairs with;
+`EPOCH` is the time in seconds (snapper's own date column, read with `date -d`); `BOOTABLE` is `yes` or `no:REASON` (the same
+kernel rule as the refusal above); `USERDATA` is snapper's "nisse=KIND, session=ID" text, where KIND is `ai-batch`, `safe-apply`
+or `package-transaction`. It prints nothing and exits 0 on live media, on a root that is not btrfs and before snapper has its
+root config, and fails with snapper's words if snapper fails. The daemon turns the lines into the undo list.
 
 ### nisse-update-watchdog: when
 
@@ -149,8 +157,11 @@ fingerprint and the update goes ahead. If dnf cannot say, there is no fingerprin
 - N-310 (done): the watchdog above. **After a fallback boot the real root's state said `pending-verify` and nobody could edit
   it from the read-only snapshot**: the watchdog now settles that with a real rollback (the record is written into the restored
   root from the top level), so nothing is left pending. The end-to-end test proves both the fallback and the settling.
-- N-311 (the panel's undo button) calls `nisse-rollback run SNAPSHOT` for a snapshot the person picks (it needs `sudo`, and the
-  confirmation must say home and data are not covered). N-312 proves the excluded subvolumes with a data subvolume.
+- N-311 (done): the panel's undo button, in Settings under "System history" (`docs/panel-notes.md`), goes through the daemon
+  (`ListUndo`, `Undo`, `docs/daemon-protocol.md`) to `nisse-rollback list` and `nisse-rollback run SNAPSHOT --reboot` with
+  `sudo`; the confirmation says home and data are not covered and that the computer restarts at once. An undo by hand has no
+  failed update behind it, so its record has no fingerprint and blocks no update. In limited sudo mode only `nisse-rollback list`
+  is passwordless; the rollback asks in the password popup. N-312 proves the excluded subvolumes with a data subvolume.
 - The notice's Cancel button and the after-rollback notice are checked in unit tests with a stand-in `notify-send`; a real
   click on a real Plasma notification is a GATE 3 hand check.
 - N-703/N-704 decide when it runs and when it may reboot; the panel and the AI will call it through the daemon's sudo

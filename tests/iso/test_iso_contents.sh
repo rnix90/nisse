@@ -391,6 +391,14 @@ state="$(sudo systemctl --root="$merged" is-enabled nisse-update-watchdog.servic
 case "$state" in enabled | enabled-runtime) ;; *) fail "nisse-update-watchdog.service is '$state' after the image applies its presets, expected enabled" ;; esac
 echo "watchdog rollback: nisse-rollback, the watchdog, the after-rollback notice, notify-send and the unit are in the image, the unit is enabled"
 
+# Undo in the panel (ledger N-311): the list command the daemon runs, the limited-mode rule that lets it run without a password box
+# (and no passwordless rollback), and the guard binary that holds nisse-rollback for the AI are in the image.
+grep -q '^cmd_list() {' "$root/usr/bin/nisse-rollback" || fail "nisse-rollback in the image has no list command"
+sudo grep -qx '%wheel ALL=(root) NOPASSWD: /usr/bin/nisse-rollback list' "$root/usr/share/nisse/sudo/sudoers-limited" || fail "the limited sudo policy in the image does not allow 'nisse-rollback list' without a password"
+if sudo grep -E 'NOPASSWD:.*nisse-rollback' "$root/usr/share/nisse/sudo/sudoers-limited" | grep -vqx '%wheel ALL=(root) NOPASSWD: /usr/bin/nisse-rollback list'; then fail "the limited sudo policy makes more of nisse-rollback passwordless than 'list'"; fi
+[ -x "$root/usr/bin/nisse-guard-hook" ] || fail "nisse-guard-hook is missing from the image (it holds nisse-rollback for the AI)"
+echo "undo: nisse-rollback list, the limited-mode rule for it and the guard hook are in the image"
+
 # nisse's sudo policy (ledger N-306a): the package is in the image in its default, full mode (wheel runs sudo with no
 # password, the AI works with no interruptions), the sudoers drop-in is the mode sudo requires (0440), and the shim and
 # the password popup helper are there for limited mode.

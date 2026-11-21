@@ -3,7 +3,7 @@
 
 Name:           nisse-sudo
 Version:        0.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        nisse sudo policy, full or limited, with a password popup
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -61,6 +61,9 @@ echo full > %{buildroot}%{_sysconfdir}/nisse/sudo-mode
 %config(noreplace) %{_sysconfdir}/nisse/sudo-mode
 
 %changelog
+* Sat Nov 21 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-3
+- Limited mode: 'nisse-rollback list' (read-only) is passwordless so the panel's undo list opens without a password box; the rollback itself still asks (N-311)
+
 * Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
 - Ship the sudo-mode install choice (a nisse-choices manifest); full stays the default (N-306c)
 

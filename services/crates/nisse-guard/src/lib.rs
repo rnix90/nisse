@@ -274,6 +274,11 @@ fn command(words: &[String], cx: &Context, depth: usize) -> Hit {
         "rm" | "unlink" | "rmdir" => rm(&args, cx),
         "shred" => shred(&args, cx),
         "wipefs" | "blkdiscard" | "mkswap" => guarded(Category::Delete, format!("{cmd} wipes a disk or partition")),
+        // N-311: going back to a snapshot undoes every system change made since. Listing is read-only and free.
+        "nisse-rollback" if args.first() != Some(&"list") => guarded(
+            Category::Delete,
+            "nisse-rollback puts the system back to an older snapshot and undoes every system change made since",
+        ),
         c if c.starts_with("mkfs") => guarded(
             Category::Delete,
             "mkfs formats a disk or partition and erases what is on it",
