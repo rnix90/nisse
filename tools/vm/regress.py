@@ -56,7 +56,7 @@ class Screen:
 SCREENS = [
     Screen("desktop", wait=3),
     Screen("panel", masks=(PANEL_CLOCK,), crop_of="desktop", crop=(0.0, 0.93, 1.0, 1.0)),
-    Screen("launcher", action="launcher", wait=5),
+    Screen("launcher", action="launcher", wait=10),
     Screen("settings", launch="systemsettings kcm_colors", wait=14),
     Screen("terminal", launch="konsole -e bash /tmp/regress-terminal.sh", wait=10,
            files=(("/tmp/regress-terminal.sh", TERMINAL_SCRIPT),)),
