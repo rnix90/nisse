@@ -57,7 +57,15 @@ case "$out" in *"RES: nisse-boot-"*"nisse-snapshots-"*) ok "nisse-boot and nisse
 
 # ---- the first-boot fixes: env_block (the installed system really has it), snippets in grub.cfg, the snapper config
 before="$(env_of env_block)"
-[ "$before" = "512+1" ] && ok "as installed, the GRUB environment has env_block=512+1 (GRUB cannot save its variables)" || bad "env_block before the fix was '$before' (the finding of the N-307 spike did not reproduce)"
+# A disk installed from an image that already ships nisse-boot has had the fix applied at its first boot (nisse-boot-setup removes
+# env_block on every boot), so only a disk that predates the package still shows the finding of the N-307 spike.
+if [ "$before" = "512+1" ]; then
+    ok "as installed, the GRUB environment has env_block=512+1 (GRUB cannot save its variables)"
+elif [ -z "$before" ] && [ "$(g 'echo "RES: $(systemctl is-enabled nisse-boot-setup.service 2>&1)"' 30)" = enabled ]; then
+    ok "the image ships nisse-boot: its first-boot setup had already removed env_block (nothing left to show)"
+else
+    bad "env_block before the fix was '$before' (neither the N-307 finding nor an image that already fixed it)"
+fi
 V run 'S systemctl start nisse-snapshot-setup.service; S systemctl start nisse-boot-setup.service; S systemctl start nisse-boot-sync.path' 180 >/dev/null
 [ -z "$(env_of env_block)" ] && ok "nisse-boot-setup removed env_block" || bad "env_block is still there"
 [ "$(g 'echo "RES: $(S grep -c -E "09_nisse_fallback|11_nisse_snapshots" /boot/grub2/grub.cfg)"' 60)" -ge 2 ] 2>/dev/null && ok "grub.cfg has both nisse snippets (regenerated once)" || bad "grub.cfg lacks the nisse snippets"
@@ -125,8 +133,13 @@ cl="$(g "echo \"RES: \$(S snapper -c root --csvout list --columns number,cleanup
 echo "     fresh boot, unarmed, session held open 150 s: the success timer (2 minutes after login) must run"
 V run 'S grub2-editenv - set boot_success=0; S sync' 30 >/dev/null
 boot
-sleep 150
-[ "$(env_of boot_success)" = 1 ] && ok "control: unarmed, Fedora's success timer marks the boot good (the hold is only while armed)" || bad "control: boot_success is $(env_of boot_success) while unarmed"
+# poll, do not sleep: the guest's clock runs slower than the host's, so a fixed 150 s is a race against the timer's two minutes
+t=0
+while [ "$t" -lt 360 ]; do
+    [ "$(env_of boot_success)" = 1 ] && break
+    sleep 15; t=$((t + 15))
+done
+[ "$(env_of boot_success)" = 1 ] && ok "control: unarmed, Fedora's success timer marks the boot good (the hold is only while armed)" || bad "control: boot_success is $(env_of boot_success) while unarmed after $t s"
 
 # ---- 4. controls
 V run 'S grub2-editenv - unset boot_counter nisse_fallback; S grub2-editenv - set boot_success=0; S sync' 30 >/dev/null

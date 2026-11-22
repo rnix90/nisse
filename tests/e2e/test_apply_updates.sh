@@ -60,7 +60,10 @@ done
 V put /tmp/probe-repos.tgz "$(cygpath -m "$pulled/probe-repos.tgz")" >/dev/null
 out="$(V run 'S dnf install -y --disablerepo=updates /tmp/nisse-snapshots.rpm /tmp/nisse-boot.rpm /tmp/nisse-update.rpm 2>&1 | tail -2; echo "RES: $(rpm -q nisse-update nisse-boot nisse-snapshots | tr "\n" " ")"' 900)"
 case "$out" in *"RES: nisse-update-"*) ok "nisse-update, nisse-boot and nisse-snapshots install on the installed system" ;; *) bad "install failed: $(echo "$out" | tail -4)"; exit 1 ;; esac
-V run 'S systemctl start nisse-snapshot-setup.service; S systemctl start nisse-boot-setup.service; S mkdir -p /var/lib/e2e; S tar -C /var/lib/e2e -xzf /tmp/probe-repos.tgz; S dnf install -y /var/lib/e2e/probe-1.0.rpm >/dev/null 2>&1' 600 >/dev/null
+# This test is about the flow BEFORE the verdict (an update that waits, a boot that is counted, a fallback that nobody verified).
+# An image that ships the health check (N-309) and the watchdog (N-310) would give the verdict itself after the first reboot, so
+# both are masked here; their own tests (test_health_check.sh, test_rollback.sh) cover them.
+V run 'S systemctl mask nisse-health-check.service nisse-update-watchdog.service >/dev/null 2>&1; S systemctl start nisse-snapshot-setup.service; S systemctl start nisse-boot-setup.service; S mkdir -p /var/lib/e2e; S tar -C /var/lib/e2e -xzf /tmp/probe-repos.tgz; S dnf install -y /var/lib/e2e/probe-1.0.rpm >/dev/null 2>&1' 600 >/dev/null
 [ "$(probe)" = 1.0 ] && ok "probe package 1.0 installed; the update will move it to 2.0" || { bad "probe 1.0 did not install"; exit 1; }
 [ "$(g 'echo "RES: $(test -f /etc/snapper/configs/root && echo yes)"' 30)" = yes ] && ok "the snapper root config exists" || bad "no snapper root config"
 repo() { echo "--dnf-arg --repofrompath=e2e,file:///var/lib/e2e/repo-$1 --dnf-arg --repo=e2e --dnf-arg --no-gpgchecks"; }
