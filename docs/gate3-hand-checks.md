@@ -4,14 +4,32 @@ Everything here needs a real mouse, a real keyboard or an ear, so no harness can
 virtual machines. The automated parts of the gate (ISO contents, screenshot regression, install-to-disk, the six real-machine tests,
 the panel and daemon tests) are reported in the ledger entry of N-313.
 
-Two machines are used, both on the rebuilt ISO:
+Three machines are used, all on the rebuilt ISO (from Git Bash in the repo; each opens a window; `--audio` plays the sounds through
+the host's speakers):
 
 - **LIVE** boots the ISO itself: a fresh desktop, nothing installed. Used for the sidebar, the tray, the sound theme and the badge.
-- **INSTALLED** is a copy of the disk the install-to-disk test made, prepared with some history and one broken update waiting. Used
-  for System history, Undo and the watchdog's countdown notice. Log in as the user the harness made (the name and password are in
-  `out/install/run/harness-login.txt`; it is a throwaway virtual machine).
 
-A mouse that is captured by the VM window is released with Ctrl+Alt+G.
+      tools/vm/run-vm.sh D:/nisse-build-vm/handcheck/live.qcow2 --iso D:/nisse-build-vm/out/nisse-live.iso --audio
+
+- **HISTORY** is a copy of the disk the install-to-disk test made, with two real package changes in its history. Used for System
+  history and Undo (steps 15 to 19).
+
+      tools/vm/run-vm.sh D:/nisse-build-vm/handcheck/history.qcow2 --audio
+
+- **BROKEN** is the same disk with an update applied that fails its own health check after the restart. Used for the watchdog's
+  countdown notice (steps 20 to 23). Boot it, then log in within about three minutes (see that section).
+
+      tools/vm/run-vm.sh D:/nisse-build-vm/handcheck/broken.qcow2 --audio
+
+On the two installed machines log in as the user the harness made (the name and password are in `out/install/run/harness-login.txt`;
+a throwaway virtual machine). The disks are copies: closing a window and starting again from the same file continues where it
+left off, so keep a pristine copy of `history.qcow2` and `broken.qcow2` if you want to repeat a step from the start.
+
+A mouse that is captured by a VM window is released with Ctrl+Alt+G.
+
+To raise the approval notice for steps 12 and 13, open Konsole in the LIVE machine and paste this one line:
+
+    busctl --user call org.nisse.Daemon1 /org/nisse/Daemon1 org.nisse.Daemon1 RequestApproval sssss "" "demo" "Bash" "Bash: git push origin main (outbound)" "{}"
 
 ## LIVE: the sidebar (N-415a)
 
@@ -38,7 +56,7 @@ A mouse that is captured by the VM window is released with Ctrl+Alt+G.
 
 | # | Do | Expect |
 |---|---|---|
-| 12 | An approval notice (I raise one for you in the LIVE machine), click it | the sidebar opens on the Approvals page |
+| 12 | Raise an approval notice with the command above, then click it | the sidebar opens on the Approvals page |
 | 13 | Look at the pinned nisse icon while an approval waits | a small number badge |
 | 14 | Listen: log in, log out, a needs-you notice, an error, a volume key | six sounds in the plucked-wood voice, two semitones down; tell me which you like and which you do not |
 

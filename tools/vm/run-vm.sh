@@ -3,7 +3,7 @@
 # Open a nisse VM with a window (QEMU, UEFI, WHPX) on the Windows host, for installing and trying things by hand.
 # Run from Git Bash.
 #
-#   tools/vm/run-vm.sh DISK.qcow2 [--iso ISO] [--vendor V] [--product P] [--family F]
+#   tools/vm/run-vm.sh DISK.qcow2 [--iso ISO] [--audio] [--vendor V] [--product P] [--family F]
 #
 # The disk is created (40 GB, sparse) if it does not exist. Boot from the ISO to install; leave --iso out to boot
 # the installed system. --vendor/--product/--family spoof SMBIOS so hardware routing sees a Surface or a MacBook.
@@ -12,13 +12,14 @@
 set -euo pipefail
 
 disk="${1:?usage: run-vm.sh DISK.qcow2 [options]}"; shift
-iso="" vendor="" product="" family=""
+iso="" vendor="" product="" family="" audio=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --iso) iso="$2"; shift 2 ;;
         --vendor) vendor="$2"; shift 2 ;;
         --product) product="$2"; shift 2 ;;
         --family) family="$2"; shift 2 ;;
+        --audio) audio=yes; shift ;;
         *) echo "unknown option: $1" >&2; exit 64 ;;
     esac
 done
@@ -39,6 +40,8 @@ args=(-machine q35 -accel whpx,kernel-irqchip=off -cpu max -smp 4 -m 6144
       -netdev user,id=n0 -device virtio-net-pci,netdev=n0
       -device virtio-vga -device qemu-xhci -device usb-tablet)
 [ -n "$iso" ] && args+=(-cdrom "$(w "$iso")" -boot d)
+# sound through the host's speakers (DirectSound), for the ear checks of the sound theme (N-414, GATE 3)
+[ -n "$audio" ] && args+=(-audiodev dsound,id=snd0 -device ich9-intel-hda -device hda-output,audiodev=snd0)
 if [ -n "$vendor$product$family" ]; then
     esc() { printf '%s' "${1//,/,,}"; }
     spec="type=1"
