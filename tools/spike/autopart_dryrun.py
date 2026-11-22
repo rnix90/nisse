@@ -3,7 +3,7 @@
 """N-301 spike: what does the installer's own automatic partitioning plan for a nisse disk?
 
 Run as root in the Fedora build VM (anaconda-core, libblockdev-btrfs and libblockdev-lvm installed; no ISO install and
-no nested virtualization needed). It attaches a sparse file as a loop disk, loads Anaconda's configuration the way
+no nested virtualization needed). It gives blivet a sparse file as a disk image, loads Anaconda's configuration the way
 /usr/sbin/anaconda does at start-up (profile detection from the os-release ID, then conf.d), asks Anaconda's real
 AutomaticPartitioningTask for a plan, and prints the planned devices. NOTHING is written to the disk: the plan is only
 scheduled in blivet's device tree.
@@ -60,8 +60,9 @@ def main():
     if os.path.exists(IMG):
         os.remove(IMG)
     sh("truncate", "-s", args.size, IMG)
-    loop = sh("losetup", "--find", "--show", IMG)
-    name = os.path.basename(loop)
+    # A blivet disk image, not a loop device: blivet 3.14 no longer lists a loop device in storage.disks (it has a backing-file parent), the
+    # way the 2026-11-16 spike attached the disk. `disk_images` makes a disk straight from the file, which is what blivet offers for this.
+    name = "nissedry"
     try:
         from blivet import arch
         from pyanaconda.modules.common.structures.partitioning import PartitioningRequest
@@ -71,11 +72,12 @@ def main():
         print("== platform: efi =", arch.is_efi())
         storage = create_storage()
         storage._get_hostname = lambda: None        # the network module is a D-Bus service; a live image has no real hostname
+        storage.disk_images = {name: IMG}
         storage.exclusive_disks = [name]
         storage.reset()
         disks = [d for d in storage.disks if d.name == name]
         if not disks:
-            print("loop disk not seen by blivet; disks:", [d.name for d in storage.disks])
+            print("disk image not seen by blivet; disks:", [d.name for d in storage.disks])
             return 2
         storage.select_disks([disks[0].device_id])   # hide every other disk, as the installer does after the disk spoke
         # The build VM is itself btrfs (subvolumes root, home, var, boot) and blivet counts those names as taken, which
@@ -121,7 +123,6 @@ def main():
                 dev.name, dev.type, fmt, mp, dev.size, extra, opts))
         return 0
     finally:
-        subprocess.run(["losetup", "-d", loop])
         if os.path.exists(IMG):
             os.remove(IMG)
 
