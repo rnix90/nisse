@@ -9,6 +9,10 @@ use time::format_description::well_known::Rfc3339;
 
 /// One line of the log. The type is defined in the shared protocol crate (N-220) so every client reads it the same way.
 pub use nisse_proto::AuditRecord;
+pub use nisse_proto::{AuditChanges, CutField, RedactedField};
+
+mod redact;
+pub use redact::{sanitize, FIELD_LIMIT};
 
 pub struct AuditLog {
     path: PathBuf,
@@ -25,10 +29,12 @@ impl AuditLog {
         Ok(AuditLog { path })
     }
 
-    /// Append one record as one line. If the file ends mid-line (a crash during an earlier write), the new
+    /// Append one record as one line, with secrets replaced and long text cut (see [`sanitize`]). If the file ends mid-line (a crash during an earlier write), the new
     /// record starts on a fresh line so it stays parsable.
     pub fn append(&self, rec: &AuditRecord) -> io::Result<()> {
-        let mut line = serde_json::to_vec(rec).map_err(io::Error::other)?;
+        // every record passes here, so every writer gets the same secrets and length rules (N-219c)
+        let rec = sanitize(rec);
+        let mut line = serde_json::to_vec(&rec).map_err(io::Error::other)?;
         line.push(b'\n');
         let mut file = OpenOptions::new()
             .read(true)
@@ -74,6 +80,7 @@ pub fn record_from_hook(payload: &str, now: &str) -> AuditRecord {
         None => (None, serde_json::json!({ "raw": payload })),
     };
     AuditRecord {
+        changed: None,
         ts: now.to_string(),
         session,
         actor: "claude".into(),

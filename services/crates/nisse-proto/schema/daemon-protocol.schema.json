@@ -91,7 +91,39 @@
         "actor": {"type": "string"},
         "kind": {"type": "string"},
         "source": {"type": "string", "enum": ["daemon", "terminal"]},
-        "detail": {}
+        "detail": {},
+        "changed": {
+          "description": "Present only when the log changed the record before saving it (N-219c): secrets replaced by a [redacted: kind] marker, text longer than the limit cut. A client must not show such a record as complete.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "redacted": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["field", "kind", "count"],
+                "properties": {
+                  "field": {"type": "string"},
+                  "kind": {"type": "string"},
+                  "count": {"type": "integer", "minimum": 1}
+                }
+              }
+            },
+            "cut": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["field", "bytes"],
+                "properties": {
+                  "field": {"type": "string"},
+                  "bytes": {"type": "integer", "minimum": 1}
+                }
+              }
+            }
+          }
+        }
       }
     },
     "Event": {

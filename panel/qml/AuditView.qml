@@ -129,6 +129,39 @@ Item {
         return clip(s.replace(/\s+/g, " ").trim(), 200)
     }
 
+    // A record the log changed before saving it (secrets replaced, long text cut) says so, in words, and is never shown as
+    // complete (N-219c). Records written before that, and records with nothing changed, have no note.
+    function changeNote(r) {
+        var ch = r.changed
+        if (!ch)
+            return ""
+        var parts = []
+        var red = ch.redacted || []
+        if (red.length > 0) {
+            var n = 0
+            var seen = {}
+            var fields = 0
+            for (var i = 0; i < red.length; i++) {
+                n += red[i].count
+                if (!seen[red[i].field]) {
+                    seen[red[i].field] = true
+                    fields++
+                }
+            }
+            parts.push(n + (n === 1 ? " secret" : " secrets") + " replaced in " + fields + (fields === 1 ? " field" : " fields"))
+        }
+        var cut = ch.cut || []
+        if (cut.length > 0) {
+            var bytes = 0
+            for (var j = 0; j < cut.length; j++)
+                bytes += cut[j].bytes
+            parts.push(bytes + (bytes === 1 ? " byte" : " bytes") + " cut from " + cut.length + (cut.length === 1 ? " field" : " fields"))
+        }
+        if (parts.length === 0)
+            return ""
+        return "Changed before it was saved: " + parts.join(", ") + ". This is not the full record."
+    }
+
     function detailText(r) {
         return JSON.stringify(r, null, 1)
     }
@@ -266,6 +299,15 @@ Item {
                         maximumLineCount: root.expanded === row.index ? 1000 : 2
                         elide: Text.ElideRight
                         text: root.expanded === row.index ? root.detailText(row.modelData) : root.summarize(row.modelData)
+                    }
+                    Label {
+                        objectName: "changeNote"
+                        Layout.fillWidth: true
+                        visible: text !== ""
+                        color: "#d9a441"
+                        font.pixelSize: 11
+                        wrapMode: Text.Wrap
+                        text: root.changeNote(row.modelData)
                     }
                 }
                 TapHandler { onTapped: root.toggle(row.index) }

@@ -168,6 +168,7 @@ fn approval(state: ApprovalState) -> Approval {
 
 fn audit(source: Option<&str>) -> AuditRecord {
     AuditRecord {
+        changed: None,
         ts: "2026-11-14T10:00:00.5Z".into(),
         session: source.map(|_| "s1".to_string()),
         actor: "claude".into(),
@@ -220,6 +221,34 @@ fn every_approval_state_round_trips_and_validates() {
 fn audit_records_round_trip_with_and_without_a_source() {
     round_trip("AuditRecord", audit(Some("terminal")));
     round_trip("AuditRecord", audit(None));
+}
+
+#[test]
+fn an_audit_record_that_was_changed_before_it_was_saved_validates_and_round_trips() {
+    use nisse_proto::{AuditChanges, CutField, RedactedField};
+    let mut rec = audit(Some("daemon"));
+    rec.changed = Some(AuditChanges {
+        redacted: vec![RedactedField {
+            field: "detail.tool_input.command".into(),
+            kind: "api-key".into(),
+            count: 2,
+        }],
+        cut: vec![CutField {
+            field: "detail.tool_response.stdout".into(),
+            bytes: 12_345,
+        }],
+    });
+    round_trip("AuditRecord", rec);
+    // only one of the two lists is present when only one happened
+    let mut only_cut = audit(None);
+    only_cut.changed = Some(AuditChanges {
+        redacted: vec![],
+        cut: vec![CutField {
+            field: "detail.text".into(),
+            bytes: 1,
+        }],
+    });
+    round_trip("AuditRecord", only_cut);
 }
 
 fn device(revoked: bool) -> Device {

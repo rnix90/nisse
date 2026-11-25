@@ -126,6 +126,7 @@ struct Core {
 impl Core {
     fn audit(&self, session: Option<&str>, actor: &str, kind: &str, detail: serde_json::Value) {
         let record = AuditRecord {
+            changed: None,
             ts: now_rfc3339(),
             session: session.map(String::from),
             actor: actor.into(),

@@ -19,7 +19,7 @@ that carries it; another transport carries the same JSON.
 |---|---|---|
 | `Session` | one conversation: `id`, `title` (null until renamed), `created_at`, `started`, `keep` (`always`, `library`, `drop`), `open`, `backend`, `running`, `pending_approvals` | `ListSessions` |
 | `Approval` | something the AI wants to do that needs a person's yes: `id`, `session`, `asked_by`, `tool`, `summary`, `detail`, `asked_at`, `expires_at`, `state` (`pending`, `approved`, `denied`, `expired`), `decided_by`, `decided_at`, `reason` | `ListApprovals`, `Approve`, `Deny`, `WaitApproval` |
-| `AuditRecord` | one line of the append-only audit log: `ts`, `session`, `actor`, `kind`, `source` (`daemon` or `terminal`, absent means `daemon`), `detail` | `SearchAudit`, `ExportAudit`, `AuditTail` |
+| `AuditRecord` | one line of the append-only audit log: `ts`, `session`, `actor`, `kind`, `source` (`daemon` or `terminal`, absent means `daemon`), `detail`, and `changed` (only when the log changed the record, see "The audit log never holds secrets") | `SearchAudit`, `ExportAudit`, `AuditTail` |
 | `Event` | one thing that happened in a session, with a per-session number `seq` (see below): `type` is `user_message` or `chunk` (with `text`), `error` (with `message`) or `done` | `EventsSince`, the `SessionEvent` signal |
 | `EventsPage` | the answer to "events since N": `session`, `events`, `after`, `last_seq`, `gap` | `EventsSince` |
 | `Device` | a paired device: `id`, `name`, `role` (`full` or `approver`), `public_key_hex`, `created_at`, `last_seen`, `revoked_at` | `ListDevices`, `CompletePairing` |
@@ -160,6 +160,39 @@ An AI turn that is still running is not listed (its before snapshot is not a cha
 `rollback-failed` (with the error). A paired phone cannot undo or list: both are on the "this computer only" list, so a `DeviceCall` of either is refused with that
 reason (the computer restarts, so it is for the person sitting at it). The AI cannot run `nisse-rollback` itself either: the
 guardrail holds it for approval.
+
+## The audit log never holds secrets (N-219c)
+
+Every writer of the audit log (the Claude Code hook, the daemon, the turn hook) goes through `AuditLog::append` in the
+`nisse-audit` library, which cleans a copy of the record before it is written. Two rules, both on every text value anywhere in
+`detail` (never on field names, and never on `ts`, `session`, `actor` or `kind`):
+
+1. **Secrets are replaced** by a marker, `[redacted: kind]`. Kinds: `api-key` (the public formats of Anthropic, OpenAI, AWS,
+   GitHub, Slack, Google, Stripe, Hugging Face and npm keys and tokens), `jwt`, `bearer-token` (the value of an `Authorization:
+   Bearer`, `Basic` or `Token` header), `private-key` (a whole `-----BEGIN ... PRIVATE KEY-----` block, or to the end of the text
+   when it has no end), `url-credentials` (the password in `scheme://user:password@host`) and `credential` (the value of a
+   `name=value` or `name: value` whose name ends in `password`, `secret`, `token`, `api_key` and the like, in shell, URLs, JSON and
+   environment dumps; and a string field of a JSON object with such a name). A value that is a variable or a call (`$TOKEN`,
+   `get_password()`) and a value under six characters are left alone, as is ordinary text (a git hash, a UUID, base64 data).
+2. **Text is cut** at 8 KB (`FIELD_LIMIT`, one constant) on a character boundary, and ends with `[cut: N more bytes]`. Redaction
+   comes first, so a secret that straddles the limit is gone, not half shown.
+
+When either rule changed anything the record carries `changed`:
+
+```json
+"changed": {
+  "redacted": [{"field": "detail.tool_input.command", "kind": "api-key", "count": 2}],
+  "cut": [{"field": "detail.tool_response.stdout", "bytes": 12345}]
+}
+```
+
+`field` is a path from the record (`detail.items[2].text`); `bytes` is how much was taken off after redaction. Either list is
+absent when empty, and `changed` is absent on a record that needed nothing. Records written before N-219c are never rewritten
+and have no `changed`; search matches the cleaned text, so a removed secret cannot be found. A client must never show a record that
+carries `changed` as complete: the panel's audit view puts a note on the row, and the export keeps the field in every line.
+
+Not covered: the per-session chat event files (the chat history files) are a separate store, and the shapes above are the list of known
+formats, not a promise to catch every secret.
 
 ## Checking it
 

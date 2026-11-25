@@ -411,6 +411,7 @@ impl ApprovalQueue {
             return;
         };
         let record = AuditRecord {
+            changed: None,
             ts: now_rfc3339(),
             session: session.map(String::from),
             actor: actor.into(),

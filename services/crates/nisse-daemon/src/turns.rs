@@ -145,6 +145,7 @@ impl TurnHook {
 
     fn audit(&self, session: &str, detail: serde_json::Value) {
         let record = AuditRecord {
+            changed: None,
             ts: now_rfc3339(),
             session: Some(session.to_string()),
             actor: "nisse".into(),

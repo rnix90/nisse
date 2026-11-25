@@ -8,6 +8,7 @@ use nisse_audit::{log_path_from, now_rfc3339, record_from_hook, record_from_hook
 
 fn rec(n: usize) -> AuditRecord {
     AuditRecord {
+        changed: None,
         ts: format!("2026-10-29T00:00:{n:02}Z"),
         session: Some("s1".into()),
         actor: "claude".into(),

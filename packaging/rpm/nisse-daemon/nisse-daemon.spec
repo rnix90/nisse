@@ -5,7 +5,7 @@
 
 Name:           nisse-daemon
 Version:        0.1
-Release:        23%{?dist}
+Release:        24%{?dist}
 Summary:        nisse daemon: AI sessions for the nisse panel
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
@@ -73,6 +73,9 @@ install -Dpm 0644 %{nisse_root}/services/crates/nisse-proto/schema/daemon-protoc
 %config(noreplace) %{_sysconfdir}/claude-code/managed-settings.json
 
 %changelog
+* Wed Nov 25 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-24
+- The audit log never writes secrets or over-long text: every record passes the nisse-audit library, which replaces keys, tokens, passwords and private keys with a [redacted: kind] marker, cuts any text at 8 KB, and sets a changed field saying what it did; the protocol schema gains that field (N-219c)
+
 * Sat Nov 21 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-23
 - ListUndo and Undo: the changes nisse made as a list a person can go back to, and the undo through nisse-rollback and sudo -A (N-311)
 

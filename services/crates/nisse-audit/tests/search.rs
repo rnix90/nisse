@@ -35,6 +35,7 @@ fn record(i: usize) -> AuditRecord {
     let at = ts(i as i64 * 10);
     match i % 5 {
         0 => AuditRecord {
+            changed: None,
             ts: at,
             session,
             actor: "user".into(),
@@ -43,6 +44,7 @@ fn record(i: usize) -> AuditRecord {
             detail: json!({ "text": if i.is_multiple_of(997) { "find the needle in a haystack".to_string() } else { format!("message number {i}") } }),
         },
         3 => AuditRecord {
+            changed: None,
             ts: at,
             session,
             actor: "guardrail".into(),
@@ -51,6 +53,7 @@ fn record(i: usize) -> AuditRecord {
             detail: json!({ "tool": TOOLS[i % 4], "summary": format!("{}: git push origin main", TOOLS[i % 4]) }),
         },
         _ => AuditRecord {
+            changed: None,
             ts: at,
             session,
             actor: "claude".into(),

@@ -122,6 +122,41 @@ pub struct AuditRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     pub detail: serde_json::Value,
+    /// Set only when the log changed the record before writing it (N-219c): which text fields had secrets replaced and
+    /// which were cut at the length limit. Absent on an untouched record and on every record written before N-219c, so
+    /// a client must never show a record that carries this as complete.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub changed: Option<AuditChanges>,
+}
+
+/// What was changed in an audit record before it was written.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct AuditChanges {
+    /// Fields where secrets were replaced by a `[redacted: kind]` marker.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub redacted: Vec<RedactedField>,
+    /// Fields that were longer than the limit and were cut.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cut: Vec<CutField>,
+}
+
+/// One field that had secrets replaced.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RedactedField {
+    /// Where in the record, for example `detail.tool_input.command` or `detail.items[2]`.
+    pub field: String,
+    /// `api-key`, `jwt`, `bearer-token`, `private-key`, `url-credentials` or `credential`.
+    pub kind: String,
+    /// How many were replaced in that field.
+    pub count: u32,
+}
+
+/// One field that was cut.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CutField {
+    pub field: String,
+    /// How many bytes were taken off the end (after any redaction).
+    pub bytes: u64,
 }
 
 /// What happened in a session, in the order it happened.

@@ -450,5 +450,28 @@ grep -q 'action id="org.nisse.setup.setchoice"' "$root/usr/share/polkit-1/action
 grep -q '"org.nisse.setup.setchoice"' "$root/usr/share/polkit-1/rules.d/nisse-setup-polkit.rules" || fail "polkit does not allow org.nisse.setup.setchoice for the wizard's user"
 echo "first boot: nisse-setup replaces plasma-setup, enabled, wheel, not finished; the choices page and its helper action are present"
 
+# The audit log never holds secrets or over-long text (ledger N-219c): the schema in the image allows the `changed` field, and the
+# hook binary in the image, run on a made-up key (built here from pieces) and 100 KB of output, writes no key and a small, flagged record.
+grep -q '"changed"' "$root/usr/share/nisse/daemon-protocol.schema.json" || fail "the protocol schema in the image has no changed field (N-219c)"
+redact_dir="$(mktemp -d)"
+redact_key="sk-ant-api03-$(printf 'Zq3x%.0s' $(seq 1 20))"
+python3 - "$redact_key" > "$redact_dir/payload.json" <<'PY'
+import json, sys
+print(json.dumps({"session_id": "iso", "hook_event_name": "PostToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": "printenv"}, "tool_response": {"stdout": "K=" + sys.argv[1] + chr(10) + "x" * 100000}}))
+PY
+NISSE_AUDIT_LOG="$redact_dir/audit.jsonl" "$root/usr/bin/nisse-audit-hook" < "$redact_dir/payload.json" || true
+if grep -q "$redact_key" "$redact_dir/audit.jsonl" 2>/dev/null; then rm -rf "$redact_dir"; fail "the audit hook in the image wrote a secret to the audit log (N-219c)"; fi
+python3 - "$redact_dir/audit.jsonl" <<'PY' || { rm -rf "$redact_dir"; fail "the audit hook in the image did not redact and flag the record (N-219c)"; }
+import json, sys
+lines = open(sys.argv[1]).read().splitlines()
+assert len(lines) == 1 and len(lines[0]) < 20000, "one small record expected, got %d line(s) of %d bytes" % (len(lines), len(lines[0]) if lines else 0)
+r = json.loads(lines[0])
+assert "[redacted: api-key]" in r["detail"]["tool_response"]["stdout"], "no marker"
+assert r["changed"]["redacted"][0]["kind"] == "api-key" and r["changed"]["cut"][0]["bytes"] > 90000, r["changed"]
+PY
+rm -rf "$redact_dir"
+echo "audit: the image's hook redacts a key, cuts long output and flags the record; the schema allows the flag"
+
 [ "$failures" = 0 ] || { echo "FAIL: $failures assertion(s) failed (NISSE_KEEP_GOING)" >&2; exit 1; }
 echo "PASS: ISO contents ($iso), Qt $qt"

@@ -5,7 +5,7 @@
 
 Name:           nisse-panel
 Version:        0.1
-Release:        20%{?dist}
+Release:        21%{?dist}
 Summary:        nisse panel: chat with the AI that looks after this computer
 License:        GPL-2.0-or-later
 BuildRequires:  cmake
@@ -68,6 +68,9 @@ find %{buildroot}%{_datadir}/icons/hicolor -type d -exec chmod 0755 {} +
 %{_datadir}/icons/hicolor/*/apps/nisse-assistant.*
 
 %changelog
+* Wed Nov 25 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-21
+- The audit view shows a note on a record the log redacted or cut, and says it is not the full record (N-219c)
+
 * Sat Nov 21 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-20
 - System history in Settings: the changes nisse made, grouped by day, each with an Undo button and a confirmation that says home and data are not covered and that the computer restarts (N-311)
 

@@ -175,6 +175,43 @@ TestCase {
         compare(view.sourceWords(rec(1, { source: "terminal" })), "terminal")
     }
 
+    function changedRec(i) {
+        return rec(i, { kind: "tool", detail: { tool_name: "Bash", tool_input: { command: "echo [redacted: api-key]" } },
+                        changed: { redacted: [{ field: "detail.tool_input.command", kind: "api-key", count: 2 },
+                                              { field: "detail.tool_response.stdout", kind: "credential", count: 1 }],
+                                   cut: [{ field: "detail.tool_response.stdout", bytes: 12345 }] } })
+    }
+
+    function test_a_record_that_was_not_changed_has_no_note() {
+        compare(view.changeNote(rec(1)), "")
+        compare(view.changeNote(rec(1, { changed: { redacted: [], cut: [] } })), "")
+    }
+
+    function test_a_changed_record_says_in_words_what_was_done_and_that_it_is_not_complete() {
+        compare(view.changeNote(changedRec(1)),
+                "Changed before it was saved: 3 secrets replaced in 2 fields, 12345 bytes cut from 1 field. This is not the full record.")
+        compare(view.changeNote(rec(1, { changed: { redacted: [{ field: "detail.text", kind: "jwt", count: 1 }] } })),
+                "Changed before it was saved: 1 secret replaced in 1 field. This is not the full record.")
+        compare(view.changeNote(rec(1, { changed: { cut: [{ field: "detail.text", bytes: 1 }, { field: "detail.x", bytes: 2 }] } })),
+                "Changed before it was saved: 3 bytes cut from 2 fields. This is not the full record.")
+    }
+
+    function test_the_row_of_a_changed_record_shows_the_note_and_a_plain_row_does_not() {
+        stub.reply = { records: [changedRec(1), rec(2)], total: 2, scanned: 2, offset: 0, limit: 100 }
+        view.search()
+        var list = findChild(view, "resultList")
+        tryCompare(list, "count", 2)
+        var changed = findChild(list.itemAtIndex(0), "changeNote")
+        var plain = findChild(list.itemAtIndex(1), "changeNote")
+        verify(changed !== null && changed.visible)
+        compare(changed.text, view.changeNote(changedRec(1)))
+        verify(plain === null || !plain.visible)
+    }
+
+    function test_selecting_a_changed_record_shows_the_flag_in_its_detail() {
+        verify(view.detailText(changedRec(1)).indexOf("\"changed\"") >= 0)
+    }
+
     function test_selecting_a_record_shows_its_full_detail() {
         view.toggle(0)
         verify(view.expanded === 0)

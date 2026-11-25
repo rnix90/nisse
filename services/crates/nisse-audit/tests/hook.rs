@@ -115,3 +115,34 @@ fn an_unknown_argument_is_ignored_not_fatal() {
     assert!(out.status.success() && out.stdout.is_empty());
     assert_eq!(records(&log)[0]["source"], "daemon");
 }
+
+/// N-219c, through the real binary: a tool call that prints a key leaves a record with the key replaced and a flag saying so,
+/// for the daemon's hook and for the machine-wide hook alike. The key is built from pieces so this file holds no token-shaped text.
+#[test]
+fn a_key_in_a_tool_call_never_reaches_the_log_for_either_hook() {
+    let key = format!("{}{}", "sk-ant-api03-", "Zq3x".repeat(20));
+    let payload = serde_json::json!({
+        "session_id": "s-9",
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_input": { "command": "printenv" },
+        "tool_response": { "stdout": format!("HOME=/home/u\nSHELL=/bin/bash\nMY_KEY={key}\n"), "huge": "x".repeat(1_000_000) },
+    })
+    .to_string();
+    for (args, nisse_session) in [(&[][..], Some("s-9")), (&["--managed"][..], None)] {
+        let log = scratch("redact");
+        let out = run(args, nisse_session, &log, &payload);
+        assert!(out.status.success());
+        let text = std::fs::read_to_string(&log).unwrap();
+        assert!(!text.contains(&key), "the key is in the log: {args:?}");
+        assert!(text.len() < 20_000, "the record is {} bytes: {args:?}", text.len());
+        let r = records(&log);
+        assert_eq!(r.len(), 1);
+        assert_eq!(
+            r[0]["detail"]["tool_response"]["stdout"],
+            "HOME=/home/u\nSHELL=/bin/bash\nMY_KEY=[redacted: api-key]\n"
+        );
+        assert_eq!(r[0]["changed"]["redacted"][0]["field"], "detail.tool_response.stdout");
+        assert_eq!(r[0]["changed"]["cut"][0]["field"], "detail.tool_response.huge");
+    }
+}

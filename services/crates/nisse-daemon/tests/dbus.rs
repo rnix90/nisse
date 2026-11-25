@@ -2177,6 +2177,7 @@ mod audit_search {
 
     fn terminal_record(session: &str, command: &str) -> AuditRecord {
         AuditRecord {
+            changed: None,
             ts: nisse_audit::now_rfc3339(),
             session: Some(session.into()),
             actor: "claude".into(),
