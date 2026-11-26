@@ -392,10 +392,10 @@ async fn a_cli_that_finishes_in_time_is_unaffected_by_the_watchdog() {
 fn the_hung_message_names_whole_minutes() {
     assert_eq!(
         hung_message(DEFAULT_HUNG_AFTER),
-        "Claude Code did not respond for 10 minutes and was stopped"
+        "Claude Code did not respond for 10 minutes and was stopped."
     );
     assert_eq!(
         hung_message(Duration::from_millis(300)),
-        "Claude Code did not respond for 1 minute and was stopped"
+        "Claude Code did not respond for 1 minute and was stopped."
     );
 }

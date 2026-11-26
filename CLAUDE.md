@@ -37,6 +37,9 @@ and shape; the ledger is the queue. Check the ledger structure with `python tool
     `Nisse.profile`, the kiwi profile `Nisse-Live`, ids such as `NisseEmber`); `tools/repo/lowercase_name.py` lists them
     and `tests/repo/test_lowercase_name.sh` enforces the rule. The ISO volume label is lowercase too (the launcher shows
     it). "Ember", the palette, keeps its capital.
+13. **Every full sentence nisse writes ends with punctuation** (. ? ! or a colon); labels, buttons and menu entries stay bare
+    (Bert, 2026-11-25). `tools/repo/sentence_punctuation.py` guards the shipped strings; what is judged a label is listed with its
+    reason in `tools/repo/sentence_labels.txt`. Lowercase log-style error fragments and upstream's own strings are outside it.
 
 ## Tooling notes
 

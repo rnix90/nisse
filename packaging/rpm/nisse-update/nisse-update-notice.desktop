@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=nisse update notice
-Comment=Tells you, once, when nisse undid an update that failed its checks
+Comment=Tells you, once, when nisse undid an update that failed its checks.
 Exec=/usr/bin/nisse-update-notice
 Terminal=false
 NoDisplay=true

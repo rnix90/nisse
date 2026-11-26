@@ -535,7 +535,7 @@ Item {
                 id: renameField
                 objectName: "renameField"
                 Layout.fillWidth: true
-                placeholderText: "Empty goes back to the date and time"
+                placeholderText: "Empty goes back to the date and time."
                 onAccepted: root.commitRename()
                 Keys.onEscapePressed: root.cancelRename()
             }

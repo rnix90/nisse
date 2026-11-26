@@ -144,9 +144,9 @@ def grub_menu():
         else:
             b.append(text(W / 2, y + 46, label, 32, d("text"), 400))
         y += 84
-    b.append(text(W / 2, 800, "nisse starts in 4 seconds", 26, d("text-muted")))
+    b.append(text(W / 2, 800, "nisse starts in 4 seconds.", 26, d("text-muted")))
     b.append(countdown_bar(W / 2, 850, 560, 0.4))
-    b.append(text(W / 2, 1010, "Press E to change how nisse starts", 22, d("text-muted")))
+    b.append(text(W / 2, 1010, "Press E to change how nisse starts.", 22, d("text-muted")))
     return frame("".join(b), d("base"))
 
 
@@ -197,7 +197,7 @@ def lock(mode):
     b.append(text(W / 2, 520, "Thursday, November 19", 48, ink, 400))   # above the sun, so the date never crosses it
     field, edge = (d("surface-2"), d("outline")) if dark else (lt("page"), lt("outline"))
     b.append(rect(W / 2 - 230, 840, 460, 64, field, rx=16, stroke=edge, sw=2, opacity=0.92))
-    b.append(text(W / 2, 883, "Type your password to unlock", 24, soft, 400))
+    b.append(text(W / 2, 883, "Type your password to unlock.", 24, soft, 400))
     b.append(image(uri(ICON_REVERSE if dark else ROOT / "assets/logo/svg/nisse-icon.svg"), 48, 990, 44, 44))
     b.append(text(104, 1022, "nisse", 28, ink, 700, "start"))
     b.append(text(W - 48, 1022, "us", 24, ink, 400, "end"))
@@ -222,7 +222,7 @@ def logout(mode):
             b.append(icon(x, 560, 62, ink))
         b.append(text(x, 700, label, 30, ink, 700 if selected else 400))
         x += 300
-    b.append(text(W / 2, 820, "Shutting down in 30 seconds", 26, soft))
+    b.append(text(W / 2, 820, "Shutting down in 30 seconds.", 26, soft))
     b.append(text(W / 2, 900, "Cancel", 30, d("accent-text") if dark else lt("accent"), 700))
     return frame("".join(b), d("base") if dark else lt("paper"))
 

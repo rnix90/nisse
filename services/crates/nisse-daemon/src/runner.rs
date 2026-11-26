@@ -96,10 +96,10 @@ pub const CONTINUE_PROMPT: &str = "Your previous turn stopped responding and was
 pub fn hung_message(after: Duration) -> String {
     let minutes = after.as_secs().div_ceil(60).max(1);
     let unit = if minutes == 1 { "minute" } else { "minutes" };
-    format!("Claude Code did not respond for {minutes} {unit} and was stopped")
+    format!("Claude Code did not respond for {minutes} {unit} and was stopped.")
 }
 
-pub const NOT_INSTALLED: &str = "Claude Code is not installed yet; waiting for first-boot download";
+pub const NOT_INSTALLED: &str = "Claude Code is not installed yet; waiting for first-boot download.";
 
 /// Events for one line of Claude Code's stream-json output (see docs/claude-cli-notes.md).
 pub fn parse_line(line: &str) -> Vec<RunEvent> {
@@ -130,7 +130,7 @@ pub fn parse_line(line: &str) -> Vec<RunEvent> {
         Some("result") => {
             let mut events = Vec::new();
             if value["is_error"] == true {
-                let message = value["result"].as_str().unwrap_or("Claude Code reported an error");
+                let message = value["result"].as_str().unwrap_or("Claude Code reported an error.");
                 events.push(RunEvent::Error(message.to_string()));
             }
             events.extend(parse_result_tokens(&value).map(RunEvent::Tokens));
@@ -404,14 +404,14 @@ fn answer_for(approval: &crate::approvals::Approval, input: serde_json::Value) -
         ApprovalState::Denied => {
             let who = approval.decided_by.as_deref().unwrap_or("someone");
             let message = match approval.reason.as_deref() {
-                Some(reason) => format!("Denied by {who}: {reason}"),
-                None => format!("Denied by {who}"),
+                Some(reason) => format!("Denied by {who}: {reason}."),
+                None => format!("Denied by {who}."),
             };
             serde_json::json!({"behavior": "deny", "message": message})
         }
         _ => serde_json::json!({
             "behavior": "deny",
-            "message": "The approval expired with no answer, so this was not allowed"
+            "message": "The approval expired with no answer, so this was not allowed."
         }),
     }
 }
@@ -504,7 +504,7 @@ impl HostSession {
         let request_id = value["request_id"].as_str().unwrap_or_default().to_string();
         let request = &value["request"];
         if request["subtype"] != "can_use_tool" {
-            self.send(control_error(&request_id, "nisse does not handle this request"));
+            self.send(control_error(&request_id, "nisse does not handle this request."));
             return;
         }
         let tool = request["tool_name"].as_str().unwrap_or("unknown").to_string();
@@ -717,7 +717,7 @@ impl ClaudeCliRunner {
                         kill_tree(&mut child, pgid).await;
                         guard.disarm();
                         if let Some(host) = host.as_mut() {
-                            host.close("Claude Code was stopped").await;
+                            host.close("Claude Code was stopped.").await;
                         }
                         return Attempt::Hung { started };
                     }
@@ -726,7 +726,7 @@ impl ClaudeCliRunner {
         };
         guard.disarm();
         if let Some(host) = host.as_mut() {
-            host.close("Claude Code ended before this was answered").await;
+            host.close("Claude Code ended before this was answered.").await;
         }
 
         match exit {
@@ -747,7 +747,7 @@ impl ClaudeCliRunner {
                 } else {
                     format!(": {tail}")
                 };
-                finish_with_error(tx, format!("Claude Code {how}{detail}")).await;
+                finish_with_error(tx, format!("Claude Code {how}{detail}.")).await;
             }
             Err(e) => finish_with_error(tx, format!("lost track of Claude Code: {e}")).await,
         }

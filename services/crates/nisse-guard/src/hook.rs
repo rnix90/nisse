@@ -64,7 +64,7 @@ pub fn run(payload: &str, approver: &dyn Approver, cx: &Context, max_wait: Durat
         Ok(id) => id,
         Err(e) => {
             return Some(deny(&format!(
-                "nisse could not reach the approvals service, so this action was blocked ({e})"
+                "nisse could not reach the approvals service, so this action was blocked ({e})."
             )))
         }
     };
@@ -73,7 +73,7 @@ pub fn run(payload: &str, approver: &dyn Approver, cx: &Context, max_wait: Durat
         Ok(Outcome::Denied { by, reason }) => deny(&format!("denied by {by}: {reason}")),
         Ok(Outcome::Expired) => deny("no one answered in time, so nisse did not allow it"),
         Err(e) => deny(&format!(
-            "nisse could not reach the approvals service, so this action was blocked ({e})"
+            "nisse could not reach the approvals service, so this action was blocked ({e})."
         )),
     })
 }

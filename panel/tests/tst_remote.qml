@@ -77,7 +77,7 @@ TestCase {
     }
 
     function test_a_reason_it_cannot_run_is_shown_in_words() {
-        stub.push({ enabled: true, running: false, restarts: 3, error: "Claude Code is not installed yet; waiting for first-boot download" })
+        stub.push({ enabled: true, running: false, restarts: 3, error: "Claude Code is not installed yet; waiting for first-boot download." })
         var text = findChild(remote, "remoteStatus").text
         verify(text.indexOf("not installed yet") >= 0, text)
         verify(text.indexOf("Trying again") >= 0, text)

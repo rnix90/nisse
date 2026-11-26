@@ -261,7 +261,7 @@ def scene(w, h, mode, concept="fjell-layers"):
 
 def metadata():
     meta = {"KPlugin": {"Authors": [{"Name": "nisse"}], "Id": "nisse", "Name": "nisse", "License": "GPL-2.0-or-later",
-                        "Description": "A quiet Scandinavian evening, a simulation, in a light and a dark look"}}
+                        "Description": "A quiet Scandinavian evening, a simulation, in a light and a dark look."}}
     return json.dumps(meta, indent=4) + LF
 
 

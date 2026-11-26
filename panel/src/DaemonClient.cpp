@@ -178,7 +178,7 @@ void DaemonClient::send(const QString &session, const QString &text)
     auto *watcher = new QDBusPendingCallWatcher(m_iface.asyncCall(QStringLiteral("SendMessage"), session, text), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, session](QDBusPendingCallWatcher *w) {
         if (w->isError()) {
-            emit failed(session, tr("Could not reach the nisse daemon: %1").arg(w->error().message()));
+            emit failed(session, tr("Could not reach the nisse daemon: %1.").arg(w->error().message()));
             emit done(session);
         }
         w->deleteLater();
@@ -191,7 +191,7 @@ void DaemonClient::cancel(const QString &session)
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, session](QDBusPendingCallWatcher *w) {
         if (w->isError()) {
             // No done signal will come for a call that never arrived: unlock the chat ourselves.
-            emit failed(session, tr("Could not stop: %1").arg(w->error().message()));
+            emit failed(session, tr("Could not stop: %1.").arg(w->error().message()));
             emit done(session);
         }
         w->deleteLater();

@@ -6,7 +6,7 @@
                 "Name": "nisse"
             }
         ],
-        "Description": "Let the person choose how nisse works for them: the install choices that packages declare",
+        "Description": "Let the person choose how nisse works for them: the install choices that packages declare.",
         "Id": "org.nisse.setup.choices",
         "License": "GPL-2.0-or-later",
         "Name": "A few choices"

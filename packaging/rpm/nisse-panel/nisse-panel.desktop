@@ -2,7 +2,7 @@
 Type=Application
 Name=nisse
 GenericName=AI assistant
-Comment=Talk to the AI that looks after this computer
+Comment=Talk to the AI that looks after this computer.
 Exec=nisse-panel
 Icon=nisse-assistant
 Terminal=false
