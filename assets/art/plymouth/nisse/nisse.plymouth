@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Plymouth Theme]
+Name=nisse
+Description=The nisse boot screen: the logo and a slim bar with three Ember blocks
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/nisse
+ScriptFile=/usr/share/plymouth/themes/nisse/nisse.script

@@ -118,7 +118,9 @@ while read -r path pkg task opts; do
     case "$path" in
         */)
             min="${opts#min=}"; [ -n "$opts" ] || min=1
-            have="$(find "$root$path" -type f 2>/dev/null | wc -l)"
+            # a folder that is not in the image at all counts as 0 files (find fails, and under pipefail that used to end the whole
+            # test silently, so every check after this one never ran)
+            have="$({ find "$root$path" -type f 2>/dev/null || true; } | wc -l)"
             [ "$have" -ge "$min" ] || fail "approved art ($task, $pkg): $path has $have files in the image, expected at least $min"
             ;;
         *)
@@ -472,6 +474,30 @@ assert r["changed"]["redacted"][0]["kind"] == "api-key" and r["changed"]["cut"][
 PY
 rm -rf "$redact_dir"
 echo "audit: the image's hook redacts a key, cuts long output and flags the record; the schema allows the flag"
+
+# The boot screen (ledger N-501): the nisse Plymouth theme is the default in the image AND inside the initramfs the live ISO boots
+# from (Plymouth runs there first), the script plugin it needs is in the initramfs, and no kernel line of the menu puts a serial
+# console on without the option that lets Plymouth draw anyway (otherwise it forces its text theme and the screen never shows).
+rpmq -q nisse-plymouth >/dev/null || fail "nisse-plymouth is not installed in the image (N-501)"
+[ "$(sed -n 's/^Theme=//p' "$root/etc/plymouth/plymouthd.conf")" = nisse ] || fail "the image's default Plymouth theme is not nisse: $(grep -v '^#' "$root/etc/plymouth/plymouthd.conf" | tr '\n' ' ')"
+for f in nisse.plymouth nisse.script logo.png field.png bullet.png bar-00.png bar-47.png; do
+    [ -f "$root/usr/share/plymouth/themes/nisse/$f" ] || fail "the Plymouth theme lacks $f (N-501)"
+done
+boot_dir="$(mktemp -d)"
+xorriso -osirrox on -indev "$iso" -extract /boot/x86_64/loader/initrd "$boot_dir/initrd" >/dev/null 2>&1 || { rm -rf "$boot_dir"; fail "no /boot/x86_64/loader/initrd in the ISO"; }
+initrd_out="$(bash "$(dirname "$0")/plymouth_initrd_check.sh" "$boot_dir/initrd" 2>&1)" || { rm -rf "$boot_dir"; fail "${initrd_out#FAIL: } (N-501)"; }
+rm -rf "$boot_dir"
+menu_dir="$(mktemp -d)"
+xorriso -osirrox on -indev "$iso" -extract /EFI/BOOT "$menu_dir/efi" >/dev/null 2>&1 || true
+xorriso -osirrox on -indev "$iso" -extract /boot/grub2 "$menu_dir/grub2" >/dev/null 2>&1 || true
+kernel_lines="$(grep -rhE '^[[:space:]]*(linux|linuxefi)[[:space:]]' "$menu_dir" || true)"
+rm -rf "$menu_dir"
+[ -n "$kernel_lines" ] || fail "no kernel line found in the ISO's menu (N-501)"
+if printf '%s\n' "$kernel_lines" | grep 'console=ttyS' | grep -qv 'plymouth.ignore-serial-consoles'; then
+    fail "a menu entry puts a serial console on the kernel line without plymouth.ignore-serial-consoles: Plymouth would force its text theme (N-501)"
+fi
+printf '%s\n' "$kernel_lines" | grep -q 'rhgb' || fail "the menu's kernel line lacks rhgb: Plymouth would not show a splash (N-501)"
+echo "boot screen: nisse is the default Plymouth theme in the image and the initramfs, with its script plugin; the kernel line lets it draw"
 
 [ "$failures" = 0 ] || { echo "FAIL: $failures assertion(s) failed (NISSE_KEEP_GOING)" >&2; exit 1; }
 echo "PASS: ISO contents ($iso), Qt $qt"

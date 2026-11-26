@@ -6,14 +6,16 @@
 #   @PRODUCT@       build/PRODUCT_VERSION (nisse's own version: volume id, image version)
 #   @NISSE_REPO@    dir:// URL of out/repo (override with NISSE_REPO_URL)
 #   @KERNELCMDLINE@ kernel command line of the ISO (override with NISSE_KERNELCMDLINE); the default keeps a serial
-#                   console on so tools/vm/smoke-boot.sh can follow the boot
+#                   console on so tools/vm/smoke-boot.sh can follow the boot. Plymouth forces its plain text theme whenever a
+#                   serial console is on ("serial consoles detected, managing them with details forced"), so the default also
+#                   has plymouth.ignore-serial-consoles, which lets the nisse boot screen draw (N-501).
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 rel="$(cat build/FEDORA_RELEASE)"
 prod="$(tr -d '[:space:]' < build/PRODUCT_VERSION)"
 repo="${NISSE_REPO_URL:-dir://$root/out/repo}"
-cmdline="${NISSE_KERNELCMDLINE:-quiet rhgb console=ttyS0 systemd.log_target=console}"
+cmdline="${NISSE_KERNELCMDLINE:-quiet rhgb console=ttyS0 plymouth.ignore-serial-consoles systemd.log_target=console}"
 out="$root/out/kiwi-description"
 
 rm -rf "$out"

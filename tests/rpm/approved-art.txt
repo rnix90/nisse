@@ -45,3 +45,8 @@
 /usr/share/sounds/nisse/stereo/nisse-needs-you.wav nisse-sounds N-414
 /usr/share/sounds/nisse/stereo/dialog-error.wav nisse-sounds N-414
 /usr/share/sounds/nisse/stereo/audio-volume-change.wav nisse-sounds N-414
+# the boot screen (N-501): the logo, the password field and dot, and one loop of 48 bar frames
+/usr/share/plymouth/themes/nisse/logo.png nisse-plymouth N-501
+/usr/share/plymouth/themes/nisse/field.png nisse-plymouth N-501
+/usr/share/plymouth/themes/nisse/bullet.png nisse-plymouth N-501
+/usr/share/plymouth/themes/nisse/ nisse-plymouth N-501 min=53

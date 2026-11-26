@@ -49,6 +49,7 @@
     <package name="nisse-firstboot"/>
     <package name="nisse-daemon"/>
     <package name="nisse-panel"/>
+    <package name="nisse-plymouth"/>
     <package name="plasma-welcome-fedora"/>
     <ignore name="fedora-release"/>
     <ignore name="fedora-release-*"/>

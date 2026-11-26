@@ -122,7 +122,7 @@ if command -v kiwi-ng >/dev/null 2>&1; then
     esac
 
     live="$D/nisse/components/nisse-live.xml"
-    for p in nisse-release nisse-release-common nisse-branding nisse-fonts-nunito nisse-theme nisse-wallpaper nisse-cursors nisse-icons nisse-sounds nisse-lookandfeel nisse-defaults nisse-hw nisse-installer nisse-snapshots nisse-boot nisse-update nisse-sudo nisse-choices nisse-setup nisse-avatars nisse-firstboot nisse-daemon nisse-panel anaconda-live; do
+    for p in nisse-release nisse-release-common nisse-branding nisse-fonts-nunito nisse-theme nisse-wallpaper nisse-cursors nisse-icons nisse-sounds nisse-lookandfeel nisse-defaults nisse-hw nisse-installer nisse-snapshots nisse-boot nisse-update nisse-sudo nisse-choices nisse-setup nisse-avatars nisse-firstboot nisse-daemon nisse-panel nisse-plymouth anaconda-live; do
         grep -q "<package name=\"$p\"/>" "$live" && ok "Nisse-Live installs $p" || bad "Nisse-Live lacks $p"
     done
     for p in fedora-release-kde fedora-release generic-logos fedora-logos plasma-setup; do
@@ -135,6 +135,10 @@ if command -v kiwi-ng >/dev/null 2>&1; then
     grep -rq 'alias="updates"' "$D" && bad "an updates repository is configured somewhere in the description (release repo only)" || ok "no updates repository"
     prod="$(tr -d '[:space:]' < build/PRODUCT_VERSION)"
     grep -q "volid=\"nisse-$prod\"" "$live" && ok "volid is nisse-$prod" || bad "volid is not nisse-$prod"
+    # N-501: a serial console on the kernel line makes Plymouth fall back to its plain text theme ("serial consoles detected, managing
+    # them with details forced"), so the boot screen would never show; this option keeps the serial console for the smoke test
+    # and still lets the splash draw
+    grep -q 'kernelcmdline="[^"]*plymouth.ignore-serial-consoles' "$live" && ok "the default kernel line lets Plymouth draw with a serial console on" || bad "the default kernel line lacks plymouth.ignore-serial-consoles: a serial console would force Plymouth's text theme"
     grep -q "volid=\"nisse-$(tr -d '[:space:]' < build/FEDORA_RELEASE)\"" "$live" && bad "the volid still uses the Fedora base release" || ok "the volid does not use the Fedora base release"
     if grep -rn '@[A-Z_]*@' "$D/Nisse.kiwi" "$D/nisse" >/dev/null 2>&1; then bad "unfilled @...@ placeholder"; else ok "no unfilled placeholder"; fi
 else

@@ -32,6 +32,40 @@ Bert's approval (the ledger's rule).
 Colors are palette colors only (tested). The name is lowercase everywhere ("nisse starts in 4 seconds", "Earlier versions of nisse").
 Paper on an Ember fill is only 3.1:1, so every Ember button and row carries Ink text; the light look's brick accent carries Paper.
 
+## Plymouth: built (N-501)
+
+The boot screen is the theme `nisse` in the package `nisse-plymouth` (a Plymouth **script** theme). `assets/art/plymouth/nisse/` holds
+it: the pictures are drawn by `tools/art/plymouth_theme.py` from the same pieces as the mock (`xp_bar`, the stacked logo);
+`nisse.plymouth` and `nisse.script` are written by hand. Photos from a real boot: `docs/screenshots/n501-plymouth-boot.png` and
+`n501-plymouth-password.png`.
+
+- **The bar** is a loop of 48 pre-drawn frames shown at 24 a second (two seconds a loop; the script has no clipping, so the frames keep
+  the blocks inside the pill exactly as the mock draws them). It is an animation, never a measure: the script does not ask Plymouth
+  how far boot has got and shows no percentage (a test keeps it that way).
+- **Layout** is the 1920 x 1080 mock fitted into the screen and centered. Checked at 1920 x 1080 and at 3840 x 2160 (the 4K photo,
+  shrunk to half, matches the same mock).
+- **Also drawn:** a muted message line under the bar (a message such as "Checking the disk") and the password prompt for an encrypted
+  disk (the prompt, the same pill as the field, one Ember dot per typed character), so an encrypted disk never meets a blank screen.
+  The words use Plymouth's default font: Nunito is not in the initramfs. Open point: put Nunito into the initramfs only if Bert
+  wants those two lines in the brand font.
+- **How it becomes the default:** a first install of `nisse-plymouth` runs `plymouth-set-default-theme nisse` (it writes
+  `/etc/plymouth/plymouthd.conf`; an upgrade leaves a theme the administrator chose alone). The scriptlet does not rebuild the
+  initramfs: the image build (kiwi runs dracut) and the installer's initramfs build read the setting. Proven with dracut here: an
+  initramfs built from the installed package holds all 53 theme files, `script.so` and a config naming `nisse`
+  (`tests/iso/plymouth_initrd_check.sh`).
+- **A finding that would have hidden the screen:** when any serial console is on the kernel line, Plymouth forces its plain text theme
+  (its log says "serial consoles detected, managing them with details forced"), whatever theme is configured. The ISO's kernel line
+  has `console=ttyS0` so the smoke test can follow the boot, so it now also has `plymouth.ignore-serial-consoles`
+  (`build/render-kiwi.sh`; the ISO test refuses a menu entry that has a serial console without it). N-502 owns the final menu: the
+  entry a person boots should not carry `console=ttyS0` at all.
+- **How it was seen** without a 33-minute rebuild: `tools/vm/plymouth_overlay.sh` adds the theme to the live ISO's own initramfs,
+  `tools/vm/plymouth_boot.sh` boots it headless and photographs the screen, and `tools/vm/plymouth_check.py` judges the photos against
+  the mock (the bar's inside excepted) and the password screen (prompt, field, one dot per typed character). Take photos a few seconds
+  apart that are NOT a multiple of two (the loop is two seconds, so photos two seconds apart show the same frame).
+- **After the next ISO rebuild:** `tests/iso/test_iso_contents.sh` (the boot screen block), then
+  `tools/vm/plymouth_overlay.sh ISO DIR --plain`, `tools/vm/plymouth_boot.sh` and `tools/vm/plymouth_check.py boot` on the rebuilt ISO's
+  own initramfs, and the same initramfs check (`tests/iso/plymouth_initrd_check.sh`) on an installed disk's initramfs.
+
 ## Decisions and open points handed on
 
 - The default entry is plain "nisse"; the snapshot entry is named for what it is ("Earlier versions of nisse"). N-502 wires the

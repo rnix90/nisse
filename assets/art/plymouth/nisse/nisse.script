@@ -1,0 +1,115 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The nisse boot screen (ledger N-501), after the approved mock (N-412): solid Ink, the stacked logo a little above the middle and
+# a slim track with three Ember blocks sliding through it, then starting again. The bar is an animation and not a measure: this
+# script never asks Plymouth how far boot has got and never shows a percentage.
+# The pictures are drawn at twice the 1080p size (tools/art/plymouth_theme.py); the layout below is the 1920 x 1080 mock, scaled to
+# the screen and centered, so a 4K screen gets the same picture and an odd-shaped one keeps the proportions.
+
+Window.SetBackgroundTopColor(0.106, 0.137, 0.188);
+Window.SetBackgroundBottomColor(0.106, 0.137, 0.188);
+
+bar_frames = 48;
+
+# --- the stage: the 1920 x 1080 mock fitted into the screen
+screen_w = Window.GetWidth();
+screen_h = Window.GetHeight();
+scale = screen_w / 1920;
+if (screen_h / 1080 < scale)
+    scale = screen_h / 1080;
+stage_x = (screen_w - 1920 * scale) / 2;
+stage_y = (screen_h - 1080 * scale) / 2;
+
+fun two_digits(n) {
+    if (n < 10)
+        return "0" + n;
+    return "" + n;
+}
+
+# --- the logo
+logo_image = Image("logo.png");
+logo_image = logo_image.Scale(logo_image.GetWidth() * scale / 2, logo_image.GetHeight() * scale / 2);
+logo_sprite = Sprite(logo_image);
+logo_sprite.SetX(stage_x + 960 * scale - logo_image.GetWidth() / 2);
+logo_sprite.SetY(stage_y + 250 * scale);
+
+# --- the bar: one loop of frames, swapped about 24 times a second
+for (i = 0; i < bar_frames; i++) {
+    frame = Image("bar-" + two_digits(i) + ".png");
+    bar_image[i] = frame.Scale(frame.GetWidth() * scale / 2, frame.GetHeight() * scale / 2);
+}
+bar_sprite = Sprite(bar_image[0]);
+bar_sprite.SetX(stage_x + 960 * scale - bar_image[0].GetWidth() / 2);
+bar_sprite.SetY(stage_y + 760 * scale - bar_image[0].GetHeight() / 2);
+
+tick = 0;
+fun refresh() {
+    tick++;
+    bar_sprite.SetImage(bar_image[Math.Int(tick * 24 / 50) % bar_frames]);
+}
+Plymouth.SetRefreshFunction(refresh);
+
+# --- a line of words under the bar (a message such as "Checking the disk"), in the muted text color
+message_sprite = Sprite();
+fun show_message(text) {
+    image = Image.Text(text, 0.667, 0.694, 0.741);
+    message_sprite.SetImage(image);
+    message_sprite.SetX(stage_x + 960 * scale - image.GetWidth() / 2);
+    message_sprite.SetY(stage_y + 850 * scale);
+}
+Plymouth.SetMessageFunction(show_message);
+
+# --- the password of an encrypted disk: the prompt, the same pill as the bar and one Ember dot for each typed character
+field_image = Image("field.png");
+field_image = field_image.Scale(field_image.GetWidth() * scale / 2, field_image.GetHeight() * scale / 2);
+field_sprite = Sprite(field_image);
+field_sprite.SetX(stage_x + 960 * scale - field_image.GetWidth() / 2);
+field_sprite.SetY(stage_y + 760 * scale - field_image.GetHeight() / 2);
+field_sprite.SetOpacity(0);
+prompt_sprite = Sprite();
+bullet_image = Image("bullet.png");
+bullet_image = bullet_image.Scale(bullet_image.GetWidth() * scale / 2, bullet_image.GetHeight() * scale / 2);
+max_bullets = 20;
+for (i = 0; i < max_bullets; i++) {
+    bullet_sprite[i] = Sprite(bullet_image);
+    bullet_sprite[i].SetOpacity(0);
+}
+
+fun show_password(prompt, bullets) {
+    bar_sprite.SetOpacity(0);
+    field_sprite.SetOpacity(1);
+    image = Image.Text(prompt, 0.965, 0.949, 0.914);
+    prompt_sprite.SetImage(image);
+    prompt_sprite.SetX(stage_x + 960 * scale - image.GetWidth() / 2);
+    prompt_sprite.SetY(stage_y + 690 * scale);
+    prompt_sprite.SetOpacity(1);
+    shown = bullets;
+    if (shown > max_bullets)
+        shown = max_bullets;
+    step = 26 * scale;
+    left = stage_x + 960 * scale - (shown - 1) * step / 2 - bullet_image.GetWidth() / 2;
+    for (i = 0; i < max_bullets; i++) {
+        if (i < shown) {
+            bullet_sprite[i].SetX(left + i * step);
+            bullet_sprite[i].SetY(stage_y + 760 * scale - bullet_image.GetHeight() / 2);
+            bullet_sprite[i].SetOpacity(1);
+        } else
+            bullet_sprite[i].SetOpacity(0);
+    }
+}
+Plymouth.SetDisplayPasswordFunction(show_password);
+
+# --- back to the plain boot screen (after the password, or when there is nothing to ask)
+fun show_normal() {
+    bar_sprite.SetOpacity(1);
+    field_sprite.SetOpacity(0);
+    prompt_sprite.SetOpacity(0);
+    for (i = 0; i < max_bullets; i++)
+        bullet_sprite[i].SetOpacity(0);
+}
+Plymouth.SetDisplayNormalFunction(show_normal);
+
+# --- boot is over: nothing to tidy, Plymouth removes the sprites
+fun quit() {
+    bar_sprite.SetOpacity(0);
+}
+Plymouth.SetQuitFunction(quit);
