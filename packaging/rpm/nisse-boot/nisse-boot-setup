@@ -3,9 +3,9 @@
 # nisse-boot-setup: runs on every boot of an installed system (nisse-boot-setup.service), cheap and idempotent.
 #   1. remove env_block from the GRUB environment, so GRUB can save boot_counter and boot_success (nisse-boot fixenv)
 #   2. drop an arm that GRUB no longer has (nisse-boot reconcile)
-#   3. make sure the generated grub.cfg has nisse's two snippets (09_nisse_fallback, 11_nisse_snapshots); if it has not,
-#      regenerate it once. Fedora does not regenerate grub.cfg when a package adds a snippet.
-#   4. write the "nisse snapshots" menu (nisse-boot sync)
+#   3. make sure the generated grub.cfg has nisse's snippets (09_nisse_fallback, 09_nisse_menu, 11_nisse_snapshots); if it has
+#      not, regenerate it once. Fedora does not regenerate grub.cfg when a package adds a snippet.
+#   4. write the "Start from Earlier Snapshots" menu (nisse-boot sync) and the kernel rows (nisse-boot menu, N-502)
 # Nothing here can stop a boot: every failure is reported and the script still ends with exit 0.
 #
 # Test overrides (never set in production): NISSE_BOOT_DIR, NISSE_MKCONFIG, NISSE_BOOT_TOOL, and the ones nisse-boot reads.
@@ -27,9 +27,10 @@ sh "$tool" fixenv || echo "nisse-boot-setup: could not fix the GRUB environment"
 
 sh "$tool" reconcile || echo "nisse-boot-setup: could not reconcile the arm state" >&2
 
-if [ -f "$grubcfg" ] && ! grep -q '09_nisse_fallback' "$grubcfg"; then
+if [ -f "$grubcfg" ] && { ! grep -q '09_nisse_fallback' "$grubcfg" || ! grep -q '09_nisse_menu' "$grubcfg"; }; then
     "$mkconfig" -o "$grubcfg" >/dev/null 2>&1 || echo "nisse-boot-setup: could not regenerate $grubcfg" >&2
 fi
 
 sh "$tool" sync || echo "nisse-boot-setup: could not write the snapshot menu" >&2
+sh "$tool" menu || echo "nisse-boot-setup: could not write the kernel rows" >&2
 exit 0

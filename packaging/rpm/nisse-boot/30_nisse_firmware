@@ -1,0 +1,14 @@
+#!/usr/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse: the firmware row of the boot menu, "Computer Settings" (ledger N-502). It is Fedora's 30_uefi-firmware with the words the
+# approved boot mock uses, and Fedora's id (uefi-firmware), so a saved choice and the tools that name that id keep working. The
+# package switches Fedora's own snippet off (it would add a second row called "UEFI Firmware Settings").
+cat << 'EOF'
+if [ "$grub_platform" = "efi" ]; then
+	if [ fwsetup --is-supported ]; then
+		menuentry 'Computer Settings' $menuentry_id_option 'uefi-firmware' {
+			fwsetup
+		}
+	fi
+fi
+EOF

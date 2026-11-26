@@ -1,0 +1,39 @@
+#!/usr/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse: turn the nisse GRUB theme on for an installed system (ledger N-502). grub2-mkconfig runs this after Fedora's 00_header.
+#
+# The theme is read from the boot partition's grub folder (${prefix}, the folder grub.cfg itself came from), never from the root
+# subvolume, which a rollback swaps for a snapshot. If the theme is not there the menu stays GRUB's own text menu. A serial console
+# that /etc/default/grub asks for keeps working next to the screen (the theme only draws on the screen).
+#
+# NISSE_GRUB_THEME_INSTALL overrides the install step (for tests).
+install_step="${NISSE_GRUB_THEME_INSTALL:-/usr/libexec/nisse/nisse-grub-theme-install}"
+if [ -x "$install_step" ]; then
+    "$install_step" >&2 || echo "01_nisse_theme: could not put the theme on the boot partition." >&2
+fi
+
+terminals="gfxterm"
+case " ${GRUB_TERMINAL:-} ${GRUB_TERMINAL_OUTPUT:-} " in
+    *" serial "*) terminals="gfxterm serial" ;;
+esac
+
+cat << 'EOF'
+if [ -f ${prefix}/themes/nisse/theme.txt ]; then
+  load_video
+  set gfxmode=1920x1080,1280x720,auto
+  insmod gfxterm
+  insmod gfxmenu
+  insmod png
+  insmod font
+  loadfont ${prefix}/themes/nisse/unicode.pf2
+  loadfont ${prefix}/themes/nisse/nunito-regular-32.pf2
+  loadfont ${prefix}/themes/nisse/nunito-bold-32.pf2
+  loadfont ${prefix}/themes/nisse/nunito-regular-26.pf2
+  loadfont ${prefix}/themes/nisse/nunito-regular-22.pf2
+EOF
+echo "  terminal_output $terminals"
+cat << 'EOF'
+  set theme=${prefix}/themes/nisse/theme.txt
+  export theme
+fi
+EOF

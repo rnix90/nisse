@@ -1,0 +1,11 @@
+#!/usr/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse: "More Ways to Start", the last row of the themed boot menu (ledger N-502): the older kernels and the rescue kernel,
+# read from /boot/grub2/nisse-more.cfg that nisse-boot menu writes (see 09_nisse_menu). No file, no row. Hotkey m opens it.
+cat << 'EOF'
+if [ -f ${prefix}/nisse-more.cfg ]; then
+  submenu 'More Ways to Start' --hotkey=m --id nisse-more {
+    source ${prefix}/nisse-more.cfg
+  }
+fi
+EOF

@@ -34,7 +34,7 @@ done <<< "$want"
 [ "$n" -ge 33 ] || fail "expected the theme files and the fonts, found $n names"
 printf '%s\n' "$files" | grep -q '\.ttf$' && fail "the static Nunito sources must not be installed (they only make the .pf2 fonts)"
 printf '%s\n' "$files" | grep -qxF /usr/share/licenses/nisse-grub-theme/OFL.txt || fail "the font license (OFL.txt) must travel with the package"
-extra="$(printf '%s\n' "$files" | grep -vxF "$base" | grep -vF "$base/" | grep -v '^/usr/share/licenses/' || true)"
+extra="$(printf '%s\n' "$files" | grep -vxF "$base" | grep -vF "$base/" | grep -v '^/usr/share/licenses/' | grep -vxF /etc/grub.d/01_nisse_theme | grep -vxF /usr/libexec/nisse/nisse-grub-theme-install | grep -vxF /usr/libexec/nisse || true)"
 [ -z "$extra" ] || fail "the RPM owns more than the theme folder: $extra"
 for parent in /usr/share/grub /usr/share/grub/themes; do
     printf '%s\n' "$files" | grep -qx "$parent" && fail "must not own $parent"
@@ -60,6 +60,44 @@ uni = (d / "unicode.pf2").read_bytes()
 assert grub_theme.TERMINAL_FONT.encode() in uni, "unicode.pf2 is not " + grub_theme.TERMINAL_FONT
 PY
 echo "ok   the GRUB fonts carry the names theme.txt asks for"
+
+# the installed system (N-502): a snippet for grub2-mkconfig turns the theme on, and an install step puts the theme where GRUB reads it
+# (the boot partition: GRUB must not depend on the root subvolume, which a rollback swaps)
+for f in /etc/grub.d/01_nisse_theme /usr/libexec/nisse/nisse-grub-theme-install; do
+    printf '%s\n' "$files" | grep -qxF "$f" || fail "RPM lacks $f"
+done
+modes="$(rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpmf")"
+for f in /etc/grub.d/01_nisse_theme /usr/libexec/nisse/nisse-grub-theme-install; do
+    grep -q "^-rwxr-xr-x $f\$" <<< "$modes" || fail "$f must be mode 0755"
+done
+snip="$tmp/etc/grub.d/01_nisse_theme"
+out="$tmp/01.cfg"
+NISSE_GRUB_THEME_INSTALL=/nonexistent GRUB_TERMINAL_OUTPUT=console sh "$snip" > "$out" || fail "01_nisse_theme does not run"
+command -v grub2-script-check >/dev/null 2>&1 && { grub2-script-check "$out" || fail "grub2-script-check rejects the output of 01_nisse_theme"; }
+grep -qF 'set theme=${prefix}/themes/nisse/theme.txt' "$out" || fail "01_nisse_theme does not set the theme from the boot partition's grub folder"
+grep -qxE '  terminal_output gfxterm' "$out" || fail "01_nisse_theme must switch the terminal to gfxterm (and only that, on a normal machine)"
+for font in $(python3 -c 'import sys; sys.path.insert(0, "tools/art"); import grub_theme; print(*[n.lower().replace(" ", "-") for n in grub_theme.font_names()], "unicode", sep="\n")'); do
+    grep -qF "loadfont \${prefix}/themes/nisse/$font.pf2" "$out" || fail "01_nisse_theme does not load $font.pf2"
+done
+grep -qF 'if [ -f ${prefix}/themes/nisse/theme.txt ]; then' "$out" || fail "01_nisse_theme must only use the theme when it is on the boot partition (else the plain menu)"
+NISSE_GRUB_THEME_INSTALL=/nonexistent GRUB_TERMINAL="serial console" sh "$snip" > "$tmp/01-serial.cfg"
+grep -qxE '  terminal_output gfxterm serial' "$tmp/01-serial.cfg" || fail "with a serial console configured the menu must also stay on the serial port (terminal_output gfxterm serial)"
+echo "ok   01_nisse_theme turns the theme on, keeps a serial console, and only when the theme is there"
+
+inst="$tmp/usr/libexec/nisse/nisse-grub-theme-install"
+sh -n "$inst" || fail "the install step has a syntax error"
+sandbox="$tmp/sandbox"; mkdir -p "$sandbox/boot"
+NISSE_GRUB_THEME_SRC="$tmp$base" NISSE_BOOT_DIR="$sandbox/boot" sh "$inst" || fail "the install step failed"
+for f in theme.txt logo.png unicode.pf2 nunito-bold-32.pf2 select_nw.png; do
+    cmp -s "$tmp$base/$f" "$sandbox/boot/grub2/themes/nisse/$f" || fail "the install step did not copy $f to /boot/grub2/themes/nisse"
+done
+echo broken > "$sandbox/boot/grub2/themes/nisse/theme.txt"
+NISSE_GRUB_THEME_SRC="$tmp$base" NISSE_BOOT_DIR="$sandbox/boot" sh "$inst"
+cmp -s "$tmp$base/theme.txt" "$sandbox/boot/grub2/themes/nisse/theme.txt" || fail "the install step did not repair a changed theme file"
+NISSE_GRUB_THEME_SRC="$tmp/nonexistent" NISSE_BOOT_DIR="$sandbox/boot" sh "$inst" && ok_missing=1 || fail "a missing source theme must not be an error (nothing to install)"
+scripts="$(rpm -qp --scripts "$rpmf")"
+grep -q 'nisse-grub-theme-install' <<< "$scripts" || fail "the package must run the install step after it is installed or updated"
+echo "ok   the install step copies the theme to /boot/grub2/themes/nisse, repairs it, and a missing source is not an error"
 
 reqs="$(rpm -qp --requires "$rpmf")"
 printf '%s\n' "$reqs" | grep -qxE "grub2-common( .*)?" || fail "must require grub2-common (it owns /usr/share/grub)"

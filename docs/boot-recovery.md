@@ -24,7 +24,8 @@ and the snapshots are `docs/snapshots.md`.
 | Piece | What it does |
 |---|---|
 | `/etc/grub.d/09_nisse_fallback` | After Fedora's counting: when `boot_counter` is -1 (the countdown ran out), `boot_success` is 0 and `nisse_fallback` is set, `default` becomes that entry and `fallback=0` names the first entry as GRUB's own way out. |
-| `/etc/grub.d/11_nisse_snapshots` | The "nisse snapshots" submenu (from `nisse-boot.cfg`, if it exists) and the "nisse rollback boot" entry (if `nisse-rollback.cfg` exists, so it is in the menu only while armed). Static: nothing here changes when snapshots do. |
+| `/etc/grub.d/11_nisse_snapshots` | The "Start from Earlier Snapshots" submenu (from `nisse-boot.cfg`, if it exists) and the "Go Back to the Last Good Version" entry (if `nisse-rollback.cfg` exists, so it is in the menu only while armed). Static: nothing here changes when snapshots do. |
+| `/etc/grub.d/09_nisse_menu`, `35_nisse_more_ways`, `98_nisse_menu_refresh`, `30_nisse_firmware` | The themed menu's kernel rows (N-502, see `docs/boot-art.md`): `nisse-boot menu` writes copies of the BootLoaderSpec files with a plain title into `/boot/loader/nisse-main` ("nisse", the newest kernel) and `nisse-more` (the older and the rescue kernel, for "More Ways to Start") and the pointer files that set GRUB's `blsdir` to them; `09_nisse_menu` sources the pointer, so Fedora's own `blscfg` lists nisse's rows, and with no pointer file the stock list shows. A kernel-install plugin and `nisse-boot-setup` keep the rows current. Fedora's `30_uefi-firmware` is switched off in favor of "Computer Settings". |
 | `nisse-boot sync` | Writes `/boot/grub2/nisse-boot.cfg`: the 10 newest snapshots whose kernel is still in `/boot`, newest first, titled `#N date description`. Atomic, syntax-checked with `grub2-script-check`, unchanged content is not rewritten. |
 | `nisse-boot arm [--tries N] SNAPSHOT` | For N-308. Writes the rollback file, protects the snapshot from snapper cleanup, then arms GRUB last (`boot_counter=N`, `boot_success=0`, `nisse_fallback`). Default N is 3: three boots in a row that never finish, and the fourth starts the snapshot. |
 | `nisse-boot clear` | For N-309. Disarms GRUB, removes the rollback file, hands the snapshot back to cleanup and sets `boot_success=1`. Safe to call when nothing is armed. |
@@ -47,7 +48,7 @@ fourth starts the snapshot (the counter shows -1); it keeps starting the snapsho
   `grub2-script-check` rejects. If one is damaged anyway (or names a kernel that is gone) the machine still boots
   normally; both were checked.
 - **A corrupted `nisse-boot.cfg` (the menu file) is not covered the same way.** It is only read when someone opens the
-  "nisse snapshots" submenu, so it cannot affect an unattended boot, but a damaged one makes that submenu fail.
+  "Start from Earlier Snapshots" submenu, so it cannot affect an unattended boot, but a damaged one makes that submenu fail.
 - **A machine with nobody at the keyboard and a snapshot that cannot mount** (for example deleted by hand) boots the
   snapshot entry every time until `nisse-boot clear` or a person picks another entry. `arm` protects the snapshot from
   cleanup; it cannot stop `snapper delete`.

@@ -13,23 +13,22 @@ right, clipped to the track, and start again. No gradients (style guide). On the
 6 px padding, blocks 34 wide and 7 px apart, radius 3. `xp_bar()` in `boot_mocks.py` is the drawing; the light look would use
 the light accent.
 
-**What GRUB can do (to verify in N-502, as the ledger says):** a GRUB theme has a `progress_bar` component that it fills as the
-menu timeout runs out, so the GRUB mock shows the same track as that **countdown** ("nisse starts in 4 seconds."). GRUB cannot animate
-the sliding blocks; Plymouth does. If N-502 finds the countdown bar unusable, the bar stays on the Plymouth screen only, with
-Bert's approval (the ledger's rule).
+**What GRUB can do (verified in the N-502 spike, GRUB 2.12, BIOS and UEFI):** a GRUB theme has a `progress_bar` component that it
+fills as the menu timeout runs out, so the GRUB mock shows the same track as that **countdown** ("nisse starts in 4 s."). GRUB cannot
+animate the sliding blocks; Plymouth does. It works, so the bar stays on the GRUB screen too (see "GRUB: built (N-502)" below).
 
 ## The screens
 
 | Mock | Surface | What it shows |
 |---|---|---|
-| `grub-menu` | GRUB menu (N-502) | Ink background; the stacked logo with the name below, 230 px wide near the top; three entries in plain words, the default as an Ember row with Ink text: **nisse**, **Earlier Versions of nisse** (the snapshot menu of N-307), **Computer Settings** (the firmware entry); the countdown line and bar; a quiet hint "Press E to change how nisse starts.". No kernel versions, ids or options on screen (advanced ones stay one key away, Bert's 2026-11-15 note) |
+| `grub-menu`, `grub-menu-live` | GRUB menu (N-502), installed system and live ISO (redrawn after the spike: GRUB cannot center a row's text, so the rows are left-aligned) | Ink background; the stacked logo with the name below, 230 px wide near the top; entries in plain words, the default as an Ember row with Ink text. Installed: **nisse**, **Start from Earlier Snapshots** (the snapshot menu of N-307), **Computer Settings** (the firmware entry) and **More Ways to Start** (the older kernels). Live ISO: **nisse**, **Computer Settings** (UEFI only) and **More Ways to Start** (check the media, basic graphics). The countdown line ("nisse starts in 4 s.") and bar, and a quiet hint "Press E to change how nisse starts.". No kernel versions, ids or options on the main screen (advanced ones stay one key away, Bert's 2026-11-15 note) |
 | `plymouth-boot`, `-early`, `-late` | Plymouth (N-501) | Ink; the stacked logo 300 wide, centered a little above the middle; the boot bar below it. Three frames show the blocks moving |
 | `splash-dark`, `splash-light` | Plasma splash after login (N-505) | solid Ink (or Paper on the light look); the nisse **n** with the tipped hat, 260 px, inside the comet ring (the N-404 spinner in Ember), centered. Nothing else |
 | `login-dark`, `login-light` | Login screen (N-503) | the wallpaper (Fjell Layers) under a 50% Ink (or Paper) veil; a round avatar (220 px), the user name, a password field, an Ember **Log in** pill with Ink text (the light look: brick with Paper); keyboard layout bottom left, the small logo bottom center, restart and shut down bottom right |
 | `lock-dark`, `lock-light` | Lock screen (N-504) | the wallpaper under a 50% veil; a large light-weight clock and the date, kept above the sun so they never cross it; the password field low in the screen; the small logo and name bottom left |
 | `logout-dark`, `logout-light` | Log out, restart, shut down (N-504) | the wallpaper under an 82% veil; "What would you like to do?"; three round buttons (Log out, Restart, Shut down, the default selected in Ember with an Ink icon); the countdown line and **Cancel** |
 
-Colors are palette colors only (tested). The name is lowercase everywhere ("nisse starts in 4 seconds.", "Earlier Versions of nisse").
+Colors are palette colors only (tested). The name is lowercase everywhere ("nisse starts in 4 s.", "Start from Earlier Snapshots").
 Paper on an Ember fill is only 3.1:1, so every Ember button and row carries Ink text; the light look's brick accent carries Paper.
 
 ## Plymouth: built (N-501)
@@ -75,10 +74,132 @@ it: the pictures are drawn by `tools/art/plymouth_theme.py` from the same pieces
   `tools/vm/plymouth_overlay.sh ISO DIR --plain`, `tools/vm/plymouth_boot.sh` and `tools/vm/plymouth_check.py boot` on the rebuilt ISO's
   own initramfs, and the same initramfs check (`tests/iso/plymouth_initrd_check.sh`) on an installed disk's initramfs.
 
+## GRUB: built (N-502)
+
+The theme is `nisse` in the package `nisse-grub-theme`; `assets/art/grub/nisse/` holds it. `tools/art/grub_theme.py` draws it from the
+same Ember pieces as the mock (Pillow, no browser) and writes `theme.txt`; the two static Nunito files in the folder become GRUB's
+`.pf2` fonts when the package is built (`grub2-mkfont`), and GRUB's own `unicode.pf2` is copied in for the editor (E) and the command
+line (C). `grub_check.py` judges photos against the mock.
+
+**What the spike found (GRUB 2.12, BIOS and UEFI, Fedora 44), all built into the tests:**
+
+- GRUB draws the **first-listed** component of `theme.txt` on top: the countdown bar is listed before the picture of its track.
+- A progress bar is **at least 28 px high** whatever the theme says, so the track is 28 px (the mock's was 26). Its fill sits inside the
+  border of its frame pieces: the frame is nine invisible 6 px pieces, the track is a baked picture, the fill is Ember with 3 px corners.
+- The selected row is a box drawn from nine pieces, as tall as the item plus two borders (14 px each): 68 px, 732 px wide, rows 84 apart.
+  **Rows cannot be centered**: the entries read left-aligned inside the row (Bert approved redrawing the mock).
+- The countdown label takes one number (`%d`) and cannot say "1 second", so the unit is the short "s": **"nisse starts in 4 s."**
+  (Bert's choice). The bar fills from the left as the time runs out.
+- The signed UEFI GRUB has the png reader, `gfxmenu` and `gfxterm` built in, so nothing needs `insmod` under Secure Boot; GRUB's own
+  hint lines do not show with a theme; hotkeys work (m opens More Ways to Start).
+- The layout is for **1920 x 1080** (GRUB is asked for that mode first, then 1280 x 720, then the native one). Other sizes show the
+  same layout at the same pixel sizes; a theme for them is ledger N-502b.
+
+**The live ISO's menu** is nisse's own template (`build/kiwi/nisse/grub-x86.cfg.iso-template`; Fedora's vendored one stays as
+published): nisse (the default, starts at once), Computer Settings (UEFI only), More Ways to Start (check the media, basic graphics, and
+a serial-console entry; hotkey m, then s). kiwi copies the theme from `/usr/share/grub/themes/nisse` to `/boot/grub2/themes/nisse` on
+the ISO (`<bootloader-theme>nisse</bootloader-theme>`). Without the theme on the media the same entries show in GRUB's text menu. The
+development ISO's kernel line still has `console=ttyS0` for the tests (a release build must not: ledger N-918a).
+
+**The installed system's menu** needed more than a theme, because Fedora's `blscfg` command makes one row per BootLoaderSpec file
+("nisse (6.19.10-300.fc44.x86_64) 0.2") and has no option to hide or group them (the newer `--show-default` options are in a module
+that does not register `blscfg`). What did not work, seen on an installed disk: a GRUB function named `blscfg` to take its place (the
+command wins over a function of the same name). What does: `blscfg` reads the directory in the GRUB variable `blsdir`, so
+
+- `nisse-boot menu` writes two directories of its own, made of **copies of the BootLoaderSpec files with a plain title**:
+  `/boot/loader/nisse-main` (the newest kernel, "nisse") and `/boot/loader/nisse-more` (the older kernels, "Start nisse with Kernel
+  X", and the rescue kernel, "Start nisse in Rescue Mode"), and two small GRUB files that set `blsdir` to them
+  (`/boot/grub2/nisse-menu.cfg`, `nisse-more.cfg`). Fedora's own command builds the rows, so the root device, the options, the file's id
+  (Fedora's saved default still finds it) and everything else are the file's own; only the title is nisse's. The include files are
+  syntax-checked before they are put in place, and the directories go in first, the pointer last.
+- `09_nisse_menu` (grub.d) runs `nisse-boot menu` and, if the pointer file is there, sources it before `10_linux`'s `blscfg` call:
+  nisse's rows. No pointer file (nisse-boot missing, no entry files, a refused menu) means the stock list shows, so a machine always
+  has kernel rows (checked: with the files removed the stock list boots). `98_nisse_menu_refresh` runs it again at the end of
+  `grub2-mkconfig`, because `10_linux` rewrites the options of every entry file while it runs (after the first copy was made).
+- `35_nisse_more_ways` adds the "More Ways to Start" submenu (hotkey m; its body sets `blsdir` and calls `blscfg`);
+  `30_nisse_firmware` is "Computer Settings" (Fedora's id, `uefi-firmware`); the package switches Fedora's `30_uefi-firmware` off (a
+  `%posttrans` and a trigger on grub2-tools, because an update gives the mode back); `11_nisse_snapshots` says "Start from Earlier
+  Snapshots" and, for the armed fallback, "Go Back to the Last Good Version".
+- A `kernel-install` plugin (`91-nisse-boot-menu.install`) rewrites the rows when a kernel is added or removed, and `nisse-boot-setup`
+  writes them at every boot and regenerates a `grub.cfg` that predates the snippet.
+- `01_nisse_theme` (in `nisse-grub-theme`) turns the theme on from `${prefix}/themes/nisse`, the boot partition, never the root
+  subvolume (a rollback swaps that), keeps a serial console next to the screen, and uses the theme only if it is there;
+  `nisse-grub-theme-install` copies the theme to the boot partition after the package is installed or updated and whenever `grub.cfg` is made.
+
+**How it was seen** without a 33-minute rebuild: `tools/vm/plymouth_overlay.sh` adds the theme to the live ISO's own initramfs,
+  `tools/vm/plymouth_boot.sh` boots it headless and photographs the screen, and `tools/vm/plymouth_check.py` judges the photos against
+  the mock (the bar's inside excepted) and the password screen (prompt, field, one dot per typed character). Take photos a few seconds
+  apart that are NOT a multiple of two (the loop is two seconds, so photos two seconds apart show the same frame). Under this
+  emulator Plymouth's graphics renderer sometimes fails to start ("Could not initialize heads" in its debug log, `plymouth.debug=
+  stream:/dev/ttyS0` shows it) and the screen then shows Plymouth's grey text theme: about half the boots here. That is the renderer,
+  before any theme loads; repeat the boot until the Ink screen draws. dracut stores the font under two names as a hard link, and an
+  archive keeps the data with only one of them, so `tests/iso/plymouth_initrd_check.sh` unpacks both names before it compares.
+- **After the next ISO rebuild:** `tests/iso/test_iso_contents.sh` (the boot screen block), then
+  `tools/vm/plymouth_overlay.sh ISO DIR --plain`, `tools/vm/plymouth_boot.sh` and `tools/vm/plymouth_check.py boot` on the rebuilt ISO's
+  own initramfs, and the same initramfs check (`tests/iso/plymouth_initrd_check.sh`) on an installed disk's initramfs.
+
+## GRUB: built (N-502)
+
+The theme is `nisse` in the package `nisse-grub-theme`; `assets/art/grub/nisse/` holds it. `tools/art/grub_theme.py` draws it from the
+same Ember pieces as the mock (Pillow, no browser) and writes `theme.txt`; the two static Nunito files in the folder become GRUB's
+`.pf2` fonts when the package is built (`grub2-mkfont`), and GRUB's own `unicode.pf2` is copied in for the editor (E) and the command
+line (C). `grub_check.py` judges photos against the mock.
+
+**What the spike found (GRUB 2.12, BIOS and UEFI, Fedora 44), all built into the tests:**
+
+- GRUB draws the **first-listed** component of `theme.txt` on top: the countdown bar is listed before the picture of its track.
+- A progress bar is **at least 28 px high** whatever the theme says, so the track is 28 px (the mock's was 26). Its fill sits inside the
+  border of its frame pieces: the frame is nine invisible 6 px pieces, the track is a baked picture, the fill is Ember with 3 px corners.
+- The selected row is a box drawn from nine pieces, as tall as the item plus two borders (14 px each): 68 px, 732 px wide, rows 84 apart.
+  **Rows cannot be centered**: the entries read left-aligned inside the row (Bert approved redrawing the mock).
+- The countdown label takes one number (`%d`) and cannot say "1 second", so the unit is the short "s": **"nisse starts in 4 s."**
+  (Bert's choice). The bar fills from the left as the time runs out.
+- The signed UEFI GRUB has the png reader, `gfxmenu` and `gfxterm` built in, so nothing needs `insmod` under Secure Boot; GRUB's own
+  hint lines do not show with a theme; hotkeys work (m opens More Ways to Start).
+- The layout is for **1920 x 1080** (GRUB is asked for that mode first, then 1280 x 720, then the native one). Other sizes show the
+  same layout at the same pixel sizes; a theme for them is ledger N-502b.
+
+**The live ISO's menu** is nisse's own template (`build/kiwi/nisse/grub-x86.cfg.iso-template`; Fedora's vendored one stays as
+published): nisse (the default, starts at once), Computer Settings (UEFI only), More Ways to Start (check the media, basic graphics, and
+a serial-console entry; hotkey m, then s). kiwi copies the theme from `/usr/share/grub/themes/nisse` to `/boot/grub2/themes/nisse` on
+the ISO (`<bootloader-theme>nisse</bootloader-theme>`). Without the theme on the media the same entries show in GRUB's text menu. The
+development ISO's kernel line still has `console=ttyS0` for the tests (a release build must not: ledger N-918a).
+
+**The installed system's menu** needed more than a theme, because Fedora's `blscfg` command makes one row per BootLoaderSpec file
+("nisse (6.19.10-300.fc44.x86_64) 0.2") and has no option to hide or group them (the newer `--show-default` options are in a module
+that does not register `blscfg`). So:
+
+- `nisse-boot menu` writes `/boot/grub2/nisse-menu.cfg` ("nisse", the newest kernel) and `nisse-more.cfg` (the older kernels, named
+  "Start nisse with Kernel X", and the rescue kernel, "Start nisse in Rescue Mode") from the same files, with what `blscfg` builds (the
+  same preparation lines, the file's root device and options, the file's own id so Fedora's saved default still finds it). A value that
+  could break the generated script (a quote, a semicolon) makes it give up and write nothing. Both files are syntax-checked first.
+- `09_nisse_menu` (grub.d) asks for those files and defines a GRUB **function named `blscfg`**, which runs before the command of the
+  same name: nisse's rows if the file is there, Fedora's own list (`bls_import`, the same command) if it is not. So a missing, refused or
+  damaged file never leaves a machine without a boot menu.
+- `35_nisse_more_ways` adds the "More Ways to Start" submenu; `30_nisse_firmware` is "Computer Settings" (Fedora's id, `uefi-firmware`);
+  the package switches Fedora's `30_uefi-firmware` off (a `%posttrans` and a trigger on grub2-tools, because an update gives the mode
+  back); `11_nisse_snapshots` says "Start from Earlier Snapshots" and, for the armed fallback, "Go Back to the Last Good Version".
+- A `kernel-install` plugin (`91-nisse-boot-menu.install`) rewrites the rows when a kernel is added or removed, and `nisse-boot-setup`
+  writes them at every boot and regenerates a `grub.cfg` that predates the snippet.
+- `01_nisse_theme` (in `nisse-grub-theme`) turns the theme on from `${prefix}/themes/nisse`, the boot partition, never the root
+  subvolume (a rollback swaps that), keeps a serial console next to the screen, and uses the theme only if it is there;
+  `nisse-grub-theme-install` copies the theme to the boot partition after the package is installed or updated and whenever `grub.cfg` is made.
+
+**How it was seen** without a 33-minute rebuild: `tools/vm/grub_overlay.sh` makes a 70 MB copy of a live ISO that boots only as far as the
+menu, with the template filled in the way kiwi fills it and the theme from the built package; `tools/vm/grub_boot.sh` photographs it
+under QEMU (BIOS, `--efi`); `tools/vm/grub_check.py menu --rows N` judges the photo. Photos: `docs/screenshots/n502-grub-live-uefi.png`,
+`n502-grub-live-bios.png`, and from an installed disk `n502-grub-installed.png`, `n502-grub-more-ways.png`
+(`tests/e2e/test_grub_menu_installed.sh`).
+
+**After the next ISO rebuild:** `tests/iso/test_iso_contents.sh` (the boot menu block), then `tools/vm/grub_overlay.sh ISO OUT --plain`,
+`grub_boot.sh` and `grub_check.py menu --rows 2` (BIOS) or `--rows 3` (UEFI) on the rebuilt ISO's own menu; `tools/vm/smoke-boot.sh`
+(it presses Up then Enter, or m then Enter with `--mediacheck`); and `tests/e2e/test_boot_fallback.sh`, whose keyboard pick now goes one
+row down to Start from Earlier Snapshots.
+
 ## Decisions and open points handed on
 
-- The default entry is plain "nisse"; the snapshot entry is named for what it is ("Earlier Versions of nisse"). N-502 wires the
-  real entries to these words (GRUB shows the entries from `nisse-boot` and the BLS entries).
+- The default entry is plain "nisse"; the snapshot entry is "Start from Earlier Snapshots" (Bert's wording, N-502); the older
+  kernels are under "More Ways to Start". N-502 wired the real entries to these words.
 - The avatar on the login mock is one of the 17 gnome avatars; the real login shows the user's own.
 - The shut-down dialog's countdown text and the lock screen's "Type your password to unlock." are mock wording; the real Plasma
   strings are kept unless a screenshot shows them clashing.

@@ -82,7 +82,7 @@ STUB
     cat > "$work/mkconfig" <<'STUB'
 #!/bin/sh
 echo "$@" >> "$STUB_DIR/mkconfigcalls"
-[ "$1" = "-o" ] && { printf '### BEGIN /etc/grub.d/09_nisse_fallback ###\n' > "$2"; }
+[ "$1" = "-o" ] && { printf '### BEGIN /etc/grub.d/09_nisse_fallback ###\n### BEGIN /etc/grub.d/09_nisse_menu ###\n' > "$2"; }
 exit 0
 STUB
     chmod +x "$work/editenv" "$work/scriptcheck" "$work/snapper" "$work/mkconfig"
@@ -315,6 +315,70 @@ echo "env_block=512+1" >> "$work/grubenv"
 NISSE_BOOT_FSTYPE=btrfs run fixenv >/dev/null
 env_has_key env_block && ok "fixenv: a /boot that GRUB cannot write directly keeps its env_block" || bad "fixenv: removed env_block on btrfs"
 
+# ---- menu: the kernel rows of the themed menu (N-502): "nisse" for the newest kernel, the others under "More Ways to Start"
+# Fedora's blscfg command makes one row per BootLoaderSpec file titled "nisse (6.19.10-300.fc44.x86_64) 0.2" and cannot hide or group
+# them. It reads the directory in the variable blsdir, so nisse writes two directories of its own, made of copies of the files with a
+# plain title, and two small GRUB files that point blsdir at them.
+MID=ccfcd3c029ec4ab49aa7928df2093781
+bls() { # bls FILE-ID VERSION [extra lines]: a BootLoaderSpec file like the one kernel-install writes
+    mkdir -p "$work/boot/loader/entries"
+    printf 'title nisse (%s) 0.2\nversion %s\nlinux /vmlinuz-%s\ninitrd /initramfs-%s.img $tuned_initrd\noptions root=UUID=1111-2222 ro rootflags=subvol=root console=ttyS0 \ngrub_users $grub_users\ngrub_arg --unrestricted\ngrub_class nisse\n%s' \
+        "$2" "$2" "$2" "$2" "${3:-}" > "$work/boot/loader/entries/$1.conf"
+}
+rescue_file() {
+    printf 'title nisse (0-rescue-%s) 0.2\nversion 0-rescue-%s\nlinux /vmlinuz-0-rescue-%s\ninitrd /initramfs-0-rescue-%s.img\noptions root=UUID=1111-2222 ro rootflags=subvol=root console=ttyS0 \n' "$MID" "$MID" "$MID" "$MID" > "$work/boot/loader/entries/$MID-0-rescue.conf"
+}
+fresh
+export NISSE_BLS_DIR="$work/boot/loader/entries" NISSE_BLS_REL=""
+bls "$MID-$K1" "$K1"; bls "$MID-$K2" "$K2"; rescue_file
+out="$(run menu)"; rc=$?
+main="$work/boot/loader/nisse-main"; more="$work/boot/loader/nisse-more"
+inc="$work/boot/grub2/nisse-menu.cfg"; incmore="$work/boot/grub2/nisse-more.cfg"
+[ "$rc" = 0 ] && ok "menu: exit 0" || bad "menu: exit $rc: $out"
+[ "$(ls "$main" | wc -l)" = 1 ] && [ -f "$main/$MID-$K2.conf" ] && ok "menu: the main directory holds one file, the newest kernel's (by version, with the file's own name and so its own id)" || bad "menu: main dir: $(ls "$main")"
+[ "$(head -1 "$main/$MID-$K2.conf")" = "title nisse" ] && [ "$(grep -c '^title' "$main/$MID-$K2.conf")" = 1 ] && ok "menu: the row is titled nisse (one title, no version, nothing from the file's own title)" || bad "menu: main title: $(grep '^title' "$main/$MID-$K2.conf")"
+diff <(sed '/^title/d' "$work/boot/loader/entries/$MID-$K2.conf") <(sed '/^title/d' "$main/$MID-$K2.conf") >/dev/null && ok "menu: everything but the title is the file's own (kernel, initrd with its tuned variable, options, class, args)" || bad "menu: the copy differs from the original in more than the title"
+[ "$(ls "$more" | wc -l)" = 2 ] && [ ! -e "$more/$MID-$K2.conf" ] && ok "menu: the older kernel and the rescue kernel are in More Ways, the newest is not" || bad "menu: more dir: $(ls "$more")"
+[ "$(head -1 "$more/$MID-$K1.conf")" = "title Start nisse with Kernel ${K1%.x86_64}" ] && ok "menu: an older kernel is named for what it is (without the architecture)" || bad "menu: older title: $(head -1 "$more/$MID-$K1.conf")"
+[ "$(head -1 "$more/$MID-0-rescue.conf")" = "title Start nisse in Rescue Mode" ] && ok "menu: the rescue kernel is named for what it is" || bad "menu: rescue title: $(head -1 "$more/$MID-0-rescue.conf")"
+grep -q '(0-rescue' "$main"/*.conf "$more"/*.conf && bad "menu: a raw rescue title leaked" || ok "menu: no raw file title anywhere"
+grep -qx 'set blsdir=/loader/nisse-main/' "$inc" && ok "menu: nisse-menu.cfg points blsdir at the main directory" || bad "menu: nisse-menu.cfg: $(cat "$inc")"
+grep -qx 'set blsdir=/loader/nisse-more/' "$incmore" && grep -qx 'blscfg' "$incmore" && ok "menu: nisse-more.cfg points blsdir at the More Ways directory and lists it" || bad "menu: nisse-more.cfg: $(cat "$incmore")"
+[ -s "$work/checked" ] && ok "menu: both include files are syntax-checked before they are put in place" || bad "menu: no grub2-script-check"
+ls "$work/boot/grub2" "$work/boot/loader" | grep -q '\.new$\|^\.nisse' && bad "menu: a temporary file or directory was left behind" || ok "menu: nothing temporary left"
+# a second run changes nothing
+before="$(cksum "$main"/* "$more"/* "$inc" "$incmore")"; run menu >/dev/null; after="$(cksum "$main"/* "$more"/* "$inc" "$incmore")"
+[ "$before" = "$after" ] && ok "menu: a second run writes the same files" || bad "menu: not idempotent"
+# when /boot is not its own file system the path is below /boot
+NISSE_BLS_REL=/boot run menu >/dev/null
+grep -qx 'set blsdir=/boot/loader/nisse-main/' "$inc" && ok "menu: with /boot inside the root file system the path is /boot/loader/..." || bad "menu: path under /boot: $(cat "$inc")"
+export NISSE_BLS_REL=""; run menu >/dev/null
+
+# a file without a kernel is skipped
+printf 'title no kernel here\nversion 9.9.9\n' > "$work/boot/loader/entries/$MID-9.9.9.conf"
+run menu >/dev/null
+[ ! -e "$main/$MID-9.9.9.conf" ] && [ ! -e "$more/$MID-9.9.9.conf" ] && ok "menu: a file with no linux key is skipped" || bad "menu: a file without linux became a row"
+rm -f "$work/boot/loader/entries/$MID-9.9.9.conf"
+
+# a menu that grub2-script-check refuses leaves the old one in place
+good="$(cksum "$main"/* "$more"/* "$inc" "$incmore")"
+bls "$MID-9.9.9-new" "9.9.9-new"
+printf '#!/bin/sh\nexit 1\n' > "$work/failcheck"; chmod +x "$work/failcheck"
+NISSE_SCRIPT_CHECK="$work/failcheck" run menu >/dev/null 2>&1; rc=$?
+[ "$rc" != 0 ] && [ "$(cksum "$main"/* "$more"/* "$inc" "$incmore")" = "$good" ] && ok "menu: a menu that grub2-script-check refuses leaves the old rows in place (and says so)" || bad "menu: rc=$rc, the old rows changed"
+rm -f "$work/boot/loader/entries/$MID-9.9.9-new.conf"
+
+# a kernel that goes away: the rows follow, and with one kernel left there is no More Ways at all
+rm -f "$work/boot/loader/entries/$MID-$K1.conf" "$work/boot/loader/entries/$MID-0-rescue.conf"
+run menu >/dev/null
+[ -f "$main/$MID-$K2.conf" ] && [ ! -e "$more" ] && [ ! -e "$incmore" ] && ok "menu: with one kernel left the More Ways directory and file are gone" || bad "menu: stale More Ways left: $(ls "$work/boot/loader")"
+
+# no entries at all: nothing of nisse's is left, so the stock list is the fallback
+rm -f "$work/boot/loader/entries/"*.conf
+run menu >/dev/null; rc=$?
+[ "$rc" = 0 ] && [ ! -e "$main" ] && [ ! -e "$more" ] && [ ! -e "$inc" ] && [ ! -e "$incmore" ] && ok "menu: with no entry files nothing of nisse's is left (Fedora's own list is the fallback)" || bad "menu: stale files left (rc=$rc)"
+unset NISSE_BLS_DIR NISSE_BLS_REL
+
 # ---- unknown command
 out="$(run frobnicate)"; rc=$?
 [ "$rc" != 0 ] && ok "an unknown command is an error" || bad "unknown command accepted"
@@ -346,6 +410,24 @@ fresh
 rm -f "$work/boot/grub2/grub.cfg"
 out="$(sh "$setup" 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [ ! -s "$work/mkconfigcalls" ] && ok "setup: no grub.cfg (another boot loader) means nothing to regenerate, exit 0" || bad "setup without grub.cfg: rc=$rc"
+# N-502: a grub.cfg from before the themed menu (it has the fallback snippet but not 09_nisse_menu) is regenerated once, and the
+# kernel rows are written on every boot
+fresh
+export NISSE_BLS_DIR="$work/boot/loader/entries"
+bls "$MID-$K1" "$K1"
+printf '### BEGIN /etc/grub.d/09_nisse_fallback ###
+' > "$work/boot/grub2/grub.cfg"
+: > "$work/mkconfigcalls"
+sh "$setup" >/dev/null 2>&1
+grep -q "grub.cfg" "$work/mkconfigcalls" && ok "setup: regenerates grub.cfg when it has no 09_nisse_menu (an install from before the themed menu)" || bad "setup: kept a grub.cfg without the menu snippet"
+[ -f "$work/boot/grub2/nisse-menu.cfg" ] && ok "setup: writes the kernel rows (nisse-boot menu)" || bad "setup: no kernel rows"
+printf '### 09_nisse_fallback ###
+### 09_nisse_menu ###
+' > "$work/boot/grub2/grub.cfg"
+: > "$work/mkconfigcalls"
+sh "$setup" >/dev/null 2>&1
+[ ! -s "$work/mkconfigcalls" ] && ok "setup: a grub.cfg that has the menu snippet is left alone" || bad "setup: regenerated a current grub.cfg"
+unset NISSE_BLS_DIR
 fresh
 NISSE_ROOT_FSTYPE=ext4 sh "$setup" >/dev/null 2>&1; rc=$?
 [ "$rc" = 0 ] && ok "setup: a non-btrfs root is not an error" || bad "setup on ext4: rc=$rc"

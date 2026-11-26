@@ -36,3 +36,4 @@ tools/art/boot_mocks.py | Plasma splash after login (N-505), dark: the n and the
 tools/art/boot_mocks.py | Login Screen (N-503), Dark | a caption on the mock sheet, not shipped
 tools/art/boot_mocks.py | Lock Screen (N-504), Dark | a caption on the mock sheet, not shipped
 tools/art/boot_mocks.py | Logout, restart and shut down (N-504), dark | a caption on the mock sheet, not shipped
+packaging/rpm/nisse-boot/nisse-boot | Start nisse in Rescue Mode | a boot menu entry

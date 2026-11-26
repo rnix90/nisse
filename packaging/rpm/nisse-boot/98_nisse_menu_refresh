@@ -1,0 +1,11 @@
+#!/usr/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse: write the kernel rows once more at the end of grub2-mkconfig (ledger N-502). Fedora's 10_linux rewrites the options line of
+# every BootLoaderSpec file while it runs (after 09_nisse_menu made its copies), so the copies would hold the old options until the
+# next boot. Running nisse-boot menu again here, after 10_linux, brings them up to date in the same run. It prints nothing into
+# grub.cfg.
+tool="${NISSE_BOOT_TOOL:-/usr/bin/nisse-boot}"
+if [ -x "$tool" ]; then
+    "$tool" menu >&2 || echo "98_nisse_menu_refresh: the kernel rows could not be written." >&2
+fi
+exit 0

@@ -1,6 +1,6 @@
 #!/usr/bin/sh -e
 # SPDX-License-Identifier: GPL-2.0-or-later
-# nisse: the "nisse snapshots" menu and the rollback entry, read from files that nisse-boot writes (ledger N-307).
+# nisse: the "Start from Earlier Snapshots" menu and the rollback entry, read from files that nisse-boot writes (ledger N-307).
 #
 # The entries are NOT BootLoaderSpec files: grub2-mkconfig (and kernel-install) rewrite the options line of every file in
 # /boot/loader/entries, which would turn a snapshot entry back into a normal one under a snapshot title (seen). This file
@@ -8,16 +8,16 @@
 # (atomically, after grub2-script-check). A missing file just means no such entry. The rollback file only sets three
 # variables; the commands that start the kernel are in this static entry, so that GRUB's own `fallback` can take over when
 # they fail (a garbage file and a missing kernel were both checked: the machine boots normally). It comes after
-# 10_linux, so the snapshots are listed below the real kernels.
+# 09_nisse_menu's kernel row, so the snapshots are listed right below nisse (the words are the approved boot menu's, N-502).
 cat << 'EOF'
 if [ -f ${prefix}/nisse-boot.cfg ]; then
-  submenu 'nisse snapshots' --id nisse-snapshots {
+  submenu 'Start from Earlier Snapshots' --id nisse-snapshots {
     source ${prefix}/nisse-boot.cfg
   }
 fi
 if [ -f ${prefix}/nisse-rollback.cfg ]; then
   source ${prefix}/nisse-rollback.cfg
-  menuentry 'nisse rollback boot' --id nisse-rollback {
+  menuentry 'Go Back to the Last Good Version' --id nisse-rollback {
     insmod gzio
     linux ${nisse_rb_linux} ${nisse_rb_options}
     initrd ${nisse_rb_initrd}

@@ -6,7 +6,7 @@
 # The menu is plain words: nisse (the default, it starts at once), Computer Settings (the firmware, UEFI only) and one more row,
 # More Ways to Start, that holds the media check and the basic graphics mode. If the theme cannot be drawn the same entries show in
 # GRUB's own text menu. The kernel line is the build's (render-kiwi.sh): a development build keeps a serial console on it for the
-# tests (tools/vm/smoke-boot.sh); a release build does not (ledger N-9xx).
+# tests (tools/vm/smoke-boot.sh); a release build does not (ledger N-918a).
 #
 # Keys the tests use: m opens More Ways to Start, then s starts nisse with the serial port made the console.
 

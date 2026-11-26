@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# kernel-install plugin (ledger N-502): after Fedora's 90-loaderentry has added or removed a kernel's BootLoaderSpec file, rewrite
+# the kernel rows of the nisse boot menu (nisse-boot menu), so a new kernel is "nisse" and the old one moves to More Ways to
+# Start. It can never fail a kernel update: whatever happens, it ends with exit 0 (a stale menu just shows the previous rows,
+# and nisse-boot-setup writes them again at the next boot).
+[ -x /usr/bin/nisse-boot ] && /usr/bin/nisse-boot menu >/dev/null 2>&1
+exit 0

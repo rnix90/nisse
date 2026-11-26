@@ -1,0 +1,23 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse-grub-theme-install: put the nisse GRUB theme where GRUB reads it on an installed system, /boot/grub2/themes/nisse on the boot
+# partition (ledger N-502). Run after the package is installed or updated, and by 01_nisse_theme every time grub.cfg is made.
+# Cheap and idempotent: a file is copied only when it differs, so a damaged or outdated copy is repaired. A missing source theme is
+# not an error (there is nothing to install), and nothing here can stop a boot or a package update.
+#
+# Test overrides (never set in production): NISSE_GRUB_THEME_SRC, NISSE_BOOT_DIR.
+src="${NISSE_GRUB_THEME_SRC:-/usr/share/grub/themes/nisse}"
+boot="${NISSE_BOOT_DIR:-/boot}"
+dest="$boot/grub2/themes/nisse"
+
+[ -d "$src" ] || exit 0
+[ -d "$boot" ] || exit 0
+mkdir -p "$dest" || { echo "nisse-grub-theme-install: cannot make $dest" >&2; exit 0; }
+for f in "$src"/*; do
+    [ -f "$f" ] || continue
+    name="$(basename "$f")"
+    if ! cmp -s "$f" "$dest/$name"; then
+        cp -f "$f" "$dest/$name.new" && mv -f "$dest/$name.new" "$dest/$name" || echo "nisse-grub-theme-install: cannot copy $name" >&2
+    fi
+done
+exit 0

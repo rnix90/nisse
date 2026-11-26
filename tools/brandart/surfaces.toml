@@ -65,7 +65,7 @@ patterns = [
 collapse_by = "usr/share/plymouth/themes/([^/]+)/"
 missing = true
 requests = [
-  { title = "GRUB boot menu background and logo", seen = "Boot menu: the image today has a plain text menu with no artwork", owner = "N-502" },
+  { title = "GRUB boot menu background and logo", seen = "Boot menu: the image today has a plain text menu with no artwork", shipped = "/usr/share/grub/themes/nisse/logo.png" },
   { title = "Plasma Login Manager background and theme", seen = "Login screen: plasmalogin ships no artwork of its own", owner = "N-503" },
   { title = "Lock screen scene", seen = "When the screen locks (today it reuses the wallpaper)", owner = "N-504" },
   { title = "Logout / shutdown / restart screen", seen = "The full-screen choice dialog", owner = "N-504" },

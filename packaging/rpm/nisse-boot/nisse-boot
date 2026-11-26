@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # nisse-boot: the boot-time side of nisse's rollback net (ledger N-307).
 #
-#   nisse-boot sync                  write the "nisse snapshots" boot menu (the newest snapshots that can boot)
+#   nisse-boot sync                  write the "Start from Earlier Snapshots" boot menu (the newest snapshots that can boot)
+#   nisse-boot menu                  write the kernel rows of the themed boot menu (N-502): copies of the BootLoaderSpec files with a
+#                                    plain title, "nisse" for the newest kernel and the older ones for "More Ways to Start"
 #   nisse-boot arm [--tries N] SNAP  boot snapshot SNAP instead if the next N boots never finish (default 3)
 #   nisse-boot clear                 the system is healthy: disarm, and tell GRUB the boot succeeded
 #   nisse-boot status                what is armed (key=value lines)
@@ -13,7 +15,7 @@
 # How it works (every part checked on an installed system, docs/boot-recovery.md):
 #   * Fedora's GRUB counts boot_counter down on every boot that never set boot_success (its 08_fallback_counting snippet) and
 #     at 0 would pick the second menu entry. Our 09_nisse_fallback snippet picks the entry named in nisse_fallback instead,
-#     the "nisse rollback boot" entry that 11_nisse_snapshots defines from /boot/grub2/nisse-rollback.cfg.
+#     the "Go Back to the Last Good Version" entry that 11_nisse_snapshots defines from /boot/grub2/nisse-rollback.cfg.
 #   * The snapshot entries are NOT BootLoaderSpec files: grub2-mkconfig rewrites the options of every file in
 #     /boot/loader/entries. They are in /boot/grub2/nisse-boot.cfg, which only this tool writes, atomically and only after
 #     grub2-script-check accepts it.
@@ -39,6 +41,9 @@ max_entries=10
 default_tries=3
 
 menu_file="$boot/grub2/nisse-boot.cfg"
+kernel_menu_file="$boot/grub2/nisse-menu.cfg"
+more_menu_file="$boot/grub2/nisse-more.cfg"
+bls_dir="${NISSE_BLS_DIR:-$boot/loader/entries}"
 rollback_file="$boot/grub2/nisse-rollback.cfg"
 armed_file="$state/armed"
 
@@ -182,6 +187,109 @@ cmd_sync() {
     put_in_place "$tmp" "$menu_file" || die "the new snapshot menu failed grub2-script-check, the old one stays"
 }
 
+# ---- the kernel rows (N-502)
+# Fedora's blscfg command makes one menu row per BootLoaderSpec file in /boot/loader/entries, titled "nisse (6.19.10-300.fc44.x86_64)
+# 0.2", and cannot hide or group them. It does read the directory named in the GRUB variable blsdir. So nisse writes two directories of
+# its own, made of copies of those files with a plain title: loader/nisse-main (the newest kernel, "nisse") and loader/nisse-more (the
+# older kernels and the rescue kernel, for "More Ways to Start"), and two small GRUB files that point blsdir at them: nisse-menu.cfg
+# (09_nisse_menu sources it before 10_linux's blscfg call) and nisse-more.cfg (the body of the More Ways to Start submenu, 35_nisse_more_ways).
+# Fedora's own command builds the rows, so the root device, the options, the id that Fedora's saved default uses and the other keys are
+# the file's own. With no nisse-menu.cfg the stock list shows, so a missing or removed file never leaves a machine without kernel rows.
+
+# The text a copy of a BootLoaderSpec file gets for its title, and the file with that title: $1 source, $2 title, $3 destination.
+copy_with_title() {
+    {
+        printf 'title %s\n' "$2"
+        sed '/^title[[:space:]]/d' "$1"
+    } > "$3"
+}
+
+# Where GRUB finds loader/... on the boot partition: at the top when /boot is its own file system, below /boot when it is not.
+bls_rel() {
+    if [ -n "${NISSE_BLS_REL+x}" ]; then
+        printf '%s' "$NISSE_BLS_REL"
+        return
+    fi
+    mnt="$(findmnt -no TARGET -T "$boot" 2>/dev/null)"
+    if [ "$mnt" = "$boot" ]; then printf ''; else printf '%s' "$boot"; fi
+}
+
+cmd_menu() {
+    mkdir -p "$boot/grub2" "$boot/loader" || die "cannot write to $boot"
+    rows="$boot/grub2/.nisse-rows.$$"
+    : > "$rows"
+    for f in "$bls_dir"/*.conf; do
+        [ -f "$f" ] || continue
+        sed -n 's/^linux[[:space:]][[:space:]]*//p' "$f" | grep -q . || continue
+        id="$(basename "$f" .conf)"
+        version="$(sed -n 's/^version[[:space:]][[:space:]]*//p' "$f" | head -1)"
+        [ -n "$version" ] || version="$id"
+        rescue=0
+        case "$version" in 0-rescue*) rescue=1 ;; esac
+        # rescue last, then the newest version first
+        printf '%s\t%s\t%s\n' "$rescue" "$version" "$id" >> "$rows"
+    done
+    main_dir="$boot/loader/nisse-main"
+    more_dir="$boot/loader/nisse-more"
+    if [ ! -s "$rows" ]; then
+        rm -f "$rows" "$kernel_menu_file" "$more_menu_file"
+        rm -rf "$main_dir" "$more_dir"
+        return 0
+    fi
+    sorted="$boot/grub2/.nisse-sorted.$$"
+    sort -t "$(printf '\t')" -k1,1n -k2,2rV "$rows" > "$sorted"
+    rm -f "$rows"
+    new_main="$boot/loader/.nisse-main.$$"
+    new_more="$boot/loader/.nisse-more.$$"
+    rm -rf "$new_main" "$new_more"
+    mkdir -p "$new_main" "$new_more" || die "cannot write to $boot/loader"
+    n=0
+    while IFS="$(printf '\t')" read -r rescue version id; do
+        n=$((n + 1))
+        if [ "$n" = 1 ]; then
+            copy_with_title "$bls_dir/$id.conf" nisse "$new_main/$id.conf"
+        elif [ "$rescue" = 1 ]; then
+            copy_with_title "$bls_dir/$id.conf" "Start nisse in Rescue Mode" "$new_more/$id.conf"
+        else
+            copy_with_title "$bls_dir/$id.conf" "Start nisse with Kernel $(plain "${version%.*86_64}")" "$new_more/$id.conf"
+        fi
+    done < "$sorted"
+    rm -f "$sorted"
+    # the include files, checked; the directories go in place first and the include that points at them last, so GRUB never points at
+    # a directory that is not there (and removes the pointer first when the rows are about to go)
+    rel="$(bls_rel)"
+    inc_main="$kernel_menu_file.new"
+    inc_more="$more_menu_file.new"
+    {
+        echo "# written by nisse-boot - do not edit"
+        echo "set blsdir=$rel/loader/nisse-main/"
+    } > "$inc_main"
+    {
+        echo "# written by nisse-boot - do not edit"
+        echo "set blsdir=$rel/loader/nisse-more/"
+        echo "blscfg"
+    } > "$inc_more"
+    if [ -x "$check" ] && { ! "$check" "$inc_main" >/dev/null 2>&1 || ! "$check" "$inc_more" >/dev/null 2>&1; }; then
+        rm -rf "$new_main" "$new_more" "$inc_main" "$inc_more"
+        die "the new kernel menu failed grub2-script-check, the old one stays"
+    fi
+    # swap the directories in (a second run with nothing new changes nothing)
+    if [ -d "$main_dir" ] && diff -rq "$new_main" "$main_dir" >/dev/null 2>&1; then rm -rf "$new_main"; else rm -f "$kernel_menu_file"; rm -rf "$main_dir"; mv "$new_main" "$main_dir"; fi
+    if ! ls "$new_more"/*.conf >/dev/null 2>&1; then
+        rm -rf "$new_more" "$more_dir"
+        rm -f "$inc_more" "$more_menu_file"
+    elif [ -d "$more_dir" ] && diff -rq "$new_more" "$more_dir" >/dev/null 2>&1; then
+        rm -rf "$new_more"
+    else
+        rm -rf "$more_dir"
+        mv "$new_more" "$more_dir"
+    fi
+    put_in_place "$inc_main" "$kernel_menu_file" || die "cannot put the kernel menu in place"
+    if [ -f "$inc_more" ]; then
+        put_in_place "$inc_more" "$more_menu_file" || die "cannot put the More Ways menu in place"
+    fi
+}
+
 cmd_arm() {
     tries="$default_tries"
     snap=""
@@ -315,6 +423,7 @@ cmd_fixenv() {
 
 case "${1:-}" in
     sync) cmd_sync ;;
+    menu) cmd_menu ;;
     arm)
         shift
         cmd_arm "$@"
@@ -324,7 +433,7 @@ case "${1:-}" in
     fixenv) cmd_fixenv ;;
     reconcile) cmd_reconcile ;;
     *)
-        echo "usage: nisse-boot sync | arm [--tries N] SNAPSHOT | clear | status | fixenv | reconcile" >&2
+        echo "usage: nisse-boot sync | menu | arm [--tries N] SNAPSHOT | clear | status | fixenv | reconcile" >&2
         exit 2
         ;;
 esac

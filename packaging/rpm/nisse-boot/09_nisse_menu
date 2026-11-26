@@ -1,0 +1,20 @@
+#!/usr/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse: the kernel rows of the themed boot menu (ledger N-502).
+#
+# Fedora's 10_linux ends in one command, blscfg, that makes a menu row for every BootLoaderSpec file in the directory named by the
+# GRUB variable blsdir (by default /boot/loader/entries), titled "nisse (6.19.10-300.fc44.x86_64) 0.2", with no way to hide or group
+# them. This snippet runs first (09 comes before 10). It asks nisse-boot to write nisse's own directory of copies of those files with
+# plain titles (nisse-boot menu: "nisse" for the newest kernel; the older kernels and the rescue kernel go to the directory that
+# 35_nisse_more_ways shows as "More Ways to Start"), and then, if nisse-boot wrote its pointer file, runs it: it sets blsdir to
+# nisse's directory, so 10_linux's own blscfg call lists nisse's rows. No pointer file (nisse-boot missing, nothing to list, a refused
+# menu): blsdir stays as Fedora set it and the stock list shows, so a machine always has kernel rows.
+tool="${NISSE_BOOT_TOOL:-/usr/bin/nisse-boot}"
+if [ -x "$tool" ]; then
+    "$tool" menu >&2 || echo "09_nisse_menu: the kernel rows could not be written; Fedora's list is used." >&2
+fi
+cat << 'EOF'
+if [ -f ${prefix}/nisse-menu.cfg ]; then
+  source ${prefix}/nisse-menu.cfg
+fi
+EOF

@@ -82,8 +82,9 @@ Lessons from the kiwi migration (details in `docs/kiwi-spike.md`):
   delete the directory while `findmnt` shows a mount under it.
 - The root filesystem is an EROFS image at `/LiveOS/squashfs.img` inside the ISO (the name is historical). Extract it
   with `xorriso -osirrox on -indev ISO -extract /LiveOS/squashfs.img OUT` and `mount -t erofs -o loop,ro`.
-- Fedora's GRUB menu defaults to "Test this media & start" (a checksum of the whole ISO). `smoke-boot.sh` presses
-  Up+Enter to start the live system instead; pass `--mediacheck` to keep the default.
+- The nisse ISO's GRUB menu (N-502) defaults to "nisse", which starts at once. `smoke-boot.sh` presses Up (it stops the
+  countdown) and then Enter; pass `--mediacheck` to open More Ways to Start with the hotkey m and start "Check This Media and Start nisse"
+  (a checksum of the whole ISO, very slow under emulation).
 - `nisse-release` replaced Fedora's `90-default.preset`, so anything Fedora enables there that nisse needs must be in
   `packaging/rpm/nisse-release/80-nisse-desktop.preset` (the live session needs `livesys` and `livesys-late`).
 - The vendored files must have Unix line endings. `vendor-kiwi.sh` clones with `core.autocrlf=false`; the Windows

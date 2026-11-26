@@ -76,8 +76,10 @@ V run 'S snapper -c root create -d "e2e clean" >/dev/null; S sh -c "echo e2e > /
 snapA="$(g 'echo "RES: $(S snapper -c root --csvout list --columns number,description | grep "e2e marked" | cut -d, -f1)"' 60)"
 snapB="$(g 'echo "RES: $(S snapper -c root --csvout list --columns number,description | grep "e2e clean" | cut -d, -f1)"' 60)"
 [ -n "$snapA" ] && [ -n "$snapB" ] && ok "snapshots made: $snapB (clean) and $snapA (marked, the newest)" || { bad "could not make snapshots"; exit 1; }
-for i in 1 2 3 4 5 6 7 8 9 10; do
-    [ "$(g 'echo "RES: $(S grep -c "^menuentry" /boot/grub2/nisse-boot.cfg 2>/dev/null)"' 30)" -ge 2 ] 2>/dev/null && break
+# wait for the newest snapshot to be in the menu file (the path unit waits 3 s, snapper then lists): the old snapshots are already
+# there, so counting entries is not enough (a loaded host once made the 30 s loop end too early)
+for i in $(seq 1 30); do
+    [ "$(g 'echo "RES: $(S grep -c "nisse-snap-'"$snapA"' " /boot/grub2/nisse-boot.cfg 2>/dev/null)"' 30)" -ge 1 ] 2>/dev/null && break
     sleep 3
 done
 menu="$(g 'echo "RES: $(S grep -o "nisse-snap-[0-9]*" /boot/grub2/nisse-boot.cfg | tr "\n" " ")"' 30)"
@@ -89,12 +91,12 @@ picked=no
 for try in 1 2 3; do
     V run 'S grub2-editenv - set boot_success=0; S sync' 30 >/dev/null
     V powercycle >/dev/null
-    sleep 3.2; V key down; sleep 0.4; V key down; sleep 0.5; V key ret; sleep 1.2; V key ret
+    sleep 3.2; V key down; sleep 0.5; V key ret; sleep 1.2; V key ret
     V expect "login:" 420 >/dev/null || continue
     login
     if [ "$(which_root)" = snapshot ]; then picked=yes; break; fi
 done
-[ "$picked" = yes ] && ok "picked 'nisse snapshots' then the first entry from the GRUB menu with the keyboard: that snapshot booted" || bad "the keyboard pick did not boot the snapshot"
+[ "$picked" = yes ] && ok "picked Start from Earlier Snapshots (one down) then the first entry from the GRUB menu with the keyboard: that snapshot booted" || bad "the keyboard pick did not boot the snapshot"
 sub="$(g 'echo "RES: $(findmnt -no OPTIONS / | grep -o "subvol=[^,]*")"' 30)"
 [ "$sub" = "subvol=/root/.snapshots/$snapA/snapshot" ] && ok "it is snapshot $snapA's own subvolume, read-only ($sub)" || bad "unexpected subvolume: $sub"
 [ "$(g 'echo "RES: $(touch /e2e-write-test 2>&1 | grep -c Read-only)"' 30)" = 1 ] && ok "writing to the snapshot root is refused (read-only)" || bad "the snapshot root is writable"
