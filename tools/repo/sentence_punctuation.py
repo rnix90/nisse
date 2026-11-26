@@ -46,7 +46,7 @@ def in_scope(rel):
 
 
 def is_sentence_start(s):
-    return s[:1].isupper() or s.startswith("nisse ")
+    return s[:1].isupper() or s.startswith("nisse ") or bool(re.match(r"%?[0-9]", s))
 
 
 def judged(s):

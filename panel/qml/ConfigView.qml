@@ -325,7 +325,7 @@ Item {
             }
             Button {
                 objectName: "addBackend"
-                text: "Add a backend"
+                text: "Add a Backend"
                 onClicked: root.addBackend()
             }
             Switch {
@@ -336,7 +336,7 @@ Item {
             }
 
             // ---- routes
-            Label { text: "Which backend does which work"; font.bold: true }
+            Label { text: "Which Backend Does Which Work"; font.bold: true }
             RowLayout {
                 Layout.fillWidth: true
                 Label { text: "Main (everything without its own choice)"; Layout.fillWidth: true; wrapMode: Text.Wrap }
@@ -355,7 +355,7 @@ Item {
                     Layout.fillWidth: true
                     Label {
                         Layout.fillWidth: true
-                        text: modelData === "chat" ? "Chat and code" : (modelData === "vision" ? "Looking at images" : "Background jobs")
+                        text: modelData === "chat" ? "Chat and Code" : (modelData === "vision" ? "Looking at Images" : "Background Jobs")
                     }
                     ComboBox {
                         objectName: "route-" + routeRow.modelData
@@ -403,24 +403,24 @@ Item {
                 Layout.fillWidth: true
                 client: root.client
             }
-            Label { text: "Remote access"; font.bold: true }
+            Label { text: "Remote Access"; font.bold: true }
             RemoteSwitch {
                 Layout.fillWidth: true
                 client: root.client
             }
-            Label { text: "Paired devices"; font.bold: true }
+            Label { text: "Paired Devices"; font.bold: true }
             DevicesView {
                 Layout.fillWidth: true
                 client: root.client
             }
-            Label { text: "Kill switch"; font.bold: true }
+            Label { text: "Kill Switch"; font.bold: true }
             KillSwitchBar {
                 Layout.fillWidth: true
                 client: root.client
             }
 
             // ---- going back (N-311)
-            Label { text: "System history"; font.bold: true }
+            Label { text: "System History"; font.bold: true }
             UndoView {
                 objectName: "undoView"
                 Layout.fillWidth: true
@@ -428,7 +428,7 @@ Item {
                 chatsWorking: root.chatsWorking
             }
 
-            Label { text: "Terminal sessions"; font.bold: true }
+            Label { text: "Terminal Sessions"; font.bold: true }
             Label {
                 objectName: "terminalNote"
                 Layout.fillWidth: true

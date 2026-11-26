@@ -174,7 +174,7 @@ fingerprint and the update goes ahead. If dnf cannot say, there is no fingerprin
 - N-310 (done): the watchdog above. **After a fallback boot the real root's state said `pending-verify` and nobody could edit
   it from the read-only snapshot**: the watchdog now settles that with a real rollback (the record is written into the restored
   root from the top level), so nothing is left pending. The end-to-end test proves both the fallback and the settling.
-- N-311 (done): the panel's undo button, in Settings under "System history" (`docs/panel-notes.md`), goes through the daemon
+- N-311 (done): the panel's undo button, in Settings under "System History" (`docs/panel-notes.md`), goes through the daemon
   (`ListUndo`, `Undo`, `docs/daemon-protocol.md`) to `nisse-rollback list` and `nisse-rollback run SNAPSHOT --reboot` with
   `sudo`; the confirmation says home and data are not covered and that the computer restarts at once. An undo by hand has no
   failed update behind it, so its record has no fingerprint and blocks no update. In limited sudo mode only `nisse-rollback list`

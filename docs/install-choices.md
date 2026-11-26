@@ -75,7 +75,7 @@ Each feature package ships its own. Plain ASCII; unknown keys are an error.
 
 ```toml
 id = "sudo-mode"                  # lowercase letters, digits and dashes, unique, at most 40 characters
-title = "Administrator rights for the AI"
+title = "Administrator Rights for the AI"
 description = "..."               # a sentence or two for the person
 stage = "firstboot"               # where a front-end shows it: firstboot or installer
 order = 10                        # whole number; ties go by id
@@ -84,7 +84,7 @@ default = "full"                  # bool: true or false; enum: one of the option
 
 [[options]]                       # enum only, at least two, values unique, lowercase letters, digits and dashes
 value = "full"
-title = "All passwordless"
+title = "All Passwordless"
 description = "..."
 
 [text]                            # text only (optional): max_length, default 64; printable ASCII, no line breaks

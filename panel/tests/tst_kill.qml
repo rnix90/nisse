@@ -50,7 +50,7 @@ TestCase {
     function test_released_shows_only_the_stop_button() {
         verify(findChild(bar, "killButton").visible)
         verify(!findChild(bar, "killBanner").visible)
-        compare(findChild(bar, "killButton").text, "Stop all AI")
+        compare(findChild(bar, "killButton").text, "Stop All AI")
     }
 
     function test_the_stop_button_engages_the_switch_as_the_desktop() {

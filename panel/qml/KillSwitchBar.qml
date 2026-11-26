@@ -47,7 +47,7 @@ ColumnLayout {
         Item { Layout.fillWidth: true }
         Button {
             objectName: "killButton"
-            text: "Stop all AI"
+            text: "Stop All AI"
             visible: !root.engaged
             palette.button: "#e0623f"
             palette.buttonText: "#f6f2e9"

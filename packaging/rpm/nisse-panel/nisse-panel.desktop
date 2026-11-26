@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=nisse
-GenericName=AI assistant
+GenericName=AI Assistant
 Comment=Talk to the AI that looks after this computer.
 Exec=nisse-panel
 Icon=nisse-assistant

@@ -27,6 +27,12 @@ def test_a_capitalized_sentence_without_a_closing_mark_is_found():
     assert strings('b.append(text(W / 2, 800, "nisse starts in 4 seconds.", 26))') == []
 
 
+def test_a_sentence_that_starts_with_a_number_or_a_count_is_judged_too():
+    assert strings('QStringLiteral("%1 approvals are waiting")') == ["%1 approvals are waiting"]
+    assert strings('QStringLiteral("%1 approvals are waiting.")') == []
+    assert strings('QStringLiteral("3 approvals waiting")') == []  # three words: a status phrase, not judged here
+
+
 def test_the_four_closing_marks_pass():
     for end in (".", "!", "?", ":"):
         assert strings(f'text: "Nothing is waiting for you{end}"') == [], end

@@ -40,6 +40,10 @@ and shape; the ledger is the queue. Check the ledger structure with `python tool
 13. **Every full sentence nisse writes ends with punctuation** (. ? ! or a colon); labels, buttons and menu entries stay bare
     (Bert, 2026-11-25). `tools/repo/sentence_punctuation.py` guards the shipped strings; what is judged a label is listed with its
     reason in `tools/repo/sentence_labels.txt`. Lowercase log-style error fragments and upstream's own strings are outside it.
+14. **Short strings are in headline case** ("Computer Settings"; labels, buttons, menu entries, headings, names of things up to about five
+    words; Bert, 2026-11-26). The name stays lowercase inside one ("Earlier Versions of nisse"). `tools/repo/headline_case.py` guards
+    it; what is judged not to be a short string is listed with its reason in `tools/repo/headline_exceptions.txt`. Notification titles
+    and the Plymouth messages stay as they are.
 
 ## Tooling notes
 

@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
     }
 
     KAboutData about(QStringLiteral("nisse-setup"),
-                     i18n("nisse setup"),
+                     i18n("nisse Setup"),
                      QStringLiteral(PLASMASETUP_VERSION_STRING),
                      i18n("Make nisse yours"),
                      KAboutLicense::GPL_V3,

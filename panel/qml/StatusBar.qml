@@ -41,7 +41,7 @@ Rectangle {
 
     function summary(u) {
         if (!u)
-            return "Usage: unknown"
+            return "Usage: Unknown"
         var parts = []
         var five = windowText("5h", u.max.five_hour)
         var seven = windowText("7d", u.max.seven_day)
@@ -49,7 +49,7 @@ Rectangle {
             parts.push(five)
         if (seven !== "")
             parts.push(seven)
-        return parts.length > 0 ? "Usage: " + parts.join(" | ") : "Usage: unknown"
+        return parts.length > 0 ? "Usage: " + parts.join(" | ") : "Usage: Unknown"
     }
 
     function levelOf(u) {
@@ -102,9 +102,9 @@ Rectangle {
     function detail(u, now) {
         if (!u)
             return "Usage of the Max account is not known yet. It is read from Claude Code at the start of each turn."
-        var lines = ["Usage of the Max account"]
-        var five = windowDetail("5-hour window", u.max.five_hour, now)
-        var seven = windowDetail("7-day window", u.max.seven_day, now)
+        var lines = ["Usage of the Max Account"]
+        var five = windowDetail("5-Hour Window", u.max.five_hour, now)
+        var seven = windowDetail("7-Day Window", u.max.seven_day, now)
         if (five !== "")
             lines.push(five)
         if (seven !== "")

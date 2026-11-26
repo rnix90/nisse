@@ -144,7 +144,7 @@ ApplicationWindow {
             }
             Button {
                 objectName: "auditTab"
-                text: "Audit log"
+                text: "Audit Log"
                 checked: window.page === 2
                 onClicked: window.page = 2
             }

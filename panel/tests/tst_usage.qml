@@ -49,7 +49,7 @@ TestCase {
     }
 
     function test_nothing_known_says_unknown() {
-        compare(findChild(bar, "usage").text, "Usage: unknown")
+        compare(findChild(bar, "usage").text, "Usage: Unknown")
     }
 
     function test_the_two_windows_show_as_percentages() {
@@ -83,8 +83,8 @@ TestCase {
     function test_the_detail_says_when_each_window_resets_in_words() {
         stub.usageJson = windows(0.25, 0.54, 1000000 + 2 * 3600 + 60, 1000000 + 3 * 86400)
         var detail = bar.usageDetail
-        verify(detail.indexOf("5-hour window: 25% used, resets in 2 h 1 min") >= 0, detail)
-        verify(detail.indexOf("7-day window: 54% used, resets in 3 days") >= 0, detail)
+        verify(detail.indexOf("5-Hour Window: 25% used, resets in 2 h 1 min") >= 0, detail)
+        verify(detail.indexOf("7-Day Window: 54% used, resets in 3 days") >= 0, detail)
     }
 
     function test_the_detail_uses_the_printed_reset_when_only_text_is_known() {
@@ -134,9 +134,9 @@ TestCase {
 
     function test_damaged_data_reads_as_unknown_not_an_error() {
         stub.usageJson = "{ not json"
-        compare(findChild(bar, "usage").text, "Usage: unknown")
+        compare(findChild(bar, "usage").text, "Usage: Unknown")
         stub.usageJson = "[]"
-        compare(findChild(bar, "usage").text, "Usage: unknown")
+        compare(findChild(bar, "usage").text, "Usage: Unknown")
     }
 
     function test_the_bar_asks_the_daemon_for_a_fresh_reading_when_it_starts_and_on_request() {

@@ -32,10 +32,10 @@ WATCHER = "org.kde.StatusNotifierWatcher"
 STATES = [  # (state to force, the icon, the Status, a piece of the tooltip)
     ("idle", "nisse-tray-idle-symbolic", "Active", "Ready"),
     ("busy", "nisse-tray-busy-symbolic", "Active", "Working"),
-    ("needs-you:2", "nisse-tray-needs-you-symbolic", "NeedsAttention", "2 approvals waiting"),
-    ("unread", "nisse-tray-unread-symbolic", "Active", "1 conversation finished"),
-    ("paused", "nisse-tray-paused-symbolic", "Active", "AI paused"),
-    ("offline", "nisse-tray-offline-symbolic", "Active", "Daemon not reachable"),
+    ("needs-you:2", "nisse-tray-needs-you-symbolic", "NeedsAttention", "2 Approvals Waiting"),
+    ("unread", "nisse-tray-unread-symbolic", "Active", "1 Conversation Finished"),
+    ("paused", "nisse-tray-paused-symbolic", "Active", "AI Paused"),
+    ("offline", "nisse-tray-offline-symbolic", "Active", "Daemon Not Reachable"),
 ]
 
 

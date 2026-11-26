@@ -18,19 +18,19 @@ panel/qml/ConfigView.qml | Supervised: asks about every permission prompt | a ch
 panel/qml/ConfigView.qml | Address, for example http://localhost:11434 | the placeholder that names a text field with an example
 panel/qml/ConfigView.qml | Model, for example gpt-oss:20b | the placeholder that names a text field with an example
 panel/qml/ConfigView.qml | Step up to a fallback when a backend is away | the label of a check box
-panel/qml/ConfigView.qml | Which backend does which work | a settings heading
+panel/qml/ConfigView.qml | Which Backend Does Which Work | a settings heading
 panel/qml/ConfigView.qml | Main (everything without its own choice) | the label of a choice in a list
 panel/qml/DevicesView.qml | Device name, for example Bert's phone | the placeholder that names a text field with an example
 panel/qml/Main.qml | nisse panel window active= | a debug line for the developer log, never shown on screen
 panel/qml/Main.qml | nisse sidebar: Escape handled, docked= | a debug line for the developer log, never shown on screen
-panel/qml/StatusBar.qml | Usage of the Max account | the heading of a tooltip, followed by figures
-panel/qml/UndoView.qml | Software installed, removed or updated | the name of a kind of change in a list
+panel/qml/StatusBar.qml | Usage of the Max Account | the heading of a tooltip, followed by figures
+panel/qml/UndoView.qml | Software Installed, Removed or Updated | the name of a kind of change in a list
 panel/qml/UndoView.qml | Go back to before \" | the start of a question that is built from pieces and ends with a question mark
 services/crates/nisse-audit/src/lib.rs | RFC 3339 formatting cannot fail for UTC now | an expect message for developers, never shown
-tools/art/boot_mocks.py | Earlier versions of nisse | a boot menu entry
+tools/art/boot_mocks.py | Earlier Versions of nisse | a boot menu entry
 tools/art/boot_mocks.py | GRUB menu (N-502): logo with the name below, plain-word entries, countdown bar | a caption on the mock sheet, not shipped
 tools/art/boot_mocks.py | Plymouth boot screen (N-501): the logo and the sliding-block bar | a caption on the mock sheet, not shipped
 tools/art/boot_mocks.py | Plasma splash after login (N-505), dark: the n and the comet | a caption on the mock sheet, not shipped
-tools/art/boot_mocks.py | Login screen (N-503), dark | a caption on the mock sheet, not shipped
-tools/art/boot_mocks.py | Lock screen (N-504), dark | a caption on the mock sheet, not shipped
+tools/art/boot_mocks.py | Login Screen (N-503), Dark | a caption on the mock sheet, not shipped
+tools/art/boot_mocks.py | Lock Screen (N-504), Dark | a caption on the mock sheet, not shipped
 tools/art/boot_mocks.py | Logout, restart and shut down (N-504), dark | a caption on the mock sheet, not shipped

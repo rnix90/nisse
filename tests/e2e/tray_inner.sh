@@ -56,7 +56,7 @@ echo "ok   the real panel shows an idle tray item with the daemon up"
 # 2. the daemon's kill switch moves the icon: the real daemon, the real panel client, the real item
 busctl --user call org.nisse.Daemon1 /org/nisse/Daemon1 org.nisse.Daemon1 EngageKillSwitch ss phone "e2e" >/dev/null
 wait_icon "$svc" nisse-tray-paused-symbolic
-prop "$svc" ToolTip | grep -q 'AI paused' || fail "the paused tooltip must say AI paused"
+prop "$svc" ToolTip | grep -q 'AI Paused' || fail "the paused tooltip must say AI Paused"
 busctl --user call org.nisse.Daemon1 /org/nisse/Daemon1 org.nisse.Daemon1 ReleaseKillSwitch s phone >/dev/null
 wait_icon "$svc" nisse-tray-idle-symbolic
 echo "ok   the kill switch turns the icon to paused and back"
@@ -77,7 +77,7 @@ echo "ok   the menu pauses and resumes the real daemon"
 # 4. the daemon goes away: offline wins; it comes back: idle again
 kill "$daemon_pid"; wait "$daemon_pid" 2>/dev/null || true
 wait_icon "$svc" nisse-tray-offline-symbolic
-prop "$svc" ToolTip | grep -q 'Daemon not reachable' || fail "the offline tooltip must say the daemon is not reachable"
+prop "$svc" ToolTip | grep -q 'Daemon Not Reachable' || fail "the offline tooltip must say the daemon is not reachable"
 start_daemon
 wait_icon "$svc" nisse-tray-idle-symbolic
 echo "ok   offline while the daemon is away, idle when it is back"
@@ -92,7 +92,7 @@ for _ in $(seq 1 100); do
 done
 wait_icon "$dsvc" nisse-tray-needs-you-symbolic
 prop "$dsvc" Status | grep -q '"NeedsAttention"' || fail "needs you must be NeedsAttention"
-prop "$dsvc" ToolTip | grep -q '2 approvals waiting' || fail "the tooltip must carry the approvals count"
+prop "$dsvc" ToolTip | grep -q '2 Approvals Waiting' || fail "the tooltip must carry the approvals count"
 busctl --user call "$dsvc" /MenuBar com.canonical.dbusmenu GetProperty is 2 label | grep -q 'Approvals (2)' || fail "the menu must carry the approvals count"
 echo "ok   --demo-tray needs-you:2 shows the count on the tooltip and the menu"
 echo "tray e2e ok"

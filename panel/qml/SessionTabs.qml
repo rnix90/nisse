@@ -582,7 +582,7 @@ Item {
                 Label { text: "The nisse daemon is not reachable."; Layout.alignment: Qt.AlignHCenter }
                 Button {
                     objectName: "retry"
-                    text: "Try again"
+                    text: "Try Again"
                     Layout.alignment: Qt.AlignHCenter
                     onClicked: root.refresh()
                 }

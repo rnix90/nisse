@@ -10,7 +10,7 @@ import org.kde.plasmasetup
 Kirigami.AbstractApplicationWindow {
     id: root
 
-    title: i18n("nisse setup")
+    title: i18n("nisse Setup")
 
     visibility: Window.FullScreen
 

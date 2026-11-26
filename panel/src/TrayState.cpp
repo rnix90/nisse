@@ -19,7 +19,7 @@ constexpr Named kNames[] = {
 
 QString approvals(int n)
 {
-    return n == 1 ? QStringLiteral("1 approval waiting") : QStringLiteral("%1 approvals waiting").arg(n);
+    return n == 1 ? QStringLiteral("1 Approval Waiting") : QStringLiteral("%1 Approvals Waiting").arg(n);
 }
 } // namespace
 
@@ -107,7 +107,7 @@ QString TrayState::title()
 QString TrayState::tooltip(const Inputs &in)
 {
     if (!in.connected) {
-        QString text = QStringLiteral("Daemon not reachable");
+        QString text = QStringLiteral("Daemon Not Reachable");
         if (in.pending > 0)
             text += QStringLiteral(" (last known: %1)").arg(approvals(in.pending));
         return text;
@@ -116,11 +116,11 @@ QString TrayState::tooltip(const Inputs &in)
     if (in.pending > 0)
         parts << approvals(in.pending);
     if (in.paused)
-        parts << QStringLiteral("AI paused");
+        parts << QStringLiteral("AI Paused");
     if (in.working > 0)
         parts << QStringLiteral("Working");
     if (in.unread > 0)
-        parts << (in.unread == 1 ? QStringLiteral("1 conversation finished") : QStringLiteral("%1 conversations finished").arg(in.unread));
+        parts << (in.unread == 1 ? QStringLiteral("1 Conversation Finished") : QStringLiteral("%1 Conversations Finished").arg(in.unread));
     return parts.isEmpty() ? QStringLiteral("Ready") : parts.join(QStringLiteral(" - "));
 }
 

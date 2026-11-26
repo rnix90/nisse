@@ -135,7 +135,7 @@ def frame(body, bg):
 
 def grub_menu():
     b = [lockup(W / 2, 90, 230)]
-    rows = [("nisse", True), ("Earlier versions of nisse", False), ("Computer settings", False)]
+    rows = [("nisse", True), ("Earlier Versions of nisse", False), ("Computer Settings", False)]
     y = 450
     for label, selected in rows:
         if selected:
@@ -180,7 +180,7 @@ def login(mode):
     b.append(rect(W / 2 - 250, 640, 500, 70, field, rx=16, stroke=edge, sw=2))
     b.append(text(W / 2 - 220, 686, "Password", 28, soft, 400, "start"))
     b.append(rect(W / 2 - 100, 745, 200, 64, accent, rx=32))
-    b.append(text(W / 2, 788, "Log in", 28, on_accent, 700))
+    b.append(text(W / 2, 788, "Log In", 28, on_accent, 700))
     b.append(text(48, 1030, "us", 24, ink, 400, "start"))
     b.append(icon_restart(W - 150, 1022, 40, ink))
     b.append(icon_power(W - 80, 1022, 40, ink))
@@ -211,7 +211,7 @@ def logout(mode):
     accent, on_accent = (d("accent"), d("on-accent")) if dark else (lt("accent"), lt("on-accent"))
     scrim = rect(0, 0, W, H, d("base") if dark else lt("paper"), opacity=0.82)
     b = [_wall(mode), scrim, text(W / 2, 330, "What would you like to do?", 52, ink, 700)]
-    items = [("Log out", icon_logout, False), ("Restart", icon_restart, False), ("Shut down", icon_power, True)]
+    items = [("Log Out", icon_logout, False), ("Restart", icon_restart, False), ("Shut Down", icon_power, True)]
     x = W / 2 - 300
     for label, icon, selected in items:
         if selected:
@@ -231,16 +231,16 @@ def logout(mode):
 SURFACES = [
     ("grub-menu", "GRUB menu (N-502): logo with the name below, plain-word entries, countdown bar", grub_menu),
     ("plymouth-boot", "Plymouth boot screen (N-501): the logo and the sliding-block bar", plymouth),
-    ("plymouth-boot-early", "Plymouth, earlier frame", lambda: plymouth(0.15)),
-    ("plymouth-boot-late", "Plymouth, later frame", lambda: plymouth(0.85)),
+    ("plymouth-boot-early", "Plymouth, Earlier Frame", lambda: plymouth(0.15)),
+    ("plymouth-boot-late", "Plymouth, Later Frame", lambda: plymouth(0.85)),
     ("splash-dark", "Plasma splash after login (N-505), dark: the n and the comet", lambda: splash("dark")),
-    ("splash-light", "Plasma splash, light", lambda: splash("light")),
-    ("login-dark", "Login screen (N-503), dark", lambda: login("dark")),
-    ("login-light", "Login screen, light", lambda: login("light")),
-    ("lock-dark", "Lock screen (N-504), dark", lambda: lock("dark")),
-    ("lock-light", "Lock screen, light", lambda: lock("light")),
+    ("splash-light", "Plasma Splash, Light", lambda: splash("light")),
+    ("login-dark", "Login Screen (N-503), Dark", lambda: login("dark")),
+    ("login-light", "Login Screen, Light", lambda: login("light")),
+    ("lock-dark", "Lock Screen (N-504), Dark", lambda: lock("dark")),
+    ("lock-light", "Lock Screen, Light", lambda: lock("light")),
     ("logout-dark", "Logout, restart and shut down (N-504), dark", lambda: logout("dark")),
-    ("logout-light", "Logout screen, light", lambda: logout("light")),
+    ("logout-light", "Logout Screen, Light", lambda: logout("light")),
 ]
 
 

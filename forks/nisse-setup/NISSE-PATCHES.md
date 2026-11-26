@@ -5,8 +5,8 @@ One row per changed file. Newest at the bottom. `tests/repo/test_nisse_setup_for
 | File | Change | Why |
 |---|---|---|
 | `src/qml/LandingComponent.qml` | the landing page wallpaper is `wallpapers/nisse/contents/images(_dark)/` (the nisse-wallpaper package); the welcome text says "Welcome to nisse" for desktop and mobile | the first screen a person sees is nisse's, not KDE's Next wallpaper or "Plasma Desktop" |
-| `src/qml/Main.qml` | window title "nisse setup" | branding |
-| `src/main.cpp` | about data name "nisse setup", tagline "Make nisse yours", the autologin option text | branding (the application id `plasma-setup` is renamed in a later commit) |
+| `src/qml/Main.qml` | window title "nisse Setup" (headline case, N-501c) | branding |
+| `src/main.cpp` | about data name "nisse Setup", tagline "Make nisse yours", the autologin option text | branding (the application id `plasma-setup` is renamed in a later commit) |
 | `modules/prepareutil/prepareutil.cpp` | the light and dark toggle applies `org.nisse.desktop` (dark, the default) and `org.nisse.desktop.light`; dark is recognised by the `NisseEmber` color scheme | a new user must get the nisse look, not Breeze (upstream) or the Fedora look (Fedora's patch) |
 | `modules/prepareutil/colorssettings.kcfg` | the default color scheme is `NisseEmber` | nisse is dark by default |
 
@@ -22,7 +22,7 @@ loudly if a line moved; replay it onto a fresh upstream import before re-applyin
 | `files/nisse-setup-polkit.rules` | renamed from `files/plasma-setup-polkit.rules`; the user is `nisse-setup`, the actions are `org.nisse.setup.*` | polkit lets only the wizard's user run the helper's actions |
 | `files/nisse-setup-sysuser.conf` | renamed from `files/plasma-setup-sysuser.conf`; user `nisse-setup`, home `/run/nisse-setup` | the wizard's special user |
 | `files/nisse-setup-tmpfiles.conf.in` | renamed from `files/plasma-setup-tmpfiles.conf.in`; everything under `/run/nisse-setup` | the wizard's home and session settings |
-| `files/nisse-setup.desktop.in` | renamed from `files/plasma-setup.desktop.in`; runs `nisse-setup`, name "nisse setup" | the autostart entry of the wizard's session |
+| `files/nisse-setup.desktop.in` | renamed from `files/plasma-setup.desktop.in`; runs `nisse-setup`, name "nisse Setup" | the autostart entry of the wizard's session |
 | `files/nissesetuprc` | renamed from `files/plasmasetuprc`; installed as `/etc/xdg/nissesetuprc` | the wizard's admin config (the first user's groups) |
 | `files/CMakeLists.txt` | installs the renamed files, the data directory is `nisse-setup` | follows the renames |
 | `files/kglobalaccelrc` | comment only | follows the renames |

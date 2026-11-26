@@ -6,7 +6,7 @@
 Exec=${CMAKE_INSTALL_FULL_LIBEXECDIR}/nisse-setup
 NoDisplay=true
 Type=Application
-Name=nisse setup
+Name=nisse Setup
 Name[ar]=إعداد بلازما
 Name[az]=Plasma qurulması
 Name[ca]=Configuració del Plasma

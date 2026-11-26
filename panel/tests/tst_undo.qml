@@ -3,7 +3,7 @@ import QtQuick
 import QtTest
 import "../qml"
 
-// N-311: the undo list in Settings ("System history"): what each row says, what is disabled and why, the confirmation, and the one
+// N-311: the undo list in Settings ("System History"): what each row says, what is disabled and why, the confirmation, and the one
 // call the confirmation makes. The list and the undo itself live in the daemon; the stub stands in for it.
 TestCase {
     id: tc
@@ -99,15 +99,15 @@ TestCase {
         view.refresh()
         var e = stub.entries
         compare(view.labelOf(e[0]), "Downloads cleanup")
-        compare(view.detailOf(e[0]), "AI turn")
-        compare(view.labelOf(e[1]), "Untitled chat")
-        compare(view.detailOf(e[1]), "AI turn")
-        compare(view.labelOf(e[2]), "System update")
-        compare(view.labelOf(e[3]), "Package change")
+        compare(view.detailOf(e[0]), "AI Turn")
+        compare(view.labelOf(e[1]), "Untitled Chat")
+        compare(view.detailOf(e[1]), "AI Turn")
+        compare(view.labelOf(e[2]), "System Update")
+        compare(view.labelOf(e[3]), "Package Change")
         compare(view.timeOf(e[0]), Qt.formatTime(new Date(e[0].at), "HH:mm"))
         compare(findChild(view, "undoTime-50").text, view.timeOf(e[0]))
         compare(findChild(view, "undoLabel-50").text, "Downloads cleanup")
-        compare(findChild(view, "undoDetail-50").text, "AI turn")
+        compare(findChild(view, "undoDetail-50").text, "AI Turn")
     }
 
     function test_a_failing_list_shows_the_reason_and_no_rows() {
@@ -175,12 +175,12 @@ TestCase {
         view.refresh()
         view.ask(stub.entries[2])            // the update of yesterday: the two AI turns of today came after it
         var title = findChild(view, "confirmTitle").text
-        verify(title.indexOf("System update") >= 0, title)
+        verify(title.indexOf("System Update") >= 0, title)
         var later = findChild(view, "confirmLater").text
         verify(later.indexOf("Downloads cleanup") >= 0, later)
-        verify(later.indexOf("Untitled chat") >= 0, later)
-        verify(later.indexOf("System update") < 0, "the change itself is not listed as 'after'")
-        verify(later.indexOf("Package change") < 0, "an older change is not listed as 'after'")
+        verify(later.indexOf("Untitled Chat") >= 0, later)
+        verify(later.indexOf("System Update") < 0, "the change itself is not listed as 'after'")
+        verify(later.indexOf("Package Change") < 0, "an older change is not listed as 'after'")
     }
 
     function test_the_confirmation_says_what_is_and_is_not_covered_and_that_it_restarts() {
@@ -193,7 +193,7 @@ TestCase {
         verify(findChild(view, "confirmHome").text.indexOf("not covered") >= 0)
         verify(findChild(view, "confirmRestart").text.indexOf("restarts") >= 0)
         verify(findChild(view, "confirmRestart").text.indexOf("Save your work") >= 0)
-        verify(findChild(view, "confirmGo").text === "Undo and restart")
+        verify(findChild(view, "confirmGo").text === "Undo and Restart")
         verify(findChild(view, "confirmCancel").text === "Cancel")
     }
 
@@ -214,7 +214,7 @@ TestCase {
         view.ask(many[9])
         var later = findChild(view, "confirmLater").text
         verify(later.indexOf("and 3 more") >= 0, later)
-        compare(later.split("Package change").length - 1, 6)
+        compare(later.split("Package Change").length - 1, 6)
     }
 
     function test_cancel_goes_back_to_the_list_and_calls_nothing() {

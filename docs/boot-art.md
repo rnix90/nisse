@@ -22,14 +22,14 @@ Bert's approval (the ledger's rule).
 
 | Mock | Surface | What it shows |
 |---|---|---|
-| `grub-menu` | GRUB menu (N-502) | Ink background; the stacked logo with the name below, 230 px wide near the top; three entries in plain words, the default as an Ember row with Ink text: **nisse**, **Earlier versions of nisse** (the snapshot menu of N-307), **Computer settings** (the firmware entry); the countdown line and bar; a quiet hint "Press E to change how nisse starts.". No kernel versions, ids or options on screen (advanced ones stay one key away, Bert's 2026-11-15 note) |
+| `grub-menu` | GRUB menu (N-502) | Ink background; the stacked logo with the name below, 230 px wide near the top; three entries in plain words, the default as an Ember row with Ink text: **nisse**, **Earlier Versions of nisse** (the snapshot menu of N-307), **Computer Settings** (the firmware entry); the countdown line and bar; a quiet hint "Press E to change how nisse starts.". No kernel versions, ids or options on screen (advanced ones stay one key away, Bert's 2026-11-15 note) |
 | `plymouth-boot`, `-early`, `-late` | Plymouth (N-501) | Ink; the stacked logo 300 wide, centered a little above the middle; the boot bar below it. Three frames show the blocks moving |
 | `splash-dark`, `splash-light` | Plasma splash after login (N-505) | solid Ink (or Paper on the light look); the nisse **n** with the tipped hat, 260 px, inside the comet ring (the N-404 spinner in Ember), centered. Nothing else |
 | `login-dark`, `login-light` | Login screen (N-503) | the wallpaper (Fjell Layers) under a 50% Ink (or Paper) veil; a round avatar (220 px), the user name, a password field, an Ember **Log in** pill with Ink text (the light look: brick with Paper); keyboard layout bottom left, the small logo bottom center, restart and shut down bottom right |
 | `lock-dark`, `lock-light` | Lock screen (N-504) | the wallpaper under a 50% veil; a large light-weight clock and the date, kept above the sun so they never cross it; the password field low in the screen; the small logo and name bottom left |
 | `logout-dark`, `logout-light` | Log out, restart, shut down (N-504) | the wallpaper under an 82% veil; "What would you like to do?"; three round buttons (Log out, Restart, Shut down, the default selected in Ember with an Ink icon); the countdown line and **Cancel** |
 
-Colors are palette colors only (tested). The name is lowercase everywhere ("nisse starts in 4 seconds.", "Earlier versions of nisse").
+Colors are palette colors only (tested). The name is lowercase everywhere ("nisse starts in 4 seconds.", "Earlier Versions of nisse").
 Paper on an Ember fill is only 3.1:1, so every Ember button and row carries Ink text; the light look's brick accent carries Paper.
 
 ## Plymouth: built (N-501)
@@ -77,7 +77,7 @@ it: the pictures are drawn by `tools/art/plymouth_theme.py` from the same pieces
 
 ## Decisions and open points handed on
 
-- The default entry is plain "nisse"; the snapshot entry is named for what it is ("Earlier versions of nisse"). N-502 wires the
+- The default entry is plain "nisse"; the snapshot entry is named for what it is ("Earlier Versions of nisse"). N-502 wires the
   real entries to these words (GRUB shows the entries from `nisse-boot` and the BLS entries).
 - The avatar on the login mock is one of the 17 gnome avatars; the real login shows the user's own.
 - The shut-down dialog's countdown text and the lock screen's "Type your password to unlock." are mock wording; the real Plasma

@@ -9,7 +9,7 @@
         "Description": "Let the person choose how nisse works for them: the install choices that packages declare.",
         "Id": "org.nisse.setup.choices",
         "License": "GPL-2.0-or-later",
-        "Name": "A few choices"
+        "Name": "A Few Choices"
     },
     "X-KDE-ParentApp": "org.kde.plasmasetup",
     "X-KDE-Weight": 150

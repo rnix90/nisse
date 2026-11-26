@@ -64,10 +64,10 @@ To raise the approval notice for steps 12 and 13, open Konsole in the LIVE machi
 
 | # | Do | Expect |
 |---|---|---|
-| 15 | Open the panel, then Settings, then scroll to **System history** | rows for the package changes made in the preparation, newest first, grouped by day |
+| 15 | Open the panel, then Settings, then scroll to **System History** | rows for the package changes made in the preparation, newest first, grouped by day |
 | 16 | Click **Undo** on the older row | the confirmation: what is undone, that home and data are not covered, that the computer restarts right away |
 | 17 | Click **Cancel** | back to the list, nothing changed |
-| 18 | Click **Undo** again and then **Undo and restart** | the machine restarts and comes back with the package gone |
+| 18 | Click **Undo** again and then **Undo and Restart** | the machine restarts and comes back with the package gone |
 | 19 | `sudo nisse-sudo-mode limited`, open System history, press Undo and restart | the list opened without a password box; the Undo opens the password popup |
 
 ## INSTALLED: the watchdog's countdown notice (N-310)

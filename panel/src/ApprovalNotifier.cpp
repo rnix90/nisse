@@ -59,7 +59,7 @@ void ApprovalNotifier::recheck()
     if (m_hooks.micInUse())
         return;
     const QString body = m_held.size() == 1 ? shorten(m_held.first())
-                                            : QStringLiteral("%1 approvals are waiting").arg(m_held.size());
+                                            : QStringLiteral("%1 approvals are waiting.").arg(m_held.size());
     m_held.clear();
     m_timer.stop();
     m_hooks.notify(kTitle, body);

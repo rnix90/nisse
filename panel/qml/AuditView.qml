@@ -24,13 +24,13 @@ Item {
     property int expanded: -1
     property string errorText: ""
     property string exportText: ""
-    property var sessionChoices: [{ text: "All sessions", value: "" }]
+    property var sessionChoices: [{ text: "All Sessions", value: "" }]
 
     readonly property var kinds: ["", "message", "tool", "approval-requested", "approval-approved", "approval-denied",
         "approval-expired", "cancel", "kill-switch", "remote-access", "session-closed", "session-backend", "backend-fallback", "config-changed"]
 
     function loadSessions() {
-        var choices = [{ text: "All sessions", value: "" }]
+        var choices = [{ text: "All Sessions", value: "" }]
         var lines = client && client.sessions ? client.sessions() : []
         for (var i = 0; i < lines.length; ++i) {
             try {
@@ -197,14 +197,14 @@ Item {
             ComboBox {
                 objectName: "sourceBox"
                 Layout.fillWidth: true
-                model: ["Any source", "Daemon sessions", "Terminal sessions"]
+                model: ["Any Source", "Daemon Sessions", "Terminal Sessions"]
                 currentIndex: root.sourceFilter === "terminal" ? 2 : (root.sourceFilter === "daemon" ? 1 : 0)
                 onActivated: { root.sourceFilter = currentIndex === 2 ? "terminal" : (currentIndex === 1 ? "daemon" : ""); root.search() }
             }
             ComboBox {
                 objectName: "rangeBox"
                 Layout.fillWidth: true
-                model: ["Any time", "Last hour", "Last 24 hours", "Last 7 days"]
+                model: ["Any Time", "Last Hour", "Last 24 Hours", "Last 7 Days"]
                 onActivated: { root.rangeSeconds = [0, 3600, 86400, 604800][currentIndex]; root.search() }
             }
         }
@@ -221,7 +221,7 @@ Item {
             ComboBox {
                 objectName: "kindBox"
                 Layout.fillWidth: true
-                model: root.kinds.map(function (k) { return k === "" ? "Any kind" : k })
+                model: root.kinds.map(function (k) { return k === "" ? "Any Kind" : k })
                 currentIndex: Math.max(0, root.kinds.indexOf(root.kindFilter))
                 onActivated: { root.kindFilter = root.kinds[currentIndex]; root.search() }
             }

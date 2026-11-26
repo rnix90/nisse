@@ -122,7 +122,7 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 
 - The middle of the top bar reads "Usage: 5h 25% | 7d 54%" from the daemon's `GetUsage` JSON: the Max account's five-hour
   and seven-day windows. Amber from 80%, Ember red from 95% (of the fullest window that has not reset). A window whose
-  reset time has passed since it was read shows "-" (the number would be stale); nothing known reads "Usage: unknown".
+  reset time has passed since it was read shows "-" (the number would be stale); nothing known reads "Usage: Unknown".
 - Hover for the detail: each window with its reset in words ("resets in 2 h 1 min"), how old the reading is when it is
   over half an hour old, and the tokens used today per backend ("here: 12.3k, max: 41.6k"; cached tokens included), so a
   local backend's use is counted too. Clicking the bar reads the limits again.
@@ -135,7 +135,7 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 
 ## Kill switch (N-215)
 
-- A red "Stop all AI" button sits under the status bar. Clicking it, or any paired device calling `EngageKillSwitch(by,
+- A red "Stop All AI" button sits under the status bar. Clicking it, or any paired device calling `EngageKillSwitch(by,
   reason)` on D-Bus, stops everything at once: every running turn and everything it started (the whole process tree), queued
   messages, approvals waiting for an answer (denied, by the device that stopped it), and the remote access server.
   New sends are refused with a line saying who stopped it and why, and nothing new can start until `ReleaseKillSwitch`.
@@ -210,13 +210,13 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 
 ## Paired devices (N-221)
 
-- The Settings tab has a Paired devices section: type a name, optionally tick "Approving only", press Pair a device, and a
+- The Settings tab has a Paired devices section: type a name, optionally tick "Approving Only", press Pair a device, and a
   one-time code appears in groups of four ("1234 5678") with how long it has left (5 minutes). Enter it on the device; the
   code works once and five wrong tries cancel it. When the device completes the pairing the code goes away and the device
   appears in the list with its access in words (full access or approving only), when it was paired and last used; Revoke
   stops it at once.
 - Decision (Bert, 2026-11-14): a new device gets Full by default (everything the desktop panel can do except pairing and
-  revoking devices, which stay on this computer); "Approving only" is the limited alternative chosen at pairing time. A lost
+  revoking devices, which stay on this computer); "Approving Only" is the limited alternative chosen at pairing time. A lost
   phone with Full access could change the settings, including the authority switch: revoke it here, and know that the
   daemon only checks that a call comes from a paired key, not what it asks for.
 - The daemon side and the signed-call rules are in `docs/daemon-protocol.md`. No network listener exists yet (N-D08).
@@ -225,8 +225,8 @@ Decision (Bert): three levels with a click-cycle toggle, default "keep in librar
 
 - The Settings tab has a System history section (decided with Bert, 2026-11-21: a section in Settings, not a tab of its own, and
   rows labeled with the chat's title and the time). It lists the changes nisse made to the system, newest first and grouped by
-  day (Today, Yesterday, then the date): each AI turn (the chat's title, or "Untitled chat", and "AI turn"), each update ("System
-  update") and each package change ("Package change"). A turn that only read things has no row (its snapshot was removed at
+  day (Today, Yesterday, then the date): each AI turn (the chat's title, or "Untitled Chat", and "AI Turn"), each Update ("System
+  Update") and each package change ("Package Change"). A turn that only read things has no row (its snapshot was removed at
   once) and a turn still running has none yet.
 - Each row has an Undo button. It is disabled, with the reason in words, while a chat is working (the restart would cut it off)
   and for a change whose snapshot cannot boot any more (its kernel has left /boot).

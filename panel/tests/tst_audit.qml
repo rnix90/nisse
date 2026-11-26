@@ -97,7 +97,7 @@ TestCase {
 
     function test_the_session_filter_uses_the_session_id_and_lists_names() {
         var names = view.sessionChoices.map(function (c) { return c.text })
-        compare(names[0], "All sessions")
+        compare(names[0], "All Sessions")
         compare(names[1], "Taxes")
         verify(names[2].length > 0 && names[2] !== "null")
         view.sessionFilter = "s2"

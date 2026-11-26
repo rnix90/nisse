@@ -39,21 +39,21 @@ ColumnLayout {
     // ---- words
     function labelOf(e) {
         if (e.kind === "ai-turn")
-            return e.title && e.title !== "" ? e.title : "Untitled chat"
+            return e.title && e.title !== "" ? e.title : "Untitled Chat"
         if (e.kind === "update")
-            return "System update"
+            return "System Update"
         if (e.kind === "package")
-            return "Package change"
+            return "Package Change"
         return "Change"
     }
 
     function detailOf(e) {
         if (e.kind === "ai-turn")
-            return "AI turn"
+            return "AI Turn"
         if (e.kind === "update")
             return "Updated by nisse"
         if (e.kind === "package")
-            return "Software installed, removed or updated"
+            return "Software Installed, Removed or Updated"
         return ""
     }
 
@@ -332,7 +332,7 @@ ColumnLayout {
             }
             Button {
                 objectName: "confirmGo"
-                text: "Undo and restart"
+                text: "Undo and Restart"
                 highlighted: true
                 onClicked: root.go()
             }

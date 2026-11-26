@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# N-501c: the strings that look like short strings but are not names of things, so they are NOT put in headline case.
+# tools/repo/headline_case.py reads this list. One per line: path | string exactly as the checker prints it | why.
+# Keep it honest: a name of a thing is fixed in the source, not listed here. A stale line fails the test.
+forks/nisse-setup/modules/choicesutil/choicesutil.cpp | Could not set | the start of an error sentence that is built from pieces ("Could not set X: reason.")
+packaging/rpm/nisse-update/health.d/20-network | NetworkManager is not running | a failure reason that the update notice puts inside parentheses
+packaging/rpm/nisse-update/nisse-update-notice | nisse undid the last update | a notification title (Bert 2026-11-26: titles stay as they are)
+panel/qml/AuditView.qml | MMM d, HH:mm | a date format, not text
+panel/qml/AuditView.qml | MMM d HH:mm:ss | a date format, not text
+panel/qml/ConfigView.qml | Max account | a value that sits inside a sentence ("This session runs on Max account"), like "this computer"
+panel/qml/ConfigView.qml | An approval waits | the first piece of the sentence "An approval waits N seconds for an answer, then counts as denied"
+panel/qml/ConfigView.qml | Model, for example gpt-oss:20b | a placeholder that names a text field with an example
+panel/qml/ConfigView.qml | If away, use | the first piece of a sentence built around a choice box
+panel/qml/DevicesView.qml | MMM d, HH:mm | a date format, not text
+panel/qml/SessionTabs.qml | MMM d, HH:mm | a date format, not text
+panel/qml/SessionTabs.qml | Max account | a value that sits inside a sentence ("This session runs on Max account"), like "this computer"
+panel/qml/UndoView.qml | MMM d, yyyy | a date format, not text
+panel/src/ApprovalNotifier.cpp | nisse needs you | a notification title (Bert 2026-11-26: titles stay as they are)
+panel/src/main.cpp | nisse key press | a debug line for the developer log, never shown on screen
+services/crates/nisse-guard/src/lib.rs | Write replaces | the start of a sentence that is built from pieces
+tools/art/boot_mocks.py | Nunito, sans-serif | a font family list, not text

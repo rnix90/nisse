@@ -154,7 +154,7 @@ Item {
         spacing: 8
 
         Label {
-            text: "Waiting for you"
+            text: "Waiting for You"
             font.bold: true
         }
 

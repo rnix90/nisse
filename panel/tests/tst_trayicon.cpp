@@ -110,35 +110,35 @@ private slots:
     {
         QCOMPARE(TrayState::tooltip(only(S::Idle)), QStringLiteral("Ready"));
         TrayState::Inputs one = only(S::NeedsYou);
-        QCOMPARE(TrayState::tooltip(one), QStringLiteral("1 approval waiting"));
+        QCOMPARE(TrayState::tooltip(one), QStringLiteral("1 Approval Waiting"));
         one.pending = 3;
-        QCOMPARE(TrayState::tooltip(one), QStringLiteral("3 approvals waiting"));
+        QCOMPARE(TrayState::tooltip(one), QStringLiteral("3 Approvals Waiting"));
     }
 
     void theTooltipSaysWhatElseIsTrueWhenItIsNotTheWinner()
     {
         TrayState::Inputs in = only(S::Paused);
-        QCOMPARE(TrayState::tooltip(in), QStringLiteral("AI paused"));
+        QCOMPARE(TrayState::tooltip(in), QStringLiteral("AI Paused"));
         in.pending = 2;
-        QCOMPARE(TrayState::tooltip(in), QStringLiteral("2 approvals waiting - AI paused")); // needs you wins the icon here
+        QCOMPARE(TrayState::tooltip(in), QStringLiteral("2 Approvals Waiting - AI Paused")); // needs you wins the icon here
         QCOMPARE(TrayState::of(in), S::NeedsYou);
     }
 
     void offlineKeepsTheLastKnownCountInTheTooltip()
     {
         TrayState::Inputs in = only(S::Offline);
-        QCOMPARE(TrayState::tooltip(in), QStringLiteral("Daemon not reachable"));
+        QCOMPARE(TrayState::tooltip(in), QStringLiteral("Daemon Not Reachable"));
         in.pending = 2;
-        QCOMPARE(TrayState::tooltip(in), QStringLiteral("Daemon not reachable (last known: 2 approvals waiting)"));
+        QCOMPARE(TrayState::tooltip(in), QStringLiteral("Daemon Not Reachable (last known: 2 Approvals Waiting)"));
     }
 
     void busyAndUnreadSayHowMany()
     {
         QCOMPARE(TrayState::tooltip(only(S::Busy)), QStringLiteral("Working"));
-        QCOMPARE(TrayState::tooltip(only(S::Unread)), QStringLiteral("1 conversation finished"));
+        QCOMPARE(TrayState::tooltip(only(S::Unread)), QStringLiteral("1 Conversation Finished"));
         TrayState::Inputs in = only(S::Unread);
         in.unread = 4;
-        QCOMPARE(TrayState::tooltip(in), QStringLiteral("4 conversations finished"));
+        QCOMPARE(TrayState::tooltip(in), QStringLiteral("4 Conversations Finished"));
     }
 
     void theTooltipTitleIsLowercaseNisse()

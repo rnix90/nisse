@@ -68,7 +68,7 @@ ColumnLayout {
         Switch {
             id: sw
             objectName: "remoteSwitch"
-            text: "Remote access"
+            text: "Remote Access"
             onClicked: root.toggle(checked)
         }
         Label {

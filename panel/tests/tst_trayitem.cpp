@@ -193,7 +193,7 @@ private slots:
         QVERIFY(item.start());
         m_service = item.serviceName();
         item.setInputs(inputsFor(S::NeedsYou, 3));
-        QCOMPARE(qdbus_cast<TrayToolTip>(prop(QStringLiteral("ToolTip"))).text, QStringLiteral("3 approvals waiting"));
+        QCOMPARE(qdbus_cast<TrayToolTip>(prop(QStringLiteral("ToolTip"))).text, QStringLiteral("3 Approvals Waiting"));
         const MenuLayoutItem root = layout();
         const MenuLayoutItem *a = find(root, TrayItem::ApprovalsId);
         QVERIFY(a);

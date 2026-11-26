@@ -99,7 +99,7 @@ def test_the_grub_countdown_fills_from_the_left_in_proportion():
 
 def test_the_grub_menu_names_its_entries_in_plain_words_with_a_clear_default():
     svg = drawn("grub-menu")
-    for words in ("nisse", "Earlier versions of nisse", "Computer settings", "nisse starts in 4 seconds."):
+    for words in ("nisse", "Earlier Versions of nisse", "Computer Settings", "nisse starts in 4 seconds."):
         assert f">{words}<" in svg
     # the default is the Ember row with Ink text; nothing cryptic (no kernel versions or options) is on screen
     assert boot_mocks.d("accent") in svg

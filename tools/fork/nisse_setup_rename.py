@@ -44,7 +44,7 @@ EDITS = {
     "files/nisse-setup-tmpfiles.conf.in": [("Plasma Setup", "nisse setup"), ("plasma-setup", "nisse-setup")],
     "files/nisse-setup.desktop.in": [
         ("Exec=${CMAKE_INSTALL_FULL_LIBEXECDIR}/plasma-setup", "Exec=${CMAKE_INSTALL_FULL_LIBEXECDIR}/nisse-setup"),
-        ("\nName=Plasma Setup\n", "\nName=nisse setup\n"),
+        ("\nName=Plasma Setup\n", "\nName=nisse Setup\n"),
     ],
     "files/nissesetuprc": [("/etc/xdg/plasmasetuprc", "/etc/xdg/nissesetuprc"), ("Plasma Setup", "nisse setup")],
     "files/kglobalaccelrc": [("for the plasma-setup session", "for the nisse-setup session")],

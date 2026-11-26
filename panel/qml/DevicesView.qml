@@ -175,11 +175,11 @@ ColumnLayout {
         CheckBox {
             id: approverOnly
             objectName: "approverOnly"
-            text: "Approving only"
+            text: "Approving Only"
         }
         Button {
             objectName: "pairButton"
-            text: "Pair a device"
+            text: "Pair a Device"
             onClicked: root.pair(nameField.text, approverOnly.checked)
         }
     }
@@ -203,7 +203,7 @@ ColumnLayout {
         }
         Button {
             objectName: "cancelPairing"
-            text: "Cancel pairing"
+            text: "Cancel Pairing"
             onClicked: root.cancel()
         }
     }

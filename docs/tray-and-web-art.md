@@ -31,13 +31,13 @@ plasma-integration under Plasma, and kf6-kstatusnotifieritem pulls in Widgets).
 
 **Which icon wins** when several things are true, strongest first (Bert, 2026-11-20): offline, needs you, paused, busy, unread, idle.
 Offline is first because with the daemon gone the approvals count and the pause switch are last-known values that cannot be acted on;
-the tooltip keeps the last-known count ("Daemon not reachable (last known: 2 approvals waiting)"). `TrayState` holds the rule and the
+the tooltip keeps the last-known count ("Daemon Not Reachable (last known: 2 Approvals Waiting)"). `TrayState` holds the rule and the
 words, `panel/tests/tst_trayicon.cpp` proves every state and every pair.
 
 | Where | What |
 |---|---|
 | icon | `nisse-tray-<state>-symbolic`; Status is NeedsAttention only for needs you |
-| tooltip | the state in words with the approvals count ("2 approvals waiting", "AI paused", "Working", "1 conversation finished") |
+| tooltip | the state in words with the approvals count ("2 Approvals Waiting", "AI Paused", "Working", "1 Conversation Finished") |
 | left click | slides the sidebar in or out (`PanelService::Toggle`); Plasma's tray first hands the item the click's xdg-activation token (`ProvideXdgActivationToken`, verified in plasma-workspace 6.6.4's tray plugin and in KDE's own SNI library), which the panel forwards so the sidebar can be given the keyboard when it opens (N-415a: without a token or a click on it, typing does not arrive) |
 | middle click | opens the sidebar on the approvals page |
 | right-click menu | Open nisse; Approvals (N), shown only while something waits and the daemon is there; a separator; Pause AI / Resume AI (the kill switch, N-215, as the desktop device; disabled while the daemon is away) |
