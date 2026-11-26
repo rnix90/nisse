@@ -109,6 +109,9 @@ def test_the_shipped_tree_has_no_unclosed_sentence():
 
 def test_the_boot_mock_sentences_are_closed():
     text = (REPO / "tools/art/boot_mocks.py").read_text(encoding="utf-8")
-    for want in ('"Press E to change how nisse starts."', '"Type your password to unlock."',
-                 '"What would you like to do?"'):
+    for want in ('"Type your password to unlock."', '"What would you like to do?"'):
         assert want in text, want
+    # the GRUB menu's two sentences are the theme's (N-502): the mock draws what tools/art/grub_theme.py says
+    theme = (REPO / "tools/art/grub_theme.py").read_text(encoding="utf-8")
+    for want in ('HINT = "Press E to change how nisse starts."', 'COUNTDOWN = "nisse starts in %d s."'):
+        assert want in theme, want

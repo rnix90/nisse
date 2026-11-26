@@ -108,6 +108,33 @@ else
     echo "skip modes: not a git checkout (the build VM copy has no .git); the host run checks them"
 fi
 
+tmp0="$(mktemp -u)"
+# N-502: the ISO's boot menu is nisse's own template (the vendored Fedora one stays as published) and the nisse GRUB theme comes with it
+T=build/kiwi/nisse/grub-x86.cfg.iso-template
+live=build/kiwi/nisse/components/nisse-live.xml
+[ -f "$T" ] && ok "nisse has its own ISO menu template" || bad "no $T"
+grep -q 'grub_template="nisse/grub-x86.cfg.iso-template"' "$live" && ok "nisse-live.xml uses the nisse menu template" || bad "nisse-live.xml does not use the nisse menu template"
+grep -q '<bootloader-theme>nisse</bootloader-theme>' "$live" && ok "kiwi is told to copy the nisse boot theme to the ISO" || bad "nisse-live.xml lacks <bootloader-theme>nisse</bootloader-theme>"
+grep -q '<package name="nisse-grub-theme"/>' "$live" && ok "Nisse-Live installs nisse-grub-theme" || bad "Nisse-Live lacks nisse-grub-theme"
+for entry in 'menuentry "nisse"' 'menuentry "Computer Settings"' 'submenu "More Ways to Start"' 'menuentry "Check This Media and Start nisse"' 'menuentry "Start nisse in Basic Graphics Mode"'; do
+    grep -qF "$entry" "$T" && ok "the menu has $entry" || bad "the menu lacks $entry"
+done
+if grep -qE 'menuentry "Start nisse"|menuentry "Test this media|submenu "Troubleshooting|-->' "$T"; then bad "the menu still has a stock Fedora-style entry or an arrow"; else ok "no stock entry names, no arrows"; fi
+grep -q 'set default="0"' "$T" && ok "the default entry is the first one, nisse" || bad "the default entry is not the first"
+grep -q -- '-f \$\${nisse_theme}/theme.txt' "$T" && ok "the theme is used only when it is on the media (else the plain text menu)" || bad "the template does not check that the theme is there"
+grep -q 'set gfxmode=1920x1080' "$T" && ok "GRUB is asked for 1920x1080 first" || bad "no gfxmode request"
+for f in unicode.pf2 nunito-regular-32.pf2 nunito-bold-32.pf2 nunito-regular-26.pf2 nunito-regular-22.pf2; do
+    grep -q "loadfont .*/$f" "$T" && ok "the menu loads $f" || bad "the menu does not load $f"
+done
+# kiwi fills the template with Python's string.Template: a stray dollar sign (a comment that quotes the form, a bare variable) is an error there
+"$py" -c '
+import string, sys
+string.Template(open(sys.argv[1], encoding="ascii").read()).substitute(
+    search_params="x", terminal_output="console", boot_timeout="10", boot_timeout_style="menu", bootpath="/b", kernel_file="k",
+    initrd_file="i", boot_options="o")' "$T" >/dev/null 2>"$tmp0.err"     && ok "the menu template fills in with kiwi's variable names and no stray dollar sign" || bad "the menu template does not fill in like kiwi does: $(tail -1 "$tmp0.err")"
+rm -f "$tmp0.err"
+if LC_ALL=C grep -q '[^ -~[:space:]]' "$T"; then bad "the menu template has non-ASCII characters"; else ok "the menu template is ASCII"; fi
+
 # ---- part 2: the rendered nisse description (needs kiwi-ng, so it runs in the build VM)
 if command -v kiwi-ng >/dev/null 2>&1; then
     D=out/kiwi-description
@@ -129,6 +156,17 @@ if command -v kiwi-ng >/dev/null 2>&1; then
         if grep -q "<package name=\"$p\"/>" "$live"; then bad "Nisse-Live installs $p"; else ok "Nisse-Live does not install $p"; fi
     done
 
+    [ -f "$D/nisse/grub-x86.cfg.iso-template" ] && ok "the rendered description carries the nisse menu template" || bad "the rendered description lacks nisse/grub-x86.cfg.iso-template"
+    if command -v grub2-script-check >/dev/null 2>&1; then
+        "$py" -c '
+import string, sys
+t = string.Template(open(sys.argv[1], encoding="ascii").read())
+print(t.substitute(search_params="--file --set=root /boot/0x12345678", terminal_output="console", boot_timeout="10", boot_timeout_style="menu",
+                   bootpath="/boot/x86_64/loader", kernel_file="linux", initrd_file="initrd", boot_options="quiet root=live:CDLABEL=nisse-0.2 rd.live.image"))'             "$D/nisse/grub-x86.cfg.iso-template" > "$tmp/menu.cfg" 2>"$tmp/menu.err"             && grub2-script-check "$tmp/menu.cfg" >"$tmp/menu.chk" 2>&1             && ok "the filled-in menu passes grub2-script-check" || bad "the menu template does not pass grub2-script-check: $(tail -2 "$tmp/menu.err" "$tmp/menu.chk" | tr '
+' ' ')"
+    else
+        echo "skip grub2-script-check: not installed here"
+    fi
     repos="$D/nisse/repositories/nisse.xml"
     grep -q 'alias="fedora"' "$repos" && ok "repository alias fedora" || bad "no repository alias fedora"
     grep -q 'alias="nisse"' "$repos" && ok "repository alias nisse" || bad "no repository alias nisse"

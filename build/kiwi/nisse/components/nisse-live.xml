@@ -19,8 +19,9 @@
       firmware="uefi" efiparttable="gpt" efifatimagesize="30" kernelcmdline="@KERNELCMDLINE@"
       fscreateoptions="-Efragments -C 1048576"
       >
-      <bootloader name="grub2" grub_template="grub-x86.cfg.iso-template" console="console" timeout="10"/>
+      <bootloader name="grub2" grub_template="nisse/grub-x86.cfg.iso-template" console="console" timeout="10"/>
     </type>
+    <bootloader-theme>nisse</bootloader-theme>
   </preferences>
   <!-- The release package that provides system-release and the nisse identity. -->
   <packages type="bootstrap" patternType="plusRecommended" profiles="Nisse-Live">
@@ -50,6 +51,7 @@
     <package name="nisse-daemon"/>
     <package name="nisse-panel"/>
     <package name="nisse-plymouth"/>
+    <package name="nisse-grub-theme"/>
     <package name="plasma-welcome-fedora"/>
     <ignore name="fedora-release"/>
     <ignore name="fedora-release-*"/>

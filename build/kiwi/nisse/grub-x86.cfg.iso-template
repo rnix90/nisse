@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The menu of the nisse live ISO (N-502), for BIOS and UEFI. kiwi fills in the names written with a dollar and braces (and turns a
+# double dollar into one dollar), so a comment must not use that form; the theme is the
+# nisse-grub-theme package, which kiwi copies from /usr/share/grub/themes/nisse to /boot/grub2/themes/nisse on the ISO.
+#
+# The menu is plain words: nisse (the default, it starts at once), Computer Settings (the firmware, UEFI only) and one more row,
+# More Ways to Start, that holds the media check and the basic graphics mode. If the theme cannot be drawn the same entries show in
+# GRUB's own text menu. The kernel line is the build's (render-kiwi.sh): a development build keeps a serial console on it for the
+# tests (tools/vm/smoke-boot.sh); a release build does not (ledger N-9xx).
+#
+# Keys the tests use: m opens More Ways to Start, then s starts nisse with the serial port made the console.
+
+set default="0"
+
+if [ "$$grub_platform" == "efi" ]; then
+	function load_video {
+		insmod efi_gop
+		insmod efi_uga
+		insmod video_bochs
+		insmod video_cirrus
+		insmod all_video
+	}
+	set basicgfx="nomodeset"
+else
+	function load_video {
+		insmod all_video
+	}
+	set basicgfx="nomodeset vga=791"
+fi
+
+insmod part_gpt
+insmod iso9660
+insmod gzio
+insmod ext2
+search ${search_params}
+load_video
+set gfxmode=1920x1080,1280x720,auto
+set gfxpayload=keep
+
+# the theme, if it is on the media; otherwise the plain text menu
+set nisse_theme=($$root)/boot/grub2/themes/nisse
+if [ -f $${nisse_theme}/theme.txt ]; then
+	insmod gfxterm
+	insmod gfxmenu
+	insmod png
+	insmod font
+	loadfont $${nisse_theme}/unicode.pf2
+	loadfont $${nisse_theme}/nunito-regular-32.pf2
+	loadfont $${nisse_theme}/nunito-bold-32.pf2
+	loadfont $${nisse_theme}/nunito-regular-26.pf2
+	loadfont $${nisse_theme}/nunito-regular-22.pf2
+	terminal_input console
+	terminal_output gfxterm
+	set theme=$${nisse_theme}/theme.txt
+	export theme
+else
+	terminal_input console
+	terminal_output ${terminal_output}
+fi
+
+set timeout=${boot_timeout}
+set timeout_style=${boot_timeout_style}
+
+menuentry "nisse" --class nisse --class gnu-linux --class os --id nisse {
+	linux ($$root)${bootpath}/${kernel_file} ${boot_options}
+	initrd ($$root)${bootpath}/${initrd_file}
+}
+if [ "$$grub_platform" == "efi" ]; then
+	menuentry "Computer Settings" --class nisse --class gnu-linux --class os --id firmware {
+		fwsetup
+	}
+fi
+submenu "More Ways to Start" --class nisse --class gnu-linux --class os --hotkey=m --id more {
+	menuentry "Check This Media and Start nisse" --class nisse --class gnu-linux --class os --id check {
+		linux ($$root)${bootpath}/${kernel_file} ${boot_options} rd.live.check
+		initrd ($$root)${bootpath}/${initrd_file}
+	}
+	menuentry "Start nisse in Basic Graphics Mode" --class nisse --class gnu-linux --class os --id basic {
+		linux ($$root)${bootpath}/${kernel_file} ${boot_options} $${basicgfx}
+		initrd ($$root)${bootpath}/${initrd_file}
+	}
+	menuentry "Start nisse with the Serial Port as the Console" --class nisse --class gnu-linux --class os --hotkey=s --id serial {
+		linux ($$root)${bootpath}/${kernel_file} ${boot_options} console=ttyS0 plymouth.ignore-serial-consoles
+		initrd ($$root)${bootpath}/${initrd_file}
+	}
+}

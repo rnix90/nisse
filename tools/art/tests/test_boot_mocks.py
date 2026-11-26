@@ -32,7 +32,7 @@ def drawn(name):
 
 
 def test_every_surface_the_ledger_names_is_mocked():
-    for want in ("grub-menu", "plymouth-boot", "splash-dark", "splash-light", "login-dark", "login-light", "lock-dark", "lock-light",
+    for want in ("grub-menu", "grub-menu-live", "plymouth-boot", "splash-dark", "splash-light", "login-dark", "login-light", "lock-dark", "lock-light",
                  "logout-dark", "logout-light"):
         assert want in NAMES
 
@@ -97,18 +97,24 @@ def test_the_grub_countdown_fills_from_the_left_in_proportion():
     assert abs(wp / wf - 0.4) < 0.01
 
 
-def test_the_grub_menu_names_its_entries_in_plain_words_with_a_clear_default():
-    svg = drawn("grub-menu")
-    for words in ("nisse", "Earlier Versions of nisse", "Computer Settings", "nisse starts in 4 seconds."):
-        assert f">{words}<" in svg
+def test_the_grub_menus_name_their_entries_in_plain_words_with_a_clear_default():
+    """N-502 (Bert's answers, 2026-11-26): the installed menu is nisse, Start from Earlier Snapshots, Computer Settings and More Ways to
+    Start; the live ISO's has no snapshots row. GRUB cannot center row text, so the rows read left-aligned (the mock was redrawn)."""
+    installed, live = drawn("grub-menu"), drawn("grub-menu-live")
+    for words in ("nisse", "Start from Earlier Snapshots", "Computer Settings", "More Ways to Start", "nisse starts in 4 s.",
+                  "Press E to change how nisse starts."):
+        assert f">{words}<" in installed, words
+    for words in ("nisse", "Computer Settings", "More Ways to Start", "nisse starts in 4 s."):
+        assert f">{words}<" in live, words
+    assert "Start from Earlier Snapshots" not in live
     # the default is the Ember row with Ink text; nothing cryptic (no kernel versions or options) is on screen
-    assert boot_mocks.d("accent") in svg
-    assert not re.search(r"vmlinuz|rootflags|subvol|\.fc4|--id", svg)
+    assert boot_mocks.d("accent") in installed and boot_mocks.d("on-accent") in installed
+    assert not re.search(r"vmlinuz|rootflags|subvol|\.fc4|--id", installed + live)
 
 
 def test_the_ember_fill_carries_ink_text_never_paper():
     """Palette rule: Paper on Ember is only 3.1:1. Check the texts drawn on an Ember button or row in the dark mocks."""
-    for name in ("grub-menu", "login-dark", "logout-dark"):
+    for name in ("grub-menu", "grub-menu-live", "login-dark", "logout-dark"):
         svg = drawn(name)
         assert boot_mocks.d("on-accent") in svg
 

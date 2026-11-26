@@ -27,8 +27,10 @@ panel/qml/StatusBar.qml | Usage of the Max Account | the heading of a tooltip, f
 panel/qml/UndoView.qml | Software Installed, Removed or Updated | the name of a kind of change in a list
 panel/qml/UndoView.qml | Go back to before \" | the start of a question that is built from pieces and ends with a question mark
 services/crates/nisse-audit/src/lib.rs | RFC 3339 formatting cannot fail for UTC now | an expect message for developers, never shown
-tools/art/boot_mocks.py | Earlier Versions of nisse | a boot menu entry
-tools/art/boot_mocks.py | GRUB menu (N-502): logo with the name below, plain-word entries, countdown bar | a caption on the mock sheet, not shipped
+tools/art/boot_mocks.py | GRUB menu (N-502), installed: logo, plain-word entries, countdown | a caption on the mock sheet, not shipped
+tools/art/boot_mocks.py | GRUB Menu (N-502), Live ISO | a caption on the mock sheet, not shipped
+tools/art/boot_mocks.py | Start from Earlier Snapshots | a boot menu entry
+tools/art/boot_mocks.py | More Ways to Start | a boot menu entry
 tools/art/boot_mocks.py | Plymouth boot screen (N-501): the logo and the sliding-block bar | a caption on the mock sheet, not shipped
 tools/art/boot_mocks.py | Plasma splash after login (N-505), dark: the n and the comet | a caption on the mock sheet, not shipped
 tools/art/boot_mocks.py | Login Screen (N-503), Dark | a caption on the mock sheet, not shipped

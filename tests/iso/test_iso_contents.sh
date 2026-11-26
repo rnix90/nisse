@@ -499,5 +499,36 @@ fi
 printf '%s\n' "$kernel_lines" | grep -q 'rhgb' || fail "the menu's kernel line lacks rhgb: Plymouth would not show a splash (N-501)"
 echo "boot screen: nisse is the default Plymouth theme in the image and the initramfs, with its script plugin; the kernel line lets it draw"
 
+# The boot menu (ledger N-502): the nisse GRUB theme is in the image and on the ISO's boot area (BIOS and UEFI read it from there), the
+# menu is nisse's own (plain words, nisse the default), and the fonts and pictures theme.txt names are all there.
+rpmq -q nisse-grub-theme >/dev/null || fail "nisse-grub-theme is not installed in the image (N-502)"
+grub_dir="$(mktemp -d)"
+xorriso -osirrox on -indev "$iso" -extract /boot/grub2 "$grub_dir/grub2" >/dev/null 2>&1 || true
+theme="$grub_dir/grub2/themes/nisse"
+for f in theme.txt logo.png bartrack.png select_nw.png select_c.png bar_nw.png barhl_c.png unicode.pf2 nunito-regular-32.pf2 nunito-bold-32.pf2          nunito-regular-26.pf2 nunito-regular-22.pf2; do
+    [ -s "$theme/$f" ] || { rm -rf "$grub_dir"; fail "the ISO lacks /boot/grub2/themes/nisse/$f (N-502)"; }
+done
+python3 - "$theme" <<'PY' || { rm -rf "$grub_dir"; fail "theme.txt names a picture or font that is not on the ISO (N-502)"; }
+import pathlib, re, sys
+d = pathlib.Path(sys.argv[1])
+text = (d / "theme.txt").read_text(encoding="ascii")
+for name in re.findall(r'"([\w*.-]+\.png)"', text):
+    pieces = [name.replace("*", p) for p in ("nw", "n", "ne", "w", "c", "e", "sw", "s", "se")] if "*" in name else [name]
+    for f in pieces:
+        assert (d / f).is_file(), f
+for font in re.findall(r'(?:font|item_font|selected_item_font)\s*[:=]\s*"(Nunito [A-Za-z]+ \d+)"', text):
+    assert (d / (font.lower().replace(" ", "-") + ".pf2")).is_file(), font
+PY
+cfg="$grub_dir/grub2/grub.cfg"
+[ -f "$cfg" ] || { rm -rf "$grub_dir"; fail "no /boot/grub2/grub.cfg on the ISO (N-502)"; }
+for entry in 'menuentry "nisse"' 'submenu "More Ways to Start"' 'menuentry "Check This Media and Start nisse"' 'menuentry "Start nisse in Basic Graphics Mode"'; do
+    grep -qF "$entry" "$cfg" || { rm -rf "$grub_dir"; fail "the ISO's menu lacks $entry (N-502)"; }
+done
+grep -q '^set default="0"' "$cfg" || { rm -rf "$grub_dir"; fail "the ISO's default menu entry is not the first, nisse (N-502)"; }
+grep -q 'boot/grub2/themes/nisse' "$cfg" && grep -q 'set theme=' "$cfg" || { rm -rf "$grub_dir"; fail "the ISO's menu does not load the nisse theme (N-502)"; }
+if grep -qE 'menuentry "(Start nisse"|Test this media)|Troubleshooting' "$cfg"; then rm -rf "$grub_dir"; fail "the ISO's menu still has a stock Fedora-style entry (N-502)"; fi
+rm -rf "$grub_dir"
+echo "boot menu: the nisse GRUB theme (pictures, fonts, theme.txt) is on the ISO and in the image; the menu is nisse, More Ways to Start, in plain words"
+
 [ "$failures" = 0 ] || { echo "FAIL: $failures assertion(s) failed (NISSE_KEEP_GOING)" >&2; exit 1; }
 echo "PASS: ISO contents ($iso), Qt $qt"

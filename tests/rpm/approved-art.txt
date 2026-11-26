@@ -50,3 +50,6 @@
 /usr/share/plymouth/themes/nisse/field.png nisse-plymouth N-501
 /usr/share/plymouth/themes/nisse/bullet.png nisse-plymouth N-501
 /usr/share/plymouth/themes/nisse/ nisse-plymouth N-501 min=53
+# the GRUB menu theme (N-502): the logo and the rest of the theme folder (pictures, theme.txt, GRUB fonts)
+/usr/share/grub/themes/nisse/logo.png nisse-grub-theme N-502
+/usr/share/grub/themes/nisse/ nisse-grub-theme N-502 min=33

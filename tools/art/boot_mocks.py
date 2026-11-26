@@ -133,20 +133,26 @@ def frame(body, bg):
 
 # ---- the surfaces
 
-def grub_menu():
-    b = [lockup(W / 2, 90, 230)]
-    rows = [("nisse", True), ("Earlier Versions of nisse", False), ("Computer Settings", False)]
-    y = 450
-    for label, selected in rows:
-        if selected:
-            b.append(rect(W / 2 - 380, y, 760, 68, d("accent"), rx=18))
-            b.append(text(W / 2, y + 46, label, 32, d("on-accent"), 700))
+def grub_menu_svg(kind="installed"):
+    """The GRUB menu as the nisse theme draws it (N-502, redrawn after the spike: GRUB cannot center the text of a row, so the rows
+    read left-aligned). The geometry is the theme's (tools/art/grub_theme.py). 'installed' has the snapshots row; 'live' (the ISO) has
+    only nisse, Computer Settings and More Ways to Start. The countdown line and bar are the timeout's."""
+    import grub_theme as gt
+    b = [lockup(W / 2, gt.LOGO_TOP, gt.LOGO_W)]
+    rows = ["nisse", "Start from Earlier Snapshots", "Computer Settings", "More Ways to Start"]
+    if kind == "live":
+        rows.remove("Start from Earlier Snapshots")
+    x = W / 2 - gt.ROW_W / 2
+    for i, label in enumerate(rows):
+        y = gt.ROWS_TOP + i * gt.ROW_PITCH
+        if i == 0:
+            b.append(f'<rect x="{x}" y="{y}" width="{gt.ROW_W}" height="{gt.ROW_H}" rx="{gt.ROW_BORDER}" fill="{d("accent")}"/>')
+            b.append(text(x + 28, y + 45, label, 32, d("on-accent"), 700, anchor="start"))
         else:
-            b.append(text(W / 2, y + 46, label, 32, d("text"), 400))
-        y += 84
-    b.append(text(W / 2, 800, "nisse starts in 4 seconds.", 26, d("text-muted")))
-    b.append(countdown_bar(W / 2, 850, 560, 0.4))
-    b.append(text(W / 2, 1010, "Press E to change how nisse starts.", 22, d("text-muted")))
+            b.append(text(x + 28, y + 45, label, 32, d("text"), 400, anchor="start"))
+    b.append(text(W / 2, 818, gt.COUNTDOWN.replace("%d", "4"), 26, d("text-muted")))
+    b.append(countdown_bar(W / 2, gt.BAR_TOP + gt.BAR_H / 2, gt.BAR_W, 0.6, h=gt.BAR_H))
+    b.append(text(W / 2, 1019, gt.HINT, 22, d("text-muted")))
     return frame("".join(b), d("base"))
 
 
@@ -229,7 +235,8 @@ def logout(mode):
 
 # name, title for the sheet, builder
 SURFACES = [
-    ("grub-menu", "GRUB menu (N-502): logo with the name below, plain-word entries, countdown bar", grub_menu),
+    ("grub-menu", "GRUB menu (N-502), installed: logo, plain-word entries, countdown", lambda: grub_menu_svg("installed")),
+    ("grub-menu-live", "GRUB Menu (N-502), Live ISO", lambda: grub_menu_svg("live")),
     ("plymouth-boot", "Plymouth boot screen (N-501): the logo and the sliding-block bar", plymouth),
     ("plymouth-boot-early", "Plymouth, Earlier Frame", lambda: plymouth(0.15)),
     ("plymouth-boot-late", "Plymouth, Later Frame", lambda: plymouth(0.85)),

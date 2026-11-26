@@ -67,12 +67,14 @@ qpid=$!
 cleanup() { kill "$qpid" 2>/dev/null || true; taskkill //F //PID "$(cat "$pidfile" 2>/dev/null)" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
-# Fedora's live ISO menu defaults to "Test this media & start" (a checksum of the whole ISO, very slow under
-# emulation). Once the firmware starts GRUB (BdsDxe line on the serial console), press Up every second for 15 s: Up
-# selects "Start nisse" and stops the menu countdown, and is harmless before the menu exists. Then press Enter once.
-# Enter alone would boot the default entry, so it must never be sent before an Up has reached the menu (a slow, loaded
-# host once let the old Up/Enter alternation race and boot the media check). --mediacheck keeps the default.
-if [ "$mediacheck" = 0 ]; then
+# The nisse live ISO's menu (N-502) has "nisse" as its first and default entry, which starts at once. Once the firmware starts GRUB
+# (BdsDxe line on the serial console), press Up every second for 15 s: Up stops the menu countdown and stays on the first entry, and
+# is harmless before the menu exists. Then press Enter once. Enter alone would boot the default entry, which is the same one, but
+# it must never be sent before a key has reached the menu (a slow, loaded host once let an Up/Enter alternation race).
+# --mediacheck wants the media check instead: the hotkey m opens "More Ways to Start" (its first row is "Check This Media and Start
+# nisse"), pressed every second for 15 s like Up (a second m inside the submenu does nothing), and then Enter once.
+if true; then
+    key=up; [ "$mediacheck" = 1 ] && key=m
     (
         keylog="$outdir/keys.log"; : > "$keylog"
         seen=0
@@ -83,9 +85,9 @@ if [ "$mediacheck" = 0 ]; then
         for _ in $(seq 1 100); do (exec 3<>"/dev/tcp/127.0.0.1/$monport") 2>/dev/null && { up=1; break; }; sleep 0.2; done
         [ "$up" = 1 ] || { echo "error: the QEMU monitor on port $monport never accepted a connection; no keys sent" >> "$keylog"; exit 0; }
         exec 4<>"/dev/tcp/127.0.0.1/$monport"
-        for _ in $(seq 1 15); do echo 'sendkey up' >&4; sleep 1; done
+        for _ in $(seq 1 15); do echo "sendkey $key" >&4; sleep 1; done
         echo 'sendkey ret' >&4
-        echo "sent 15 x Up, then Enter" >> "$keylog"
+        echo "sent 15 x $key, then Enter" >> "$keylog"
         sleep 1
         exec 4>&-
     ) 2>/dev/null &
