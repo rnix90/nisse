@@ -505,7 +505,7 @@ rpmq -q nisse-grub-theme >/dev/null || fail "nisse-grub-theme is not installed i
 grub_dir="$(mktemp -d)"
 xorriso -osirrox on -indev "$iso" -extract /boot/grub2 "$grub_dir/grub2" >/dev/null 2>&1 || true
 theme="$grub_dir/grub2/themes/nisse"
-for f in theme.txt logo.png bartrack.png select_nw.png select_c.png bar_nw.png barhl_c.png unicode.pf2 nunito-regular-32.pf2 nunito-semibold-regular-32.pf2          nunito-regular-26.pf2 nunito-regular-22.pf2; do
+for f in theme.txt logo.png bartrack.png select_nw.png select_c.png bar_nw.png barhl_c.png unicode.pf2 nunito-regular-28.pf2 nunito-semibold-regular-28.pf2          nunito-regular-22.pf2 nunito-regular-18.pf2; do
     [ -s "$theme/$f" ] || { rm -rf "$grub_dir"; fail "the ISO lacks /boot/grub2/themes/nisse/$f (N-502)"; }
 done
 python3 - "$theme" <<'PY' || { rm -rf "$grub_dir"; fail "theme.txt names a picture or font that is not on the ISO (N-502)"; }

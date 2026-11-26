@@ -21,7 +21,7 @@ animate the sliding blocks; Plymouth does. It works, so the bar stays on the GRU
 
 | Mock | Surface | What it shows |
 |---|---|---|
-| `grub-menu`, `grub-menu-live` | GRUB menu (N-502), installed system and live ISO (rows centered by padded titles, N-502c) | Ink background; the stacked logo with the name below, 230 px wide near the top; entries in plain words, the default as an Ember row with Ink text. Installed: **nisse**, **Start from Earlier Snapshots** (the snapshot menu of N-307), **Computer Settings** (the firmware entry) and **More Ways to Start** (the older kernels). Live ISO: **nisse**, **Computer Settings** (UEFI only) and **More Ways to Start** (check the media, basic graphics). The countdown line ("nisse starts in 4 s.") and bar, and a quiet hint "Press E to change how nisse starts.". No kernel versions, ids or options on the main screen (advanced ones stay one key away, Bert's 2026-11-15 note) |
+| `grub-menu`, `grub-menu-live`, `grub-menu-1366x768`, `-1360x768`, `-1280x720`, `-1024x768` | GRUB menu (N-502), installed system and live ISO; the other sizes are the same menu on smaller screens (N-502b); rows centered by padded titles (N-502c) | Ink background; the stacked logo with the name below, 200 px wide near the top; entries in plain words, the default as an Ember row with Ink text. Installed: **nisse**, **Start from Earlier Snapshots** (the snapshot menu of N-307), **Computer Settings** (the firmware entry) and **More Ways to Start** (the older kernels). Live ISO: **nisse**, **Computer Settings** (UEFI only) and **More Ways to Start** (check the media, basic graphics). The countdown line ("nisse starts in 4 s.") and bar, and a quiet hint "Press E to change how nisse starts.". No kernel versions, ids or options on the main screen (advanced ones stay one key away, Bert's 2026-11-15 note) |
 | `plymouth-boot`, `-early`, `-late` | Plymouth (N-501) | Ink; the stacked logo 300 wide, centered a little above the middle; the boot bar below it. Three frames show the blocks moving |
 | `splash-dark`, `splash-light` | Plasma splash after login (N-505) | solid Ink (or Paper on the light look); the nisse **n** with the tipped hat, 260 px, inside the comet ring (the N-404 spinner in Ember), centered. Nothing else |
 | `login-dark`, `login-light` | Login screen (N-503) | the wallpaper (Fjell Layers) under a 50% Ink (or Paper) veil; a round avatar (220 px), the user name, a password field, an Ember **Log in** pill with Ink text (the light look: brick with Paper); keyboard layout bottom left, the small logo bottom center, restart and shut down bottom right |
@@ -99,8 +99,18 @@ line (C). `grub_check.py` judges photos against the mock (where the words are, i
   (Bert's choice). The bar fills from the left as the time runs out.
 - The signed UEFI GRUB has the png reader, `gfxmenu` and `gfxterm` built in, so nothing needs `insmod` under Secure Boot; GRUB's own
   hint lines do not show with a theme; hotkeys work (m opens More Ways to Start).
-- The layout is for **1920 x 1080** (GRUB is asked for that mode first, then 1280 x 720, then the native one). Other sizes show the
-  same layout at the same pixel sizes; a theme for them is ledger N-502b.
+- **One layout for every screen size (N-502b).** GRUB cannot tell which video mode it got: gfxterm adds `;auto` to the mode list it is given
+  (so asking for a mode never fails) and nothing reports the result (GRUB 2.12 source, confirmed in QEMU), so a theme per size chosen at run
+  time is impossible. The mode list is `1920x1080,auto` (a 1080p screen is sharp, anything else gets its own mode). The pieces keep one size:
+  logo 200 px, rows 60 px high 72 apart, row text 28 px (22 and 18 for the countdown and the hint), bar 490 x 28; only the vertical spacing
+  follows the screen, because every `top` is a percentage of its height (logo 5%, rows 36%, countdown 76%, bar 82%, hint 93%; GRUB drops
+  the fraction: 36% of 1080 is row 388). The four-row menu fits a **1280 x 720** screen with room to spare (the smallest supported size;
+  1366 x 768, 1360 x 768 and 1024 x 768 fit too), and a 4K screen that offers no 1080p shows the same menu at the same pixel size, whole but
+  small. The menu is about 13% smaller than the first approved mock (Bert agreed). The padding that centers the titles is the same number of
+  spaces at any size (text and spaces scale together; the tests keep every title within 12 px). Photos from QEMU (BIOS and UEFI; the
+  firmware's own list is overridden with `NISSE_GFXMODE` in `grub_overlay.sh`): `docs/screenshots/n502b-grub-uefi-1920x1080.png`,
+  `-1280x720.png`, `-1024x768.png`; each passes `grub_check.py` at its own size. QEMU's display draws a 1366-wide mode as 1360 with a
+  broken stride, so 1366 x 768 itself could not be photographed (the layout depends only on the height).
 
 **The live ISO's menu** is nisse's own template (`build/kiwi/nisse/grub-x86.cfg.iso-template`; Fedora's vendored one stays as
 published): nisse (the default, starts at once), Computer Settings (UEFI only), More Ways to Start (check the media, basic graphics, and

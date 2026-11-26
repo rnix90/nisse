@@ -5,26 +5,26 @@ desktop-color: "#1b2330"
 terminal-font: "Unifont Regular 16"
 
 + image {
-    left = 50%-115
-    top = 90
+    left = 50%-100
+    top = 5%
     file = "logo.png"
 }
 
 + boot_menu {
-    left = 50%-366
-    top = 420
-    width = 732
-    height = 336
-    item_font = "Nunito Regular 32"
-    selected_item_font = "Nunito SemiBold Regular 32"
+    left = 50%-320
+    top = 36%
+    width = 640
+    height = 288
+    item_font = "Nunito Regular 28"
+    selected_item_font = "Nunito SemiBold Regular 28"
     item_color = "#f6f2e9"
     selected_item_color = "#1b2330"
     icon_width = 0
     icon_height = 0
-    item_height = 40
+    item_height = 36
     item_padding = 0
     item_icon_space = 0
-    item_spacing = 44
+    item_spacing = 36
     selected_item_pixmap_style = "select_*.png"
     scrollbar = false
 }
@@ -32,36 +32,36 @@ terminal-font: "Unifont Regular 16"
 + label {
     id = "__timeout__"
     left = 0
-    top = 790
+    top = 76%
     width = 100%
     align = "center"
-    font = "Nunito Regular 26"
+    font = "Nunito Regular 22"
     color = "#aab1bd"
     text = "nisse starts in %d s."
 }
 
 + progress_bar {
     id = "__timeout__"
-    left = 50%-280
-    top = 836
-    width = 560
+    left = 50%-245
+    top = 82%
+    width = 490
     height = 28
     bar_style = "bar_*.png"
     highlight_style = "barhl_*.png"
 }
 
 + image {
-    left = 50%-280
-    top = 836
+    left = 50%-245
+    top = 82%
     file = "bartrack.png"
 }
 
 + label {
     left = 0
-    top = 995
+    top = 93%
     width = 100%
     align = "center"
-    font = "Nunito Regular 22"
+    font = "Nunito Regular 18"
     color = "#aab1bd"
     text = "Press E to change how nisse starts."
 }

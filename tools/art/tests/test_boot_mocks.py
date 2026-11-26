@@ -44,10 +44,11 @@ def test_names_are_unique_and_titled():
 
 
 @pytest.mark.parametrize("name", NAMES)
-def test_each_mock_is_one_1920_by_1080_drawing(name):
+def test_each_mock_is_one_drawing_of_its_own_size(name):  # 1920 x 1080, or the GRUB menu's other screen sizes (N-502b)
     svg = boot_mocks.build(name)
     root = ET.fromstring(svg)
-    assert root.attrib["viewBox"] == "0 0 1920 1080"
+    w, h = boot_mocks.size_of(name)
+    assert root.attrib["viewBox"] == f"0 0 {w} {h}"
     assert svg.isascii()
 
 

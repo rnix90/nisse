@@ -20,16 +20,16 @@ esac
 cat << 'EOF'
 if [ -f ${prefix}/themes/nisse/theme.txt ]; then
   load_video
-  set gfxmode=1920x1080,1280x720,auto
+  set gfxmode=1920x1080,auto
   insmod gfxterm
   insmod gfxmenu
   insmod png
   insmod font
   loadfont ${prefix}/themes/nisse/unicode.pf2
-  loadfont ${prefix}/themes/nisse/nunito-regular-32.pf2
-  loadfont ${prefix}/themes/nisse/nunito-semibold-regular-32.pf2
-  loadfont ${prefix}/themes/nisse/nunito-regular-26.pf2
+  loadfont ${prefix}/themes/nisse/nunito-regular-28.pf2
+  loadfont ${prefix}/themes/nisse/nunito-semibold-regular-28.pf2
   loadfont ${prefix}/themes/nisse/nunito-regular-22.pf2
+  loadfont ${prefix}/themes/nisse/nunito-regular-18.pf2
 EOF
 echo "  terminal_output $terminals"
 cat << 'EOF'

@@ -21,28 +21,44 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1] / "tools" / "art"))
 import grub_theme as gt  # noqa: E402
 
-SIZE = (1920, 1080)
+SIZE = (1920, 1080)       # the default size; every size in grub_theme.SIZES is judged at its own (N-502b)
 INK = (0x1b, 0x23, 0x30)
 EMBER = (0xe0, 0x62, 0x3f)
 SURFACE = (0x23, 0x2d, 0x3c)
 OUTLINE = (0x7a, 0x86, 0x99)
-ROW_X = (SIZE[0] - gt.ROW_W) // 2
-LOGO_BOX = (SIZE[0] // 2 - gt.LOGO_W // 2, gt.LOGO_TOP, SIZE[0] // 2 + gt.LOGO_W // 2, gt.LOGO_TOP + 245)
-COUNTDOWN_BOX = (700, gt.COUNTDOWN_TOP + 2, 1220, gt.COUNTDOWN_TOP + 42)
-TRACK_BOX = (SIZE[0] // 2 - gt.BAR_W // 2, gt.BAR_TOP, SIZE[0] // 2 + gt.BAR_W // 2, gt.BAR_TOP + gt.BAR_H)
-HINT_BOX = (740, gt.HINT_TOP + 2, 1180, gt.HINT_TOP + 40)
 MAX_ROWS = 4
+
+
+def parts(size=SIZE):
+    """The boxes of the menu's parts on a screen of this size (the theme's layout, with room around each for the anti-aliased edges)."""
+    box = gt.layout(size[0], size[1], rows=MAX_ROWS)
+    cx = size[0] // 2
+    logo = box["logo"]
+    return {
+        "logo": (int(logo[0]), int(logo[1]), int(logo[2]), int(logo[3])),
+        "countdown": (cx - 260, box["countdown"][1] + 2, cx + 260, box["countdown"][1] + 38),
+        "track": tuple(int(v) for v in box["bar"]),
+        "hint": (cx - 220, box["hint"][1] + 2, cx + 220, box["hint"][1] + 28),
+    }
+
+
+def row_box(i, size=SIZE):
+    x0, y0, _x1, _y1 = gt.layout(size[0], size[1], rows=MAX_ROWS)["rows"]
+    x0, y = int(round(x0)), int(round(y0)) + i * gt.ROW_PITCH
+    return (x0, y, x0 + gt.ROW_W, y + gt.ROW_H)
+
+
+# the default size's boxes under the names the tests and callers already use
+LOGO_BOX = parts()["logo"]
+COUNTDOWN_BOX = parts()["countdown"]
+TRACK_BOX = parts()["track"]
+HINT_BOX = parts()["hint"]
 
 
 @dataclass
 class Result:
     ok: bool
     problems: list = field(default_factory=list)
-
-
-def row_box(i):
-    y = gt.ROWS_TOP + i * gt.ROW_PITCH
-    return (ROW_X, y, ROW_X + gt.ROW_W, y + gt.ROW_H)
 
 
 def _near(a, b, tol):
@@ -67,11 +83,11 @@ def _ember(p):
     return _near(p, EMBER, 20)
 
 
-def text_center(img, i):
+def text_center(img, i, size=None):
     """The middle (x) of the words in row i (the first row's are Ink on Ember, the others light on Ink), or None when there are none.
     Only the part inside the row's rounded ends counts, so the Ember corners and the screen's edge do not."""
     img = img.convert("RGB")
-    box = row_box(i)
+    box = row_box(i, size or img.size)
     inner = (box[0] + 16, box[1] + 6, box[2] - 16, box[3] - 6)
     test = _words_on_ember if i == 0 else _words_on_ink
     px = img.crop(inner).load()
@@ -83,11 +99,12 @@ def text_center(img, i):
 CENTER_TOLERANCE = 16     # px: a space is about 8 px and the selected row's Bold is wider than the others' Regular (N-502c)
 
 
-def bar_fraction(img):
+def bar_fraction(img, size=None):
     """How much of the countdown bar is filled (0 to 1), or None when there is no Ember run in it."""
     img = img.convert("RGB")
-    y = (TRACK_BOX[1] + TRACK_BOX[3]) // 2
-    x0, x1 = TRACK_BOX[0] + gt.BAR_PAD, TRACK_BOX[2] - gt.BAR_PAD
+    track = parts(size or img.size)["track"]
+    y = (track[1] + track[3]) // 2
+    x0, x1 = track[0] + gt.BAR_PAD, track[2] - gt.BAR_PAD
     run = 0
     for x in range(x0, x1):
         if _ember(img.getpixel((x, y))):
@@ -100,54 +117,58 @@ def bar_fraction(img):
 def check_menu(img, rows):
     img = img.convert("RGB")
     problems = []
-    if img.size != SIZE:
-        return Result(False, [f"the photo is {img.size[0]}x{img.size[1]}, not {SIZE[0]}x{SIZE[1]}"])
-    for corner in ((5, 5), (1914, 5), (5, 1074), (1914, 1074)):
+    size = img.size
+    if size not in gt.SIZES:
+        return Result(False, [f"the photo is {size[0]}x{size[1]}, not one of the sizes the theme is made for ({', '.join(f'{w}x{h}' for w, h in gt.SIZES)})"])
+    W, H = size
+    p = parts(size)
+    logo, track = p["logo"], p["track"]
+    for corner in ((5, 5), (W - 6, 5), (5, H - 6), (W - 6, H - 6)):
         if not _near(img.getpixel(corner), INK, 3):
             problems.append(f"the background at {corner} is {img.getpixel(corner)}, not Ink {INK}")
-    if _count(img, LOGO_BOX, lambda p: not _near(p, INK, 12)) < 3000:
+    if _count(img, logo, lambda q: not _near(q, INK, 12)) < 2500:
         problems.append("no logo where the theme puts it")
-    first = row_box(0)
+    first = row_box(0, size)
     inside = (first[0] + 20, first[1] + 4, first[2] - 20, first[3] - 4)
     share = _count(img, inside, _ember) / ((inside[2] - inside[0]) * (inside[3] - inside[1]))
     if share < 0.7:
         problems.append(f"the selected row (the first) is not an Ember box ({share * 100:.0f}% Ember, expected at least 70%)")
-    elif _count(img, (SIZE[0] // 2 - 150, first[1] + 4, SIZE[0] // 2 + 150, first[3] - 4), _words_on_ember) < 150:
+    elif _count(img, (W // 2 - 130, first[1] + 4, W // 2 + 130, first[3] - 4), _words_on_ember) < 120:
         problems.append("the selected row has no words in it (Ink on Ember)")
     if _ember(img.getpixel((first[0] + 1, first[1] + 1))):
         problems.append("the corners of the selected row are not rounded")
     for i in range(1, MAX_ROWS):
-        words = _count(img, row_box(i), _words_on_ink)
-        if i < rows and words < 150:
-            problems.append(f"row {i + 1} has no words in it ({words} light pixels, expected at least 150)")
+        words = _count(img, row_box(i, size), _words_on_ink)
+        if i < rows and words < 120:
+            problems.append(f"row {i + 1} has no words in it ({words} light pixels, expected at least 120)")
         if i >= rows and words > 60:
             problems.append(f"row {i + 1} is drawn but the menu should have {rows} rows")
-    if rows >= 1 and _count(img, row_box(rows - 1), lambda p: True) == 0:
+    if rows >= 1 and _count(img, row_box(rows - 1, size), lambda q: True) == 0:
         problems.append("the row count is wrong")
     for i in range(1, MAX_ROWS):
-        if _count(img, row_box(i), _ember) > 40:
+        if _count(img, row_box(i, size), _ember) > 40:
             problems.append(f"row {i + 1} is Ember, but only the first row may be selected")
     for i in range(min(rows, MAX_ROWS)):
-        c = text_center(img, i)
-        if c is not None and abs(c - SIZE[0] / 2) > CENTER_TOLERANCE:
-            problems.append(f"the words of row {i + 1} are not centered (their middle is at x={c:.0f}, the screen's is {SIZE[0] // 2})")
+        c = text_center(img, i, size)
+        if c is not None and abs(c - W / 2) > CENTER_TOLERANCE:
+            problems.append(f"the words of row {i + 1} are not centered (their middle is at x={c:.0f}, the screen's is {W // 2})")
     outside = 0
     full = img.load()
-    boxes = [row_box(0), (TRACK_BOX[0], TRACK_BOX[1], TRACK_BOX[2], TRACK_BOX[3])]
-    for y in range(0, SIZE[1], 2):
-        for x in range(0, SIZE[0], 2):
+    boxes = [row_box(0, size), track]
+    for y in range(0, H, 2):
+        for x in range(0, W, 2):
             if _ember(full[x, y]) and not any(b[0] <= x < b[2] and b[1] <= y < b[3] for b in boxes):
                 outside += 1
     if outside > 12:
         problems.append(f"Ember outside the selected row and the countdown bar ({outside} sampled pixels): something else is drawn")
-    if _count(img, COUNTDOWN_BOX, _words_on_ink) < 100:
+    if _count(img, p["countdown"], _words_on_ink) < 80:
         problems.append("no countdown line above the bar")
-    mid = (TRACK_BOX[1] + TRACK_BOX[3]) // 2
-    left = [img.getpixel((x, mid)) for x in range(TRACK_BOX[0], TRACK_BOX[0] + 4)]
-    right = [img.getpixel((x, mid)) for x in range(TRACK_BOX[2] - 4, TRACK_BOX[2])]
-    if not (any(_near(p, OUTLINE, 30) for p in left) and any(_near(p, OUTLINE, 30) for p in right)):
+    mid = (track[1] + track[3]) // 2
+    left = [img.getpixel((x, mid)) for x in range(track[0], track[0] + 4)]
+    right = [img.getpixel((x, mid)) for x in range(track[2] - 4, track[2])]
+    if not (any(_near(q, OUTLINE, 30) for q in left) and any(_near(q, OUTLINE, 30) for q in right)):
         problems.append("no track for the countdown bar (the pill's edge is not where the theme puts it)")
-    if _count(img, HINT_BOX, _words_on_ink) < 100:
+    if _count(img, p["hint"], _words_on_ink) < 80:
         problems.append("no hint line at the bottom")
     return Result(not problems, problems)
 

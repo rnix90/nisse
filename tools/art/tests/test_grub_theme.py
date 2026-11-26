@@ -2,7 +2,7 @@
 """N-502: the committed GRUB theme folder that the nisse-grub-theme package installs. The pictures and theme.txt come from
 tools/art/grub_theme.py (the same Ember pieces as the approved boot mock, N-412); the static Nunito fonts sit next to them and are
 turned into GRUB's .pf2 format when the package is built. These tests keep the folder whole, palette-only and honest to the mock
-(redrawn in N-502 for what GRUB can do: a countdown line and bar; rows centered by padded titles, N-502c).
+(redrawn in N-502 for what GRUB can do, and in N-502b to fit every screen size: a countdown line and bar; rows centered by padded titles, N-502c).
 
 Facts about GRUB the tests rely on, all verified in the N-502 spike (GRUB 2.12, BIOS and UEFI):
   * GRUB draws the first-listed component of theme.txt on top, so the countdown bar is listed before the picture of its track;
@@ -85,10 +85,10 @@ def test_the_pictures_use_palette_colors_only():
         assert top[0] in allowed, f"{p.name}: its main color {top[0]} is not a palette color"
         if p.name != "bartrack.png":
             inside = sum(1 for px in map(tuple, solid.tolist()) if px in allowed)
-            assert inside / len(solid) >= 0.9, f"{p.name}: only {inside} of {len(solid)} solid pixels are palette colors"
+            assert inside / len(solid) >= 0.85, f"{p.name}: only {inside} of {len(solid)} solid pixels are palette colors"
     track = np.asarray(Image.open(THEME / "bartrack.png").convert("RGBA"))
-    assert tuple(int(x) for x in track[14, 280, :3]) == rgb(PALETTE["dark"]["surface"]["hex"])       # the middle of the track
-    assert tuple(int(x) for x in track[0, 280, :3]) == rgb(PALETTE["dark"]["outline"]["hex"])        # its top edge
+    assert tuple(int(x) for x in track[grub_theme.BAR_H // 2, grub_theme.BAR_W // 2, :3]) == rgb(PALETTE["dark"]["surface"]["hex"])       # the middle of the track
+    assert tuple(int(x) for x in track[0, grub_theme.BAR_W // 2, :3]) == rgb(PALETTE["dark"]["outline"]["hex"])        # its top edge
 
 
 def test_the_screen_colors_are_the_palette_ones():
@@ -115,13 +115,13 @@ def test_the_selected_row_is_a_rounded_ember_box_of_nine_pieces():
 
 
 def test_the_row_geometry_is_the_mocks():
-    """The mock's row (box 732 x 68, pitch 84) is what theme.txt makes: item height plus the box's two borders is the row."""
+    """The mock's row (box 640 x 60, pitch 72) is what theme.txt makes: item height plus the box's two borders is the row."""
     menu = [p for k, p in components(theme_text()) if k == "boot_menu"][0]
     border = Image.open(THEME / "select_nw.png").size[0]
-    assert int(menu["item_height"]) + 2 * border == grub_theme.ROW_H == 68
-    assert int(menu["item_height"]) + int(menu["item_spacing"]) == grub_theme.ROW_PITCH == 84
-    assert int(menu["width"]) == grub_theme.ROW_W == 732
-    assert menu["left"] == "50%-366" and int(menu["top"]) == grub_theme.ROWS_TOP
+    assert int(menu["item_height"]) + 2 * border == grub_theme.ROW_H == 60
+    assert int(menu["item_height"]) + int(menu["item_spacing"]) == grub_theme.ROW_PITCH == 72
+    assert int(menu["width"]) == grub_theme.ROW_W == 640
+    assert menu["left"] == "50%-320" and menu["top"] == f"{round(grub_theme.ROWS_TOP_F * 100)}%"
     assert menu["icon_width"] == "0" and menu["scrollbar"] == "false"
 
 
@@ -165,11 +165,11 @@ def test_nothing_on_screen_names_a_kernel_or_an_option():
     assert not re.search(r"vmlinuz|rootflags|subvol|\.fc4|--id|root=", text)
 
 
-def test_the_logo_is_the_stacked_logo_230_wide_above_the_menu():
+def test_the_logo_is_the_stacked_logo_200_wide_above_the_menu():
     logo = Image.open(THEME / "logo.png")
-    assert logo.size[0] == 230 and abs(logo.size[1] / 230 - 680 / 640) < 0.03
+    assert logo.size[0] == 200 and abs(logo.size[1] / 200 - 680 / 640) < 0.03
     comp = [p for k, p in components(theme_text()) if k == "image" and p.get("file") == "logo.png"][0]
-    assert comp["left"] == "50%-115" and int(comp["top"]) == 90
+    assert comp["left"] == "50%-100" and comp["top"] == f"{round(grub_theme.LOGO_TOP_F * 100)}%"
 
 
 def test_the_fonts_are_static_nunito_regular_and_bold_and_theme_txt_asks_only_for_them():
@@ -229,7 +229,7 @@ def test_the_font_width_model_matches_what_freetype_draws():
     narrower than the advance by the side bearings, a few px at most)."""
     from PIL import ImageFont
     for weight, name in (("Regular", "Nunito-Regular.ttf"), ("SemiBold", "Nunito-SemiBold.ttf")):
-        font = ImageFont.truetype(str(THEME / name), 32)
+        font = ImageFont.truetype(str(THEME / name), grub_theme.ITEM_SIZE)
         for title in FIXED_TITLES:
             left, _t, right, _b = font.getbbox(title)
             ink = right - left
@@ -280,3 +280,45 @@ def test_the_mock_rows_are_centered():
     svg = boot_mocks.grub_menu_svg("installed")
     assert 'text-anchor="start"' not in svg
     assert svg.count(f'x="{boot_mocks.W / 2}"') >= 4
+
+
+# ---- N-502b: one layout that fits every screen size (GRUB cannot tell which mode it got, so there is one theme)
+
+SIZES = grub_theme.SIZES
+
+
+def test_vertical_positions_are_percentages_of_the_screen_so_the_spacing_follows_the_screen():
+    comps = components(theme_text())
+    for kind, props in comps:
+        if kind in ("image", "label", "progress_bar", "boot_menu") and props.get("top"):
+            assert props["top"].endswith("%"), (kind, props)
+
+
+def test_nothing_overlaps_or_leaves_the_screen_at_any_supported_size():
+    for W, H in SIZES:
+        boxes = grub_theme.layout(W, H, rows=4)
+        names = ["logo", "rows", "countdown", "bar", "hint"]
+        for n in names:
+            x0, y0, x1, y1 = boxes[n]
+            assert 0 <= x0 and x1 <= W and 0 <= y0 and y1 <= H, (W, H, n, boxes[n])
+        for a, b in zip(names, names[1:]):
+            assert boxes[b][1] - boxes[a][3] >= 6, (W, H, a, b, boxes[a], boxes[b])
+
+
+def test_the_countdown_bar_stays_the_same_size_and_centered_at_every_size():
+    for W, H in SIZES:
+        x0, y0, x1, y1 = grub_theme.layout(W, H)["bar"]
+        assert (x1 - x0, y1 - y0) == (grub_theme.BAR_W, grub_theme.BAR_H)
+        assert abs((x0 + x1) / 2 - W / 2) <= 1
+
+
+def test_the_four_row_menu_fits_a_720_line_screen_with_room_to_spare():
+    boxes = grub_theme.layout(1280, 720, rows=4)
+    assert boxes["hint"][3] <= 720 - 12
+    assert boxes["rows"][3] - boxes["rows"][1] == 3 * grub_theme.ROW_PITCH + grub_theme.ROW_H
+
+
+def test_the_font_sizes_are_the_ones_the_layout_was_made_for():
+    assert grub_theme.ITEM_SIZE == 28 and grub_theme.COUNTDOWN_SIZE == 22 and grub_theme.HINT_SIZE == 18
+    for w in ("Regular", "SemiBold"):
+        assert grub_theme.advance(" ", w) == 7, "the selected row's space must equal the others' (padding means the same in both)"

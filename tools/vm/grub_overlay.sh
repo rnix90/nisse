@@ -6,6 +6,8 @@
 # Run in the Fedora build VM (needs xorriso, cpio, rpm2cpio, python3):
 #   tools/rpm/build-rpm.sh nisse-grub-theme
 #   tools/vm/grub_overlay.sh out/nisse-live.iso OUT.iso [--plain]
+# NISSE_GFXMODE=1366x768 asks GRUB for that mode instead of the template's list (a test of the menu on a screen the emulated firmware does not
+# have: the layout must fit what a laptop's own mode gives).
 # --plain adds nothing: it only trims the ISO, to photograph the menu a rebuilt ISO really has.
 set -euo pipefail
 iso="${1:?usage: grub_overlay.sh ISO OUT.iso [--plain]}"; out="${2:?}"; mode="${3:-}"
@@ -22,11 +24,15 @@ if [ "$mode" != "--plain" ]; then
     [ -n "$search" ] && [ -n "$options" ] || { echo "could not read the search line and kernel options from the ISO's grub.cfg" >&2; exit 2; }
     # kiwi turns the options ("rd.live.check" and so on are added by the template's own entries) into one string
     options="$(printf '%s' "$options" | sed 's/ rd.live.check//; s/ nomodeset//')"
-    python3 - "$repo/build/kiwi/nisse/grub-x86.cfg.iso-template" "$search" "$options" > "$w/grub.cfg" <<'PY'
+    python3 - "$repo/build/kiwi/nisse/grub-x86.cfg.iso-template" "$search" "$options" "${NISSE_GFXMODE:-}" > "$w/grub.cfg" <<'PY'
 import string, sys
 t = string.Template(open(sys.argv[1], encoding="ascii").read())
-print(t.substitute(search_params=sys.argv[2], terminal_output="console", boot_timeout="10", boot_timeout_style="menu",
-                   bootpath="/boot/x86_64/loader", kernel_file="linux", initrd_file="initrd", boot_options=sys.argv[3]))
+out = t.substitute(search_params=sys.argv[2], terminal_output="console", boot_timeout="10", boot_timeout_style="menu",
+                  bootpath="/boot/x86_64/loader", kernel_file="linux", initrd_file="initrd", boot_options=sys.argv[3])
+mode = sys.argv[4] if len(sys.argv) > 4 else ""
+if mode:   # a test-only mode request, to see the menu at a size the emulated firmware would not otherwise give
+    out = out.replace("set gfxmode=1920x1080,auto", "set gfxmode=" + mode)
+print(out)
 PY
     mkdir -p "$w/pkg"
     rpm2cpio "$rpmf" | (cd "$w/pkg" && cpio -idm --quiet)

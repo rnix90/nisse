@@ -84,7 +84,7 @@ V run 'S sh /tmp/fake-older.sh; S nisse-boot menu' 120 >/dev/null
 [ "$(g 'echo "RES: $(S grep -c -E "nisse-menu.cfg|More Ways to Start|Computer Settings|themes/nisse/theme.txt" /boot/grub2/grub.cfg)"' 60)" -ge 4 ] 2>/dev/null \
     && ok "grub.cfg has the replaced kernel list, More Ways to Start, Computer Settings and the theme" || bad "grub.cfg lacks a part of the themed menu"
 g 'echo "RES: $(S grep -c "UEFI Firmware Settings" /boot/grub2/grub.cfg)"' 60 | grep -qx 0 && ok "Fedora's own firmware row is switched off (no second row)" || bad "UEFI Firmware Settings is still in grub.cfg"
-g 'echo "RES: $(test -s /boot/grub2/themes/nisse/theme.txt && test -s /boot/grub2/themes/nisse/nunito-semibold-regular-32.pf2 && echo there)"' 60 | grep -qx there && ok "the theme is on the boot partition" || bad "no theme on the boot partition"
+g 'echo "RES: $(test -s /boot/grub2/themes/nisse/theme.txt && test -s /boot/grub2/themes/nisse/nunito-semibold-regular-28.pf2 && echo there)"' 60 | grep -qx there && ok "the theme is on the boot partition" || bad "no theme on the boot partition"
 menu="$(g 'echo "RES: $(S sh -c "head -qn1 /boot/loader/nisse-main/*.conf" | tr "\n" "|") / $(S sh -c "head -qn1 /boot/loader/nisse-more/*.conf" | tr "\n" "|")"' 60)"
 case "$menu" in *"nisse|"*"Start nisse with Kernel 6.18.2-100.fc44|"*) case "$menu" in *"Start nisse in Rescue Mode"*) okrows=1 ;; *) okrows=0 ;; esac ;; *) okrows=0 ;; esac
 case "$okrows" in 1) ok "the rows: nisse for the newest kernel, the faked older one and the rescue kernel under More Ways" ;; *) bad "unexpected rows: $menu" ;; esac

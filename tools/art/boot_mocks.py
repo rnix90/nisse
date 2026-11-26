@@ -126,34 +126,38 @@ def icon_logout(cx, cy, size, color):
             f'stroke-linecap="round" stroke-linejoin="round"><path d="M42 24 H26 V76 H42"/><path d="M40 50 H78"/><path d="M66 38 L78 50 L66 62"/></g>')
 
 
-def frame(body, bg):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">' + LF
-            + f'  <rect width="{W}" height="{H}" fill="{bg}"/>' + LF + f'  {body}' + LF + '</svg>' + LF)
+def frame(body, bg, size=None):
+    w, h = size or (W, H)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}">' + LF
+            + f'  <rect width="{w}" height="{h}" fill="{bg}"/>' + LF + f'  {body}' + LF + '</svg>' + LF)
 
 
 # ---- the surfaces
 
-def grub_menu_svg(kind="installed"):
-    """The GRUB menu as the nisse theme draws it (N-502; the rows are centered by padding their titles, N-502c). The geometry is
-    the theme's (tools/art/grub_theme.py). 'installed' has the snapshots row; 'live' (the ISO) has only nisse, Computer Settings and
-    More Ways to Start. The countdown line and bar are the timeout's."""
+def grub_menu_svg(kind="installed", size=None):
+    """The GRUB menu as the nisse theme draws it (N-502; the rows are centered by padding their titles, N-502c; one layout fits every
+    screen size, N-502b: the pieces keep their size and the spacing follows the screen's height). The geometry is the theme's
+    (tools/art/grub_theme.py). 'installed' has the snapshots row; 'live' (the ISO) has only nisse, Computer Settings and More Ways to
+    Start. The countdown line and bar are the timeout's."""
     import grub_theme as gt
-    b = [lockup(W / 2, gt.LOGO_TOP, gt.LOGO_W)]
+    w, h = size or (W, H)
     rows = ["nisse", "Start from Earlier Snapshots", "Computer Settings", "More Ways to Start"]
     if kind == "live":
         rows.remove("Start from Earlier Snapshots")
-    x = W / 2 - gt.ROW_W / 2
+    box = gt.layout(w, h, rows=len(rows))
+    b = [lockup(w / 2, box["logo"][1], gt.LOGO_W)]
+    x, y0 = box["rows"][0], box["rows"][1]
     for i, label in enumerate(rows):
-        y = gt.ROWS_TOP + i * gt.ROW_PITCH
+        y = y0 + i * gt.ROW_PITCH
         if i == 0:
             b.append(f'<rect x="{x}" y="{y}" width="{gt.ROW_W}" height="{gt.ROW_H}" rx="{gt.ROW_BORDER}" fill="{d("accent")}"/>')
-            b.append(text(W / 2, y + 45, label, 32, d("on-accent"), 600))
+            b.append(text(w / 2, y + 39, label, gt.ITEM_SIZE, d("on-accent"), 600))
         else:
-            b.append(text(W / 2, y + 45, label, 32, d("text"), 400))
-    b.append(text(W / 2, 818, gt.COUNTDOWN.replace("%d", "4"), 26, d("text-muted")))
-    b.append(countdown_bar(W / 2, gt.BAR_TOP + gt.BAR_H / 2, gt.BAR_W, 0.6, h=gt.BAR_H))
-    b.append(text(W / 2, 1019, gt.HINT, 22, d("text-muted")))
-    return frame("".join(b), d("base"))
+            b.append(text(w / 2, y + 39, label, gt.ITEM_SIZE, d("text"), 400))
+    b.append(text(w / 2, box["countdown"][1] + 24, gt.COUNTDOWN.replace("%d", "4"), gt.COUNTDOWN_SIZE, d("text-muted")))
+    b.append(countdown_bar(w / 2, box["bar"][1] + gt.BAR_H / 2, gt.BAR_W, 0.6, h=gt.BAR_H))
+    b.append(text(w / 2, box["hint"][1] + 20, gt.HINT, gt.HINT_SIZE, d("text-muted")))
+    return frame("".join(b), d("base"), (w, h))
 
 
 def plymouth(phase=0.5):
@@ -237,6 +241,10 @@ def logout(mode):
 SURFACES = [
     ("grub-menu", "GRUB menu (N-502), installed: logo, plain-word entries, countdown", lambda: grub_menu_svg("installed")),
     ("grub-menu-live", "GRUB Menu (N-502), Live ISO", lambda: grub_menu_svg("live")),
+    ("grub-menu-1366x768", "GRUB Menu (N-502b), 1366 x 768", lambda: grub_menu_svg("installed", (1366, 768))),
+    ("grub-menu-1360x768", "GRUB Menu (N-502b), 1360 x 768", lambda: grub_menu_svg("installed", (1360, 768))),
+    ("grub-menu-1280x720", "GRUB Menu (N-502b), 1280 x 720", lambda: grub_menu_svg("installed", (1280, 720))),
+    ("grub-menu-1024x768", "GRUB Menu (N-502b), 1024 x 768", lambda: grub_menu_svg("installed", (1024, 768))),
     ("plymouth-boot", "Plymouth boot screen (N-501): the logo and the sliding-block bar", plymouth),
     ("plymouth-boot-early", "Plymouth, Earlier Frame", lambda: plymouth(0.15)),
     ("plymouth-boot-late", "Plymouth, Later Frame", lambda: plymouth(0.85)),
@@ -249,6 +257,15 @@ SURFACES = [
     ("logout-dark", "Logout, restart and shut down (N-504), dark", lambda: logout("dark")),
     ("logout-light", "Logout Screen, Light", lambda: logout("light")),
 ]
+
+
+def size_of(name):
+    """The pixel size a mock is drawn at: 1920 x 1080, except the GRUB menu's other screen sizes (N-502b)."""
+    tail = name.rsplit("-", 1)[-1]
+    if name.startswith("grub-menu-") and "x" in tail:
+        w, h = tail.split("x")
+        return int(w), int(h)
+    return W, H
 
 
 def build(name):
@@ -273,9 +290,11 @@ def render_all(out):
         browser = p.chromium.launch()
         page = browser.new_page(viewport={"width": W, "height": H})
         for name, _title, fn in SURFACES:
+            w, h = size_of(name)
+            page.set_viewport_size({"width": w, "height": h})
             page.set_content(_html(fn()))
             page.wait_for_timeout(300)
-            png = page.screenshot(clip={"x": 0, "y": 0, "width": W, "height": H})
+            png = page.screenshot(clip={"x": 0, "y": 0, "width": w, "height": h})
             (out / f"{name}.png").write_bytes(png)
             pngs[name] = png
         # the review sheet: three columns of tiles with captions

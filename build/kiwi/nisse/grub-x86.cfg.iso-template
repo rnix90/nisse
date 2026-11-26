@@ -34,7 +34,7 @@ insmod gzio
 insmod ext2
 search ${search_params}
 load_video
-set gfxmode=1920x1080,1280x720,auto
+set gfxmode=1920x1080,auto
 set gfxpayload=keep
 
 # the theme, if it is on the media; otherwise the plain text menu
@@ -45,10 +45,10 @@ if [ -f $${nisse_theme}/theme.txt ]; then
 	insmod png
 	insmod font
 	loadfont $${nisse_theme}/unicode.pf2
-	loadfont $${nisse_theme}/nunito-regular-32.pf2
-	loadfont $${nisse_theme}/nunito-semibold-regular-32.pf2
-	loadfont $${nisse_theme}/nunito-regular-26.pf2
+	loadfont $${nisse_theme}/nunito-regular-28.pf2
+	loadfont $${nisse_theme}/nunito-semibold-regular-28.pf2
 	loadfont $${nisse_theme}/nunito-regular-22.pf2
+	loadfont $${nisse_theme}/nunito-regular-18.pf2
 	terminal_input console
 	terminal_output gfxterm
 	set theme=$${nisse_theme}/theme.txt

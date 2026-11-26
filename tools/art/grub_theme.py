@@ -13,7 +13,7 @@ What GRUB can do, verified in the N-502 spike (GRUB 2.12, BIOS and UEFI, Fedora 
   * the countdown label takes one number (%d) and cannot say "1 second", so the unit is the short "s";
   * the signed UEFI GRUB has the png reader, gfxmenu and gfxterm built in, so nothing needs insmod under Secure Boot.
 
-The theme is laid out for 1920 x 1080 (GRUB is asked for that mode first). The two static Nunito instances in the folder are turned
+One layout fits every screen from 1280 x 720 up (N-502b): GRUB cannot tell which mode it got, so the pieces keep their pixel size and every vertical position is a percentage of the screen's height; GRUB is asked for 1920 x 1080 first, then the screen's own mode. The two static Nunito instances in the folder are turned
 into GRUB's .pf2 fonts when the package is built (grub2-mkfont); the names theme.txt asks for are the ones that tool makes.
 """
 import json
@@ -30,16 +30,18 @@ NUNITO = ROOT / "assets" / "fonts" / "Nunito" / "Nunito[wght].ttf"
 LOGO_SRC = ROOT / "assets" / "art" / "plymouth" / "nisse" / "logo.png"   # the stacked logo, drawn once for the Plymouth theme
 PALETTE = json.loads((ROOT / "assets" / "palette" / "ember.json").read_text(encoding="ascii"))["dark"]
 
-SCREEN_W, SCREEN_H = 1920, 1080
-LOGO_W, LOGO_TOP = 230, 90
-ROW_W, ROW_H, ROW_PITCH, ROW_BORDER = 732, 68, 84, 14      # the selected row: 732 x 68, rows 84 apart, corners 14 px
-ITEM_H = ROW_H - 2 * ROW_BORDER                            # 40: the text line inside the row
-ITEM_SPACING = ROW_PITCH - ITEM_H                          # 44
-ROWS_TOP = 420                                             # the first row's top; four rows end at 740
-COUNTDOWN_TOP, COUNTDOWN_SIZE = 790, 26
-BAR_W, BAR_H, BAR_PAD, BAR_TOP = 560, 28, 6, 836           # GRUB makes a progress bar at least 28 px high
-HINT_TOP, HINT_SIZE = 995, 22
-ITEM_SIZE = 32
+SCREEN_W, SCREEN_H = 1920, 1080                            # the size the mock and the default photo are at; the layout fits every size (see layout())
+SIZES = [(1920, 1080), (1366, 768), (1360, 768), (1280, 720), (1024, 768)]   # the sizes the tests and photos cover; 1280 x 720 is the smallest the layout fits
+LOGO_W = 200
+ROW_W, ROW_H, ROW_PITCH, ROW_BORDER = 640, 60, 72, 12      # the selected row: 640 x 60, rows 72 apart, corners 12 px
+ITEM_H = ROW_H - 2 * ROW_BORDER                            # 36: the text line inside the row
+ITEM_SPACING = ROW_PITCH - ITEM_H                          # 36
+BAR_W, BAR_H, BAR_PAD = 490, 28, 6                         # GRUB makes a progress bar at least 28 px high
+# Vertical positions are fractions of the screen's height (GRUB cannot tell which mode it got, so there is one theme: the pieces keep
+# their size and the spacing between them follows the screen). The four-row menu then fits a 720-line screen with room to spare.
+LOGO_TOP_F, ROWS_TOP_F, COUNTDOWN_TOP_F, BAR_TOP_F, HINT_TOP_F = 0.05, 0.36, 0.76, 0.82, 0.93
+COUNTDOWN_SIZE, HINT_SIZE, ITEM_SIZE = 22, 18, 28
+LABEL_H = {"countdown": 30, "hint": 24}                     # the room a label's line takes (its font size and a little)
 TERMINAL_FONT = "Unifont Regular 16"                       # unicode.pf2 of grub2-common, copied into the theme folder by the package
 COUNTDOWN = "nisse starts in %d s."
 HINT = "Press E to change how nisse starts."
@@ -54,6 +56,22 @@ def _hex(name):
 def _rgb(name):
     h = _hex(name)
     return tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def layout(width, height, rows=4):
+    """name -> (left, top, right, bottom) in px of every piece of the menu on a width x height screen, as the theme puts them."""
+    def top(f):
+        return int(f * height)          # GRUB works in fixed point and drops the fraction (measured: 36% of 1080 is row 388)
+    logo_h = round(LOGO_W * 680 / 640)
+    cx = width / 2
+    rows_h = (rows - 1) * ROW_PITCH + ROW_H
+    return {
+        "logo": (cx - LOGO_W / 2, top(LOGO_TOP_F), cx + LOGO_W / 2, top(LOGO_TOP_F) + logo_h),
+        "rows": (cx - ROW_W / 2, top(ROWS_TOP_F), cx + ROW_W / 2, top(ROWS_TOP_F) + rows_h),
+        "countdown": (0, top(COUNTDOWN_TOP_F), width, top(COUNTDOWN_TOP_F) + LABEL_H["countdown"]),
+        "bar": (cx - BAR_W / 2, top(BAR_TOP_F), cx + BAR_W / 2, top(BAR_TOP_F) + BAR_H),
+        "hint": (0, top(HINT_TOP_F), width, top(HINT_TOP_F) + LABEL_H["hint"]),
+    }
 
 
 def font_names():
@@ -118,13 +136,13 @@ terminal-font: "{TERMINAL_FONT}"
 
 + image {{
     left = 50%-{LOGO_W // 2}
-    top = {LOGO_TOP}
+    top = {round(LOGO_TOP_F * 100)}%
     file = "logo.png"
 }}
 
 + boot_menu {{
     left = 50%-{ROW_W // 2}
-    top = {ROWS_TOP}
+    top = {round(ROWS_TOP_F * 100)}%
     width = {ROW_W}
     height = {4 * ROW_PITCH}
     item_font = "{font_names()[0]}"
@@ -144,7 +162,7 @@ terminal-font: "{TERMINAL_FONT}"
 + label {{
     id = "__timeout__"
     left = 0
-    top = {COUNTDOWN_TOP}
+    top = {round(COUNTDOWN_TOP_F * 100)}%
     width = 100%
     align = "center"
     font = "{font_names()[2]}"
@@ -155,7 +173,7 @@ terminal-font: "{TERMINAL_FONT}"
 + progress_bar {{
     id = "__timeout__"
     left = 50%-{BAR_W // 2}
-    top = {BAR_TOP}
+    top = {round(BAR_TOP_F * 100)}%
     width = {BAR_W}
     height = {BAR_H}
     bar_style = "bar_*.png"
@@ -164,13 +182,13 @@ terminal-font: "{TERMINAL_FONT}"
 
 + image {{
     left = 50%-{BAR_W // 2}
-    top = {BAR_TOP}
+    top = {round(BAR_TOP_F * 100)}%
     file = "bartrack.png"
 }}
 
 + label {{
     left = 0
-    top = {HINT_TOP}
+    top = {round(HINT_TOP_F * 100)}%
     width = 100%
     align = "center"
     font = "{font_names()[3]}"

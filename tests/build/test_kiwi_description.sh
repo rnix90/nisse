@@ -123,7 +123,7 @@ if grep -qE 'menuentry "Start nisse"|menuentry "Test this media|submenu "Trouble
 grep -q 'set default="0"' "$T" && ok "the default entry is the first one, nisse" || bad "the default entry is not the first"
 grep -q -- '-f \$\${nisse_theme}/theme.txt' "$T" && ok "the theme is used only when it is on the media (else the plain text menu)" || bad "the template does not check that the theme is there"
 grep -q 'set gfxmode=1920x1080' "$T" && ok "GRUB is asked for 1920x1080 first" || bad "no gfxmode request"
-for f in unicode.pf2 nunito-regular-32.pf2 nunito-semibold-regular-32.pf2 nunito-regular-26.pf2 nunito-regular-22.pf2; do
+for f in unicode.pf2 nunito-regular-28.pf2 nunito-semibold-regular-28.pf2 nunito-regular-22.pf2 nunito-regular-18.pf2; do
     grep -q "loadfont .*/$f" "$T" && ok "the menu loads $f" || bad "the menu does not load $f"
 done
 # kiwi fills the template with Python's string.Template: a stray dollar sign (a comment that quotes the form, a bare variable) is an error there

@@ -18,8 +18,11 @@ INK = (0x1b, 0x23, 0x30)
 EMBER = (0xe0, 0x62, 0x3f)
 
 
-def good(kind="installed"):
-    return Image.open(BOOT / ("grub-menu.png" if kind == "installed" else "grub-menu-live.png")).convert("RGB")
+def good(kind="installed", size=(1920, 1080)):
+    name = "grub-menu-live" if kind == "live" else "grub-menu"
+    if size != (1920, 1080):
+        name = f"grub-menu-{size[0]}x{size[1]}"
+    return Image.open(BOOT / f"{name}.png").convert("RGB")
 
 
 def test_the_approved_mocks_pass_their_own_check():
@@ -41,8 +44,8 @@ def test_a_wrong_background_is_refused():
 
 
 def test_a_photo_of_the_wrong_size_is_refused():
-    r = gc.check_menu(Image.new("RGB", (1024, 768), INK), rows=3)
-    assert not r.ok and any("1024x768" in p for p in r.problems), r.problems
+    r = gc.check_menu(Image.new("RGB", (800, 600), INK), rows=3)
+    assert not r.ok and any("800x600" in p for p in r.problems), r.problems
 
 
 def test_no_ember_row_is_refused():
@@ -127,3 +130,31 @@ def test_a_row_with_the_words_a_few_pixels_off_is_still_accepted():
     strip = img.crop((box[0] + 20, box[1] + 10, box[2] - 20, box[3] - 10))
     img.paste(strip, (box[0] + 20 - 10, box[1] + 10))
     assert gc.check_menu(img, rows=3).ok
+
+
+
+# ---- N-502b: the menu at every supported screen size
+
+def test_the_mock_of_every_supported_size_passes_the_check_at_that_size():
+    for size in [(1366, 768), (1360, 768), (1280, 720), (1024, 768)]:
+        img = good("installed", size)
+        assert img.size == size
+        r = gc.check_menu(img, rows=4)
+        assert r.ok, (size, r.problems)
+
+
+def test_the_parts_are_where_the_layout_puts_them_at_each_size():
+    for size in [(1920, 1080), (1366, 768), (1360, 768), (1280, 720), (1024, 768)]:
+        img = good("installed", size)
+        c = gc.text_center(img, 2)
+        assert c is not None and abs(c - size[0] / 2) <= 3, (size, c)
+        assert abs(gc.bar_fraction(img, size) - 0.6) < 0.03, size
+
+
+def test_a_menu_whose_bottom_is_cut_off_is_refused_at_a_small_size():
+    # the old 1080p layout drawn on a 720-line screen: the hint and the countdown fall off the bottom
+    img = good("installed", (1280, 720))
+    from PIL import ImageDraw
+    ImageDraw.Draw(img).rectangle((0, 560, 1280, 720), fill=INK)
+    r = gc.check_menu(img, rows=4)
+    assert not r.ok, r.problems
