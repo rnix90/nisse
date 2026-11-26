@@ -48,10 +48,24 @@ fun refresh() {
 }
 Plymouth.SetRefreshFunction(refresh);
 
+# --- the words: set in Nunito (the dracut module of this package puts the theme's Nunito where Plymouth's text plugin reads its one
+# font) and always closed with punctuation: a sentence ends with a full stop, a question mark, an exclamation mark or a colon, and
+# the text that arrives (from systemd, a service, the disk prompt) is given a full stop when it has none.
+word_font = "Nunito " + Math.Int(18 * scale);
+fun close_sentence(text) {
+    length = String(text).Length();
+    if (length == 0)
+        return text;
+    last = String(text).CharAt(length - 1);
+    if (last == "." || last == "!" || last == "?" || last == ":")
+        return text;
+    return text + ".";
+}
+
 # --- a line of words under the bar (a message such as "Checking the disk"), in the muted text color
 message_sprite = Sprite();
 fun show_message(text) {
-    image = Image.Text(text, 0.667, 0.694, 0.741);
+    image = Image.Text(close_sentence(text), 0.667, 0.694, 0.741, 1, word_font);
     message_sprite.SetImage(image);
     message_sprite.SetX(stage_x + 960 * scale - image.GetWidth() / 2);
     message_sprite.SetY(stage_y + 850 * scale);
@@ -77,7 +91,7 @@ for (i = 0; i < max_bullets; i++) {
 fun show_password(prompt, bullets) {
     bar_sprite.SetOpacity(0);
     field_sprite.SetOpacity(1);
-    image = Image.Text(prompt, 0.965, 0.949, 0.914);
+    image = Image.Text(close_sentence(prompt), 0.965, 0.949, 0.914, 1, word_font);
     prompt_sprite.SetImage(image);
     prompt_sprite.SetX(stage_x + 960 * scale - image.GetWidth() / 2);
     prompt_sprite.SetY(stage_y + 690 * scale);

@@ -37,8 +37,24 @@ LF = chr(10)
 
 def theme_files():
     """Every file the theme folder holds: the two written by hand and the pictures this tool draws."""
-    return (["nisse.plymouth", "nisse.script", "logo.png", "field.png", "bullet.png"]
+    return (["nisse.plymouth", "nisse.script", "Nunito-Regular.ttf", "logo.png", "field.png", "bullet.png"]
             + [f"bar-{i:02d}.png" for i in range(FRAMES)])
+
+
+NUNITO = ROOT / "assets" / "fonts" / "Nunito" / "Nunito[wght].ttf"
+
+
+def static_font(out):
+    """The Regular (400) instance of the Nunito variable font, for the boot screen's words (N-501a). Plymouth's text plugin loads
+    one font file and cannot choose a weight; the variable file's own default is ExtraLight (200). Nunito declares no Reserved Font
+    Name, so a derived instance is allowed; the license (OFL.txt) ships with the package."""
+    from fontTools.ttLib import TTFont
+    from fontTools.varLib import instancer
+    font = instancer.instantiateVariableFont(TTFont(str(NUNITO)), {"wght": 400}, updateFontNames=True)
+    out = pathlib.Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    font.save(str(out / "Nunito-Regular.ttf"))
+    return out / "Nunito-Regular.ttf"
 
 
 def _svg(w, h, body):
@@ -79,6 +95,7 @@ def render_all(out):
     from playwright.sync_api import sync_playwright
     out = pathlib.Path(out)
     out.mkdir(parents=True, exist_ok=True)
+    static_font(out)
     with sync_playwright() as p:
         browser = p.chromium.launch()
         for name, (svg, (pw, ph)) in pictures().items():

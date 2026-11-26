@@ -151,6 +151,41 @@ def test_what_the_normal_screen_hides_the_password_screen_shows_again():
     assert "bar_sprite" in re.findall(r"(\w+_sprite)\.SetOpacity\(1\)", body("show_normal")), "the normal screen must show the bar again"
 
 
+def test_the_theme_carries_a_static_regular_nunito():
+    """Plymouth's text plugin loads one font file and cannot choose a weight, and Nunito's variable file starts at ExtraLight (200),
+    so the theme carries a static Regular instance (N-501a)."""
+    from fontTools.ttLib import TTFont
+    assert "Nunito-Regular.ttf" in plymouth_theme.theme_files()
+    f = TTFont(THEME / "Nunito-Regular.ttf")
+    assert "fvar" not in f, "a variable font would show its ExtraLight default"
+    assert f["OS/2"].usWeightClass == 400
+    assert "Nunito" in {n.toUnicode() for n in f["name"].names if n.nameID == 1}
+
+
+def test_every_text_the_script_draws_is_set_in_nunito():
+    s = (THEME / "nisse.script").read_text(encoding="ascii")
+    calls = re.findall(r"Image\.Text\(.*\);", s)
+    assert len(calls) == 2, calls          # the message line and the password prompt
+    assert 'word_font = "Nunito ' in s, "the font of the words must name Nunito"
+    for c in calls:
+        assert "word_font" in c, f"set in Plymouth's default font: {c}"
+
+
+def test_the_message_and_the_prompt_are_closed_with_punctuation():
+    """Bert (N-501a): a sentence we write ends with punctuation. A text that already ends with . ! ? or : is left alone; any other
+    gets a full stop. The words come from whatever starts the message, so the theme does it, once, for both lines."""
+    s = (THEME / "nisse.script").read_text(encoding="ascii")
+    def function_body(name):
+        start = s.index(f"fun {name}(")
+        return s[start:s.index(chr(10) + "}", start)]
+
+    body = function_body("close_sentence")
+    for mark in ('"."', '"!"', '"?"', '":"'):
+        assert mark in body, f"close_sentence does not know {mark}"
+    for fn in ("show_message", "show_password"):
+        assert "close_sentence(" in function_body(fn), f"{fn} does not close its sentence"
+
+
 def test_the_script_never_shows_a_percentage():
     s = (THEME / "nisse.script").read_text(encoding="ascii")
     assert "SetBootProgressFunction" not in s, "the bar is not a measure: nothing here may pretend to know how far boot is"

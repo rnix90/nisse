@@ -27,6 +27,9 @@ fi
 o="$w/overlay"
 mkdir -p "$o/usr/share/plymouth/themes" "$o/usr/lib64/plymouth" "$o/etc/plymouth"
 cp -a "$theme" "$o/usr/share/plymouth/themes/nisse"
+# the words' font: in a real initramfs the nisse-plymouth dracut module does this (it replaces the link to the system font)
+mkdir -p "$o/usr/share/fonts"
+cp -a "$theme/Nunito-Regular.ttf" "$o/usr/share/fonts/Plymouth.ttf"
 cp -a /usr/lib64/plymouth/script.so "$o/usr/lib64/plymouth/script.so"
 printf '[Daemon]\nTheme=nisse\nShowDelay=0\nDeviceTimeout=8\n' > "$o/etc/plymouth/plymouthd.conf"
 # the plugin's libraries the initramfs does not have yet. They go under usr/lib64: /lib64 is a symlink there, and an archive entry
@@ -49,7 +52,7 @@ cat /run/plymouth-debug.log > /dev/ttyS0 2>&1
 echo "=== end ===" > /dev/ttyS0
 plymouth display-message --text="Checking the disk"
 sleep 10
-plymouth ask-for-password --prompt="Enter the password for your disk" --number-of-tries=1 > /dev/null 2>&1 &
+plymouth ask-for-password --prompt="Enter the password for your disk:" --number-of-tries=1 > /dev/null 2>&1 &
 sleep 12
 EOF
     chmod 0755 "$o/usr/libexec/nisse-plymouth-probe"

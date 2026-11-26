@@ -16,3 +16,13 @@ done
 theme="$(lsinitrd -f etc/plymouth/plymouthd.conf "$initrd" 2>/dev/null | sed -n 's/^Theme=//p')"
 [ "$theme" = nisse ] || { echo "FAIL: the initramfs's Plymouth config names '${theme:-no theme}', not nisse" >&2; exit 1; }
 echo "ok   the initramfs has the nisse theme, its script plugin and a config that names it"
+# N-501a: the one font Plymouth's text plugin reads (it has no font search) is the theme's Nunito, not the system default
+here="$(cd "$(dirname "$0")/../.." && pwd)"
+want="$(sha256sum "$here/assets/art/plymouth/nisse/Nunito-Regular.ttf" | cut -d' ' -f1)"
+# dracut stores the same file under two names as a hard link, and an archive keeps the data with only one of the names (the other
+# reads as empty), so both names are unpacked together and the file is read from the unpacked copy
+unp="$(mktemp -d)"; trap 'rm -f "$list"; rm -rf "$unp"' EXIT
+(cd "$unp" && lsinitrd --unpack -f usr/share/fonts/Plymouth.ttf -f usr/share/plymouth/themes/nisse/Nunito-Regular.ttf "$initrd" >/dev/null 2>&1) || true
+have="$(sha256sum "$unp/usr/share/fonts/Plymouth.ttf" 2>/dev/null | cut -d' ' -f1)"
+[ "$want" = "$have" ] || { echo "FAIL: the initramfs's /usr/share/fonts/Plymouth.ttf is not the theme's Nunito (Plymouth would set its words in the system default font)" >&2; exit 1; }
+echo "ok   the boot screen's words are set in the theme's Nunito"

@@ -46,8 +46,13 @@ it: the pictures are drawn by `tools/art/plymouth_theme.py` from the same pieces
   shrunk to half, matches the same mock).
 - **Also drawn:** a muted message line under the bar (a message such as "Checking the disk") and the password prompt for an encrypted
   disk (the prompt, the same pill as the field, one Ember dot per typed character), so an encrypted disk never meets a blank screen.
-  The words use Plymouth's default font: Nunito is not in the initramfs. Open point: put Nunito into the initramfs only if Bert
-  wants those two lines in the brand font.
+  The words are set in **Nunito** (N-501a, Bert's call) and always end with punctuation (Bert: a sentence we write ends with
+  punctuation): `close_sentence` in the script leaves a text that already ends with . ! ? or : alone and gives any other a full stop.
+  Plymouth's text plugin has no font search: it reads one fixed file, `/usr/share/fonts/Plymouth.ttf`, which dracut's own
+  `plymouth-populate-initrd` makes a link to the system's default font. The package's dracut module (`46nisse-plymouth`, with
+  `50-nisse-plymouth.conf` asking for it) removes that link and puts the theme's Nunito there. The theme carries a static Regular
+  instance (`Nunito-Regular.ttf`, made by `tools/art/plymouth_theme.py`) because the variable file's own default is ExtraLight and
+  the plugin cannot pick a weight; Nunito declares no Reserved Font Name, and its OFL.txt ships in the package.
 - **How it becomes the default:** a first install of `nisse-plymouth` runs `plymouth-set-default-theme nisse` (it writes
   `/etc/plymouth/plymouthd.conf`; an upgrade leaves a theme the administrator chose alone). The scriptlet does not rebuild the
   initramfs: the image build (kiwi runs dracut) and the installer's initramfs build read the setting. Proven with dracut here: an
@@ -61,7 +66,11 @@ it: the pictures are drawn by `tools/art/plymouth_theme.py` from the same pieces
 - **How it was seen** without a 33-minute rebuild: `tools/vm/plymouth_overlay.sh` adds the theme to the live ISO's own initramfs,
   `tools/vm/plymouth_boot.sh` boots it headless and photographs the screen, and `tools/vm/plymouth_check.py` judges the photos against
   the mock (the bar's inside excepted) and the password screen (prompt, field, one dot per typed character). Take photos a few seconds
-  apart that are NOT a multiple of two (the loop is two seconds, so photos two seconds apart show the same frame).
+  apart that are NOT a multiple of two (the loop is two seconds, so photos two seconds apart show the same frame). Under this
+  emulator Plymouth's graphics renderer sometimes fails to start ("Could not initialize heads" in its debug log, `plymouth.debug=
+  stream:/dev/ttyS0` shows it) and the screen then shows Plymouth's grey text theme: about half the boots here. That is the renderer,
+  before any theme loads; repeat the boot until the Ink screen draws. dracut stores the font under two names as a hard link, and an
+  archive keeps the data with only one of them, so `tests/iso/plymouth_initrd_check.sh` unpacks both names before it compares.
 - **After the next ISO rebuild:** `tests/iso/test_iso_contents.sh` (the boot screen block), then
   `tools/vm/plymouth_overlay.sh ISO DIR --plain`, `tools/vm/plymouth_boot.sh` and `tools/vm/plymouth_check.py boot` on the rebuilt ISO's
   own initramfs, and the same initramfs check (`tests/iso/plymouth_initrd_check.sh`) on an installed disk's initramfs.

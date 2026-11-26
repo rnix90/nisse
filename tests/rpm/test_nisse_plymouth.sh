@@ -27,13 +27,19 @@ while read -r f; do
     n=$((n + 1))
 done <<< "$want"
 [ "$n" -ge 50 ] || fail "expected the theme files and 48 bar frames, found $n names"
-extra="$(printf '%s\n' "$files" | grep -vxF "$base" | grep -vF "$base/" | grep -v '^/usr/share/licenses/' || true)"
+# the boot screen's font (N-501a): a dracut module puts the theme's Nunito where Plymouth's text plugin reads its one font, and the
+# font's license travels with the package
+for f in /usr/lib/dracut/modules.d/46nisse-plymouth/module-setup.sh /usr/lib/dracut/dracut.conf.d/50-nisse-plymouth.conf \
+         /usr/share/licenses/nisse-plymouth/OFL.txt; do
+    printf '%s\n' "$files" | grep -qxF "$f" || fail "RPM lacks $f"
+done
+extra="$(printf '%s\n' "$files" | grep -vxF "$base" | grep -vF "$base/" | grep -v '^/usr/share/licenses/' | grep -v '^/usr/lib/dracut/' || true)"
 [ -z "$extra" ] || fail "the RPM owns more than the theme folder: $extra"
 printf '%s\n' "$files" | grep -qx '/usr/share/plymouth/themes' && fail "must not own /usr/share/plymouth/themes"
 echo "ok   all $n theme files are in the package and nothing else"
 
 reqs="$(rpm -qp --requires "$rpmf")"
-for r in plymouth plymouth-scripts plymouth-plugin-script; do
+for r in plymouth plymouth-scripts plymouth-plugin-script dracut; do
     printf '%s\n' "$reqs" | grep -qxE "$r( .*)?" || fail "must require $r"
 done
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpmf")" = "GPL-2.0-or-later" ] || fail "License must be GPL-2.0-or-later"
