@@ -58,12 +58,51 @@ def _rgb(name):
 
 def font_names():
     """The font names theme.txt asks for (grub2-mkfont names a font '<family> <style> <size>')."""
-    return [f"Nunito Regular {ITEM_SIZE}", f"Nunito Bold {ITEM_SIZE}", f"Nunito Regular {COUNTDOWN_SIZE}", f"Nunito Regular {HINT_SIZE}"]
+    return [f"Nunito Regular {ITEM_SIZE}", f"Nunito SemiBold Regular {ITEM_SIZE}", f"Nunito Regular {COUNTDOWN_SIZE}", f"Nunito Regular {HINT_SIZE}"]
+
+
+TEXT_W = ROW_W - 2 * ROW_BORDER      # the room for a row's words: GRUB starts the text one border in from the row's left edge
+_ADV = {}
+
+
+def advance(text, weight="Regular"):
+    """The width in px of text at the menu's font size (32), from the static Nunito file's advance widths (the model N-502c checked
+    against what FreeType draws and what GRUB's .pf2 shows, to within the glyph side bearings)."""
+    from fontTools.ttLib import TTFont
+    if weight not in _ADV:
+        f = TTFont(str(OUT / f"Nunito-{weight}.ttf"))
+        _ADV[weight] = (f.getBestCmap(), f["hmtx"], f["head"].unitsPerEm)
+    cmap, hmtx, upm = _ADV[weight]
+    # grub2-mkfont stores every glyph's advance as a whole number of px (checked on photos: a Regular and a SemiBold space are 8, a Bold one is 9, which made a padded Bold row sit 20 px off)
+    return sum(round(hmtx[cmap[ord(c)]][0] * ITEM_SIZE / upm) for c in text)
+
+
+def pad_count(title):
+    """How many spaces in front of title center it in the row. GRUB's boot_menu has no alignment property, so a row's words are
+    centered by padding the title. The selected row is SemiBold and the others Regular (a bit narrower; SemiBold is the heaviest weight whose space is still 8 px, as Regular's, so the padding means the same in both), so the count is the one whose
+    worst miss over both weights is the smallest (a space is about 8 px, so a row is never off by more than about 8 px)."""
+    ideal = [(TEXT_W - advance(title, w)) / 2 / advance(" ", w) for w in ("Regular", "SemiBold")]
+    start = round(sum(ideal) / 2)
+    best = min(range(max(0, start - 3), start + 4), key=lambda n: max(abs(_miss(n, title, w)) for w in ("Regular", "SemiBold")))
+    return best
+
+
+def _miss(n, title, weight):
+    return advance(" " * n, weight) + advance(title, weight) / 2 - TEXT_W / 2
+
+
+def padded(title):
+    return " " * pad_count(title) + title
+
+
+def center_error(title, weight="Regular"):
+    """How far (px, positive is right) the padded title's center is from the row's center, in the given weight."""
+    return _miss(pad_count(title), title, weight)
 
 
 def theme_files():
     """Every file of the theme folder."""
-    files = ["theme.txt", "Nunito-Regular.ttf", "Nunito-Bold.ttf", "logo.png", "bartrack.png"]
+    files = ["theme.txt", "Nunito-Regular.ttf", "Nunito-SemiBold.ttf", "logo.png", "bartrack.png"]
     for prefix in ("select", "bar", "barhl"):
         files += [f"{prefix}_{p}.png" for p in NINE]
     return files
@@ -196,6 +235,13 @@ def static_font(out, weight, style):
     from fontTools.ttLib import TTFont
     from fontTools.varLib import instancer
     font = instancer.instantiateVariableFont(TTFont(str(NUNITO)), {"wght": weight}, updateFontNames=True)
+    # GRUB names a font from its family and style: 'Nunito' and the style, whatever the weight's own naming says
+    name = font["name"]
+    for nid in (16, 17, 21, 22, 25):
+        name.removeNames(nameID=nid)
+    for nid, value in ((1, "Nunito"), (2, style), (4, f"Nunito {style}"), (6, f"Nunito-{style}")):
+        name.setName(value, nid, 3, 1, 0x409)
+        name.setName(value, nid, 1, 0, 0)
     path = pathlib.Path(out) / f"Nunito-{style}.ttf"
     font.save(str(path))
     return path
@@ -208,7 +254,7 @@ def render_all(out):
     for name, img in pictures().items():
         img.save(out / name, optimize=False)
     static_font(out, 400, "Regular")
-    static_font(out, 700, "Bold")
+    static_font(out, 600, "SemiBold")
     return out
 
 

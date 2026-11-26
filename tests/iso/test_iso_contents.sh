@@ -505,7 +505,7 @@ rpmq -q nisse-grub-theme >/dev/null || fail "nisse-grub-theme is not installed i
 grub_dir="$(mktemp -d)"
 xorriso -osirrox on -indev "$iso" -extract /boot/grub2 "$grub_dir/grub2" >/dev/null 2>&1 || true
 theme="$grub_dir/grub2/themes/nisse"
-for f in theme.txt logo.png bartrack.png select_nw.png select_c.png bar_nw.png barhl_c.png unicode.pf2 nunito-regular-32.pf2 nunito-bold-32.pf2          nunito-regular-26.pf2 nunito-regular-22.pf2; do
+for f in theme.txt logo.png bartrack.png select_nw.png select_c.png bar_nw.png barhl_c.png unicode.pf2 nunito-regular-32.pf2 nunito-semibold-regular-32.pf2          nunito-regular-26.pf2 nunito-regular-22.pf2; do
     [ -s "$theme/$f" ] || { rm -rf "$grub_dir"; fail "the ISO lacks /boot/grub2/themes/nisse/$f (N-502)"; }
 done
 python3 - "$theme" <<'PY' || { rm -rf "$grub_dir"; fail "theme.txt names a picture or font that is not on the ISO (N-502)"; }
@@ -521,8 +521,8 @@ for font in re.findall(r'(?:font|item_font|selected_item_font)\s*[:=]\s*"(Nunito
 PY
 cfg="$grub_dir/grub2/grub.cfg"
 [ -f "$cfg" ] || { rm -rf "$grub_dir"; fail "no /boot/grub2/grub.cfg on the ISO (N-502)"; }
-for entry in 'menuentry "nisse"' 'submenu "More Ways to Start"' 'menuentry "Check This Media and Start nisse"' 'menuentry "Start nisse in Basic Graphics Mode"'; do
-    grep -qF "$entry" "$cfg" || { rm -rf "$grub_dir"; fail "the ISO's menu lacks $entry (N-502)"; }
+for entry in 'menuentry " *nisse" ' 'submenu " *More Ways to Start"' 'menuentry " *Check This Media and Start nisse"' 'menuentry " *Start nisse in Basic Graphics Mode"'; do
+    grep -qE "$entry" "$cfg" || { rm -rf "$grub_dir"; fail "the ISO's menu lacks $entry (N-502)"; }
 done
 grep -q '^set default="0"' "$cfg" || { rm -rf "$grub_dir"; fail "the ISO's default menu entry is not the first, nisse (N-502)"; }
 grep -q 'boot/grub2/themes/nisse' "$cfg" && grep -q 'set theme=' "$cfg" || { rm -rf "$grub_dir"; fail "the ISO's menu does not load the nisse theme (N-502)"; }

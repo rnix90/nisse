@@ -27,7 +27,7 @@ if [ -f ${prefix}/themes/nisse/theme.txt ]; then
   insmod font
   loadfont ${prefix}/themes/nisse/unicode.pf2
   loadfont ${prefix}/themes/nisse/nunito-regular-32.pf2
-  loadfont ${prefix}/themes/nisse/nunito-bold-32.pf2
+  loadfont ${prefix}/themes/nisse/nunito-semibold-regular-32.pf2
   loadfont ${prefix}/themes/nisse/nunito-regular-26.pf2
   loadfont ${prefix}/themes/nisse/nunito-regular-22.pf2
 EOF

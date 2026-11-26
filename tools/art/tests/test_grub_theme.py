@@ -2,7 +2,7 @@
 """N-502: the committed GRUB theme folder that the nisse-grub-theme package installs. The pictures and theme.txt come from
 tools/art/grub_theme.py (the same Ember pieces as the approved boot mock, N-412); the static Nunito fonts sit next to them and are
 turned into GRUB's .pf2 format when the package is built. These tests keep the folder whole, palette-only and honest to the mock
-(redrawn in N-502 for what GRUB can do: left-aligned rows, a countdown line and bar).
+(redrawn in N-502 for what GRUB can do: a countdown line and bar; rows centered by padded titles, N-502c).
 
 Facts about GRUB the tests rely on, all verified in the N-502 spike (GRUB 2.12, BIOS and UEFI):
   * GRUB draws the first-listed component of theme.txt on top, so the countdown bar is listed before the picture of its track;
@@ -174,7 +174,7 @@ def test_the_logo_is_the_stacked_logo_230_wide_above_the_menu():
 
 def test_the_fonts_are_static_nunito_regular_and_bold_and_theme_txt_asks_only_for_them():
     from fontTools.ttLib import TTFont
-    for name, weight in (("Nunito-Regular.ttf", 400), ("Nunito-Bold.ttf", 700)):
+    for name, weight in (("Nunito-Regular.ttf", 400), ("Nunito-SemiBold.ttf", 600)):
         f = TTFont(str(THEME / name))
         assert "fvar" not in f, f"{name} must be a static instance (GRUB cannot pick a weight)"
         assert f["OS/2"].usWeightClass == weight
@@ -183,7 +183,7 @@ def test_the_fonts_are_static_nunito_regular_and_bold_and_theme_txt_asks_only_fo
     # the editor and the command line (E, C) draw in GRUB's own terminal font, Unifont, which has the box-drawing characters
     assert asked == set(grub_theme.font_names()) | {grub_theme.TERMINAL_FONT}, asked
     for n in asked - {grub_theme.TERMINAL_FONT}:
-        assert re.fullmatch(r"Nunito (Regular|Bold) \d+", n), n
+        assert re.fullmatch(r"Nunito (Regular|SemiBold Regular) \d+", n), n
 
 
 def test_the_mock_is_what_the_theme_draws():
@@ -195,8 +195,8 @@ def test_the_mock_is_what_the_theme_draws():
     live = boot_mocks.grub_menu_svg("live")
     assert ">Start from Earlier Snapshots<" not in live and ">More Ways to Start<" in live and ">Computer Settings<" in live
     assert f'width="{grub_theme.ROW_W}" height="{grub_theme.ROW_H}"' in svg
-    # the rows are left-aligned like GRUB's: the label's text-anchor is start
-    assert 'text-anchor="start"' in svg
+    # the rows are centered (N-502c): the words sit in the middle of the screen
+    assert 'text-anchor="start"' not in svg
 
 
 def test_the_texts_follow_the_naming_and_wording_rules():
@@ -216,3 +216,67 @@ def test_the_files_are_ascii_and_the_generator_makes_the_committed_folder(tmp_pa
     assert (tmp_path / "theme.txt").read_text(encoding="ascii") == theme_text()
     for p in tmp_path.glob("*.png"):
         assert p.read_bytes() == (THEME / p.name).read_bytes(), f"{p.name} differs from the committed copy: rerun tools/art/grub_theme.py"
+
+
+# ---- N-502c: the rows are centered by padding their titles (GRUB's menu has no alignment property)
+
+FIXED_TITLES = ["nisse", "Computer Settings", "More Ways to Start", "Start from Earlier Snapshots", "Go Back to the Last Good Version",
+                "Check This Media and Start nisse", "Start nisse in Basic Graphics Mode", "Start nisse with a Serial Console"]
+
+
+def test_the_font_width_model_matches_what_freetype_draws():
+    """The padding is worked out from the font's advance widths; check them against PIL/FreeType drawing the same text (the ink is
+    narrower than the advance by the side bearings, a few px at most)."""
+    from PIL import ImageFont
+    for weight, name in (("Regular", "Nunito-Regular.ttf"), ("SemiBold", "Nunito-SemiBold.ttf")):
+        font = ImageFont.truetype(str(THEME / name), 32)
+        for title in FIXED_TITLES:
+            left, _t, right, _b = font.getbbox(title)
+            ink = right - left
+            adv = grub_theme.advance(title, weight)
+            assert -8 <= adv - ink <= 14, (weight, title, adv, ink)
+
+
+def test_every_fixed_title_is_centered_within_a_space_or_so_in_both_weights():
+    for title in FIXED_TITLES:
+        for weight in ("Regular", "SemiBold"):
+            assert abs(grub_theme.center_error(title, weight)) <= 12, (title, weight, grub_theme.center_error(title, weight))
+
+
+def test_padded_titles_are_ascii_spaces_then_the_words_and_fit_the_row():
+    for title in FIXED_TITLES:
+        p = grub_theme.padded(title)
+        assert p.endswith(title) and p[: len(p) - len(title)] == " " * grub_theme.pad_count(title) and p.isascii()
+        assert grub_theme.advance(p, "SemiBold") <= grub_theme.TEXT_W, title
+    assert grub_theme.pad_count("nisse") > grub_theme.pad_count("Computer Settings") > grub_theme.pad_count("More Ways to Start") - 1
+
+
+def test_the_live_menu_template_uses_the_padded_titles():
+    text = (ROOT / "build/kiwi/nisse/grub-x86.cfg.iso-template").read_text(encoding="ascii")
+    titles = re.findall(r'(?:menuentry|submenu) "([^"]*)"', text)
+    assert titles
+    for t in titles:
+        assert t == grub_theme.padded(t.strip()), f"title not centered: {t!r} (expected {grub_theme.padded(t.strip())!r})"
+
+
+def test_the_installed_menu_snippets_use_the_padded_titles():
+    for rel, want in (("packaging/rpm/nisse-boot/30_nisse_firmware", "Computer Settings"), ("packaging/rpm/nisse-boot/35_nisse_more_ways", "More Ways to Start"),
+                      ("packaging/rpm/nisse-boot/11_nisse_snapshots", "Start from Earlier Snapshots"),
+                      ("packaging/rpm/nisse-boot/11_nisse_snapshots", "Go Back to the Last Good Version")):
+        text = (ROOT / rel).read_text(encoding="ascii")
+        assert f"'{grub_theme.padded(want)}'" in text, f"{rel}: {want} is not centered"
+
+
+def test_the_main_kernel_row_is_padded_with_no_break_spaces_because_the_boot_loader_spec_strips_spaces():
+    """GRUB's BootLoaderSpec parser drops every space or tab after the key, so the title of the main row (a BLS file) is padded with
+    U+00A0, written as an escape so the script stays ASCII."""
+    text = (ROOT / "packaging/rpm/nisse-boot/nisse-boot").read_text(encoding="ascii")
+    m = re.search(r"^main_pad=(\d+)$", text, re.M)
+    assert m and int(m.group(1)) == grub_theme.pad_count("nisse")
+    assert chr(92) + "302" + chr(92) + "240" in text
+
+
+def test_the_mock_rows_are_centered():
+    svg = boot_mocks.grub_menu_svg("installed")
+    assert 'text-anchor="start"' not in svg
+    assert svg.count(f'x="{boot_mocks.W / 2}"') >= 4

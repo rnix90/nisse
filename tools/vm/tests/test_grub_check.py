@@ -100,3 +100,30 @@ def test_the_countdown_fill_is_measured():
 
 def test_the_command_line_wants_a_photo_or_two():
     assert gc.main([]) == 64
+
+
+# ---- N-502c: the words of every row are centered
+
+def test_the_mock_rows_are_centered_for_the_checker():
+    img = good("installed")
+    for i in range(4):
+        c = gc.text_center(img, i)
+        assert c is not None and abs(c - 960) <= 3, (i, c)
+
+
+def test_a_row_whose_words_sit_to_the_left_is_refused():
+    img = good("live")
+    box = gc.row_box(1)
+    strip = img.crop((box[0] + 20, box[1] + 10, box[2] - 20, box[3] - 10))
+    ImageDraw.Draw(img).rectangle((box[0] + 20, box[1] + 10, box[2] - 20, box[3] - 10), fill=INK)
+    img.paste(strip, (box[0] + 20 - 160, box[1] + 10))
+    r = gc.check_menu(img, rows=3)
+    assert not r.ok and any("centered" in p for p in r.problems), r.problems
+
+
+def test_a_row_with_the_words_a_few_pixels_off_is_still_accepted():
+    img = good("live")
+    box = gc.row_box(1)
+    strip = img.crop((box[0] + 20, box[1] + 10, box[2] - 20, box[3] - 10))
+    img.paste(strip, (box[0] + 20 - 10, box[1] + 10))
+    assert gc.check_menu(img, rows=3).ok

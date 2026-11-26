@@ -134,9 +134,9 @@ def frame(body, bg):
 # ---- the surfaces
 
 def grub_menu_svg(kind="installed"):
-    """The GRUB menu as the nisse theme draws it (N-502, redrawn after the spike: GRUB cannot center the text of a row, so the rows
-    read left-aligned). The geometry is the theme's (tools/art/grub_theme.py). 'installed' has the snapshots row; 'live' (the ISO) has
-    only nisse, Computer Settings and More Ways to Start. The countdown line and bar are the timeout's."""
+    """The GRUB menu as the nisse theme draws it (N-502; the rows are centered by padding their titles, N-502c). The geometry is
+    the theme's (tools/art/grub_theme.py). 'installed' has the snapshots row; 'live' (the ISO) has only nisse, Computer Settings and
+    More Ways to Start. The countdown line and bar are the timeout's."""
     import grub_theme as gt
     b = [lockup(W / 2, gt.LOGO_TOP, gt.LOGO_W)]
     rows = ["nisse", "Start from Earlier Snapshots", "Computer Settings", "More Ways to Start"]
@@ -147,9 +147,9 @@ def grub_menu_svg(kind="installed"):
         y = gt.ROWS_TOP + i * gt.ROW_PITCH
         if i == 0:
             b.append(f'<rect x="{x}" y="{y}" width="{gt.ROW_W}" height="{gt.ROW_H}" rx="{gt.ROW_BORDER}" fill="{d("accent")}"/>')
-            b.append(text(x + 28, y + 45, label, 32, d("on-accent"), 700, anchor="start"))
+            b.append(text(W / 2, y + 45, label, 32, d("on-accent"), 600))
         else:
-            b.append(text(x + 28, y + 45, label, 32, d("text"), 400, anchor="start"))
+            b.append(text(W / 2, y + 45, label, 32, d("text"), 400))
     b.append(text(W / 2, 818, gt.COUNTDOWN.replace("%d", "4"), 26, d("text-muted")))
     b.append(countdown_bar(W / 2, gt.BAR_TOP + gt.BAR_H / 2, gt.BAR_W, 0.6, h=gt.BAR_H))
     b.append(text(W / 2, 1019, gt.HINT, 22, d("text-muted")))

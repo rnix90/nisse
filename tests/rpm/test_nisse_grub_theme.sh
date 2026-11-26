@@ -88,7 +88,7 @@ inst="$tmp/usr/libexec/nisse/nisse-grub-theme-install"
 sh -n "$inst" || fail "the install step has a syntax error"
 sandbox="$tmp/sandbox"; mkdir -p "$sandbox/boot"
 NISSE_GRUB_THEME_SRC="$tmp$base" NISSE_BOOT_DIR="$sandbox/boot" sh "$inst" || fail "the install step failed"
-for f in theme.txt logo.png unicode.pf2 nunito-bold-32.pf2 select_nw.png; do
+for f in theme.txt logo.png unicode.pf2 nunito-semibold-regular-32.pf2 select_nw.png; do
     cmp -s "$tmp$base/$f" "$sandbox/boot/grub2/themes/nisse/$f" || fail "the install step did not copy $f to /boot/grub2/themes/nisse"
 done
 echo broken > "$sandbox/boot/grub2/themes/nisse/theme.txt"

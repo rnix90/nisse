@@ -196,6 +196,18 @@ cmd_sync() {
 # Fedora's own command builds the rows, so the root device, the options, the id that Fedora's saved default uses and the other keys are
 # the file's own. With no nisse-menu.cfg the stock list shows, so a missing or removed file never leaves a machine without kernel rows.
 
+# The main row is centered (N-502c): GRUB's menu cannot align text, so the title "nisse" is padded in front. GRUB's BootLoaderSpec
+# parser skips every space and tab after the key, so the padding is U+00A0 (no-break space), written here as its UTF-8 bytes to keep
+# this file ASCII. main_pad is what tools/art/grub_theme.py works out for the title (a test keeps them equal).
+main_pad=39
+padding() {
+    n="$1"
+    while [ "$n" -gt 0 ]; do
+        printf '\302\240'
+        n=$((n - 1))
+    done
+}
+
 # The text a copy of a BootLoaderSpec file gets for its title, and the file with that title: $1 source, $2 title, $3 destination.
 copy_with_title() {
     {
@@ -247,7 +259,7 @@ cmd_menu() {
     while IFS="$(printf '\t')" read -r rescue version id; do
         n=$((n + 1))
         if [ "$n" = 1 ]; then
-            copy_with_title "$bls_dir/$id.conf" nisse "$new_main/$id.conf"
+            copy_with_title "$bls_dir/$id.conf" "$(padding "$main_pad")nisse" "$new_main/$id.conf"
         elif [ "$rescue" = 1 ]; then
             copy_with_title "$bls_dir/$id.conf" "Start nisse in Rescue Mode" "$new_more/$id.conf"
         else

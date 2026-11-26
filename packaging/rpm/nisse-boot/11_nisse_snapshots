@@ -11,13 +11,13 @@
 # 09_nisse_menu's kernel row, so the snapshots are listed right below nisse (the words are the approved boot menu's, N-502).
 cat << 'EOF'
 if [ -f ${prefix}/nisse-boot.cfg ]; then
-  submenu 'Start from Earlier Snapshots' --id nisse-snapshots {
+  submenu '                  Start from Earlier Snapshots' --id nisse-snapshots {
     source ${prefix}/nisse-boot.cfg
   }
 fi
 if [ -f ${prefix}/nisse-rollback.cfg ]; then
   source ${prefix}/nisse-rollback.cfg
-  menuentry 'Go Back to the Last Good Version' --id nisse-rollback {
+  menuentry '              Go Back to the Last Good Version' --id nisse-rollback {
     insmod gzio
     linux ${nisse_rb_linux} ${nisse_rb_options}
     initrd ${nisse_rb_initrd}

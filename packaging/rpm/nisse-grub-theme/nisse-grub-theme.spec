@@ -32,7 +32,8 @@ src=%{nisse_root}/assets/art/grub/nisse
 grub2-mkfont -s 32 -o fonts/nunito-regular-32.pf2 "$src/Nunito-Regular.ttf"
 grub2-mkfont -s 26 -o fonts/nunito-regular-26.pf2 "$src/Nunito-Regular.ttf"
 grub2-mkfont -s 22 -o fonts/nunito-regular-22.pf2 "$src/Nunito-Regular.ttf"
-grub2-mkfont -s 32 -o fonts/nunito-bold-32.pf2 "$src/Nunito-Bold.ttf"
+# grub2-mkfont names a font from its family and only Regular or Bold, so the SemiBold file gets its own family name
+grub2-mkfont -s 32 -n "Nunito SemiBold" -o fonts/nunito-semibold-regular-32.pf2 "$src/Nunito-SemiBold.ttf"
 
 %install
 mkdir -p licenses

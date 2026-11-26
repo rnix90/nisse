@@ -46,7 +46,7 @@ if [ -f $${nisse_theme}/theme.txt ]; then
 	insmod font
 	loadfont $${nisse_theme}/unicode.pf2
 	loadfont $${nisse_theme}/nunito-regular-32.pf2
-	loadfont $${nisse_theme}/nunito-bold-32.pf2
+	loadfont $${nisse_theme}/nunito-semibold-regular-32.pf2
 	loadfont $${nisse_theme}/nunito-regular-26.pf2
 	loadfont $${nisse_theme}/nunito-regular-22.pf2
 	terminal_input console
@@ -61,25 +61,25 @@ fi
 set timeout=${boot_timeout}
 set timeout_style=${boot_timeout_style}
 
-menuentry "nisse" --class nisse --class gnu-linux --class os --id nisse {
+menuentry "                                       nisse" --class nisse --class gnu-linux --class os --id nisse {
 	linux ($$root)${bootpath}/${kernel_file} ${boot_options}
 	initrd ($$root)${bootpath}/${initrd_file}
 }
 if [ "$$grub_platform" == "efi" ]; then
-	menuentry "Computer Settings" --class nisse --class gnu-linux --class os --id firmware {
+	menuentry "                           Computer Settings" --class nisse --class gnu-linux --class os --id firmware {
 		fwsetup
 	}
 fi
-submenu "More Ways to Start" --class nisse --class gnu-linux --class os --hotkey=m --id more {
-	menuentry "Check This Media and Start nisse" --class nisse --class gnu-linux --class os --id check {
+submenu "                          More Ways to Start" --class nisse --class gnu-linux --class os --hotkey=m --id more {
+	menuentry "              Check This Media and Start nisse" --class nisse --class gnu-linux --class os --id check {
 		linux ($$root)${bootpath}/${kernel_file} ${boot_options} rd.live.check
 		initrd ($$root)${bootpath}/${initrd_file}
 	}
-	menuentry "Start nisse in Basic Graphics Mode" --class nisse --class gnu-linux --class os --id basic {
+	menuentry "             Start nisse in Basic Graphics Mode" --class nisse --class gnu-linux --class os --id basic {
 		linux ($$root)${bootpath}/${kernel_file} ${boot_options} $${basicgfx}
 		initrd ($$root)${bootpath}/${initrd_file}
 	}
-	menuentry "Start nisse with the Serial Port as the Console" --class nisse --class gnu-linux --class os --hotkey=s --id serial {
+	menuentry "               Start nisse with a Serial Console" --class nisse --class gnu-linux --class os --hotkey=s --id serial {
 		linux ($$root)${bootpath}/${kernel_file} ${boot_options} console=ttyS0 plymouth.ignore-serial-consoles
 		initrd ($$root)${bootpath}/${initrd_file}
 	}

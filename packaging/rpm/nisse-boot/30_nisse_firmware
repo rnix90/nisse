@@ -6,7 +6,7 @@
 cat << 'EOF'
 if [ "$grub_platform" = "efi" ]; then
 	if [ fwsetup --is-supported ]; then
-		menuentry 'Computer Settings' $menuentry_id_option 'uefi-firmware' {
+		menuentry '                           Computer Settings' $menuentry_id_option 'uefi-firmware' {
 			fwsetup
 		}
 	fi

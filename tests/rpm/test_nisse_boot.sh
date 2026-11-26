@@ -47,16 +47,16 @@ grep -q -- '--id nisse-snapshots' "$scratch/11_nisse_snapshots.cfg" && grep -q -
 grep -q 'linux ${nisse_rb_linux} ${nisse_rb_options}' "$scratch/11_nisse_snapshots.cfg" || fail "the rollback entry must start the kernel from variables"
 
 # the themed menu (N-502): 10_linux's one blscfg command is pointed at nisse's directory of kernel rows (Fedora's list is the fallback), the
-# firmware row is "Computer Settings", the older kernels are "More Ways to Start", and the snapshots row says what it is
+# firmware row is "Computer Settings" (the titles are padded with spaces to center them, N-502c), the older kernels are "More Ways to Start", and the snapshots row says what it is
 m="$scratch/09_nisse_menu.cfg"
 grep -q 'if \[ -f ${prefix}/nisse-menu.cfg \]' "$m" && grep -q 'source ${prefix}/nisse-menu.cfg' "$m" || fail "09_nisse_menu must source nisse's pointer file (it sets blsdir) only when the file is there, so the stock list is the fallback"
 grep -q 'function blscfg' "$m" && fail "09_nisse_menu must not define a function named blscfg (a GRUB command of that name wins over it: seen on an installed disk)"
-grep -q "submenu 'More Ways to Start'" "$scratch/35_nisse_more_ways.cfg" && grep -q -- '--hotkey=m' "$scratch/35_nisse_more_ways.cfg" && grep -q 'nisse-more.cfg' "$scratch/35_nisse_more_ways.cfg" || fail "35_nisse_more_ways lacks the More Ways to Start submenu"
+grep -qE "submenu ' *More Ways to Start'" "$scratch/35_nisse_more_ways.cfg" && grep -q -- '--hotkey=m' "$scratch/35_nisse_more_ways.cfg" && grep -q 'nisse-more.cfg' "$scratch/35_nisse_more_ways.cfg" || fail "35_nisse_more_ways lacks the More Ways to Start submenu"
 f="$scratch/30_nisse_firmware.cfg"
-grep -q "menuentry 'Computer Settings'" "$f" && grep -q 'fwsetup' "$f" && grep -q "'uefi-firmware'" "$f" || fail "30_nisse_firmware must offer Computer Settings (fwsetup) under Fedora's id uefi-firmware"
+grep -qE "menuentry ' *Computer Settings'" "$f" && grep -q 'fwsetup' "$f" && grep -q "'uefi-firmware'" "$f" || fail "30_nisse_firmware must offer Computer Settings (fwsetup) under Fedora's id uefi-firmware"
 grep -q "UEFI Firmware Settings" "$f" && fail "30_nisse_firmware still says UEFI Firmware Settings"
-grep -q "submenu 'Start from Earlier Snapshots'" "$scratch/11_nisse_snapshots.cfg" || fail "11_nisse_snapshots must name its submenu Start from Earlier Snapshots"
-grep -q "menuentry 'Go Back to the Last Good Version'" "$scratch/11_nisse_snapshots.cfg" || fail "11_nisse_snapshots must name the rollback entry Go Back to the Last Good Version"
+grep -qE "submenu ' *Start from Earlier Snapshots'" "$scratch/11_nisse_snapshots.cfg" || fail "11_nisse_snapshots must name its submenu Start from Earlier Snapshots"
+grep -qE "menuentry ' *Go Back to the Last Good Version'" "$scratch/11_nisse_snapshots.cfg" || fail "11_nisse_snapshots must name the rollback entry Go Back to the Last Good Version"
 grep -q "nisse snapshots\|nisse rollback boot" "$scratch"/*.cfg && fail "an old menu name is still in a snippet"
 # Fedora's own firmware snippet would add a second row: the package switches it off now and after every grub2-tools update
 scripts="$(rpm -qp --scripts "$rpmf"; rpm -qp --triggers "$rpmf" 2>/dev/null || true)"

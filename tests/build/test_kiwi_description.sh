@@ -116,14 +116,14 @@ live=build/kiwi/nisse/components/nisse-live.xml
 grep -q 'grub_template="nisse/grub-x86.cfg.iso-template"' "$live" && ok "nisse-live.xml uses the nisse menu template" || bad "nisse-live.xml does not use the nisse menu template"
 grep -q '<bootloader-theme>nisse</bootloader-theme>' "$live" && ok "kiwi is told to copy the nisse boot theme to the ISO" || bad "nisse-live.xml lacks <bootloader-theme>nisse</bootloader-theme>"
 grep -q '<package name="nisse-grub-theme"/>' "$live" && ok "Nisse-Live installs nisse-grub-theme" || bad "Nisse-Live lacks nisse-grub-theme"
-for entry in 'menuentry "nisse"' 'menuentry "Computer Settings"' 'submenu "More Ways to Start"' 'menuentry "Check This Media and Start nisse"' 'menuentry "Start nisse in Basic Graphics Mode"'; do
-    grep -qF "$entry" "$T" && ok "the menu has $entry" || bad "the menu lacks $entry"
+for entry in 'menuentry " *nisse" ' 'menuentry " *Computer Settings"' 'submenu " *More Ways to Start"' 'menuentry " *Check This Media and Start nisse"' 'menuentry " *Start nisse in Basic Graphics Mode"'; do
+    grep -qE "$entry" "$T" && ok "the menu has $entry (titles are padded to center them)" || bad "the menu lacks $entry"
 done
 if grep -qE 'menuentry "Start nisse"|menuentry "Test this media|submenu "Troubleshooting|-->' "$T"; then bad "the menu still has a stock Fedora-style entry or an arrow"; else ok "no stock entry names, no arrows"; fi
 grep -q 'set default="0"' "$T" && ok "the default entry is the first one, nisse" || bad "the default entry is not the first"
 grep -q -- '-f \$\${nisse_theme}/theme.txt' "$T" && ok "the theme is used only when it is on the media (else the plain text menu)" || bad "the template does not check that the theme is there"
 grep -q 'set gfxmode=1920x1080' "$T" && ok "GRUB is asked for 1920x1080 first" || bad "no gfxmode request"
-for f in unicode.pf2 nunito-regular-32.pf2 nunito-bold-32.pf2 nunito-regular-26.pf2 nunito-regular-22.pf2; do
+for f in unicode.pf2 nunito-regular-32.pf2 nunito-semibold-regular-32.pf2 nunito-regular-26.pf2 nunito-regular-22.pf2; do
     grep -q "loadfont .*/$f" "$T" && ok "the menu loads $f" || bad "the menu does not load $f"
 done
 # kiwi fills the template with Python's string.Template: a stray dollar sign (a comment that quotes the form, a bare variable) is an error there

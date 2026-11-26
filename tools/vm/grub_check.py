@@ -67,6 +67,22 @@ def _ember(p):
     return _near(p, EMBER, 20)
 
 
+def text_center(img, i):
+    """The middle (x) of the words in row i (the first row's are Ink on Ember, the others light on Ink), or None when there are none.
+    Only the part inside the row's rounded ends counts, so the Ember corners and the screen's edge do not."""
+    img = img.convert("RGB")
+    box = row_box(i)
+    inner = (box[0] + 16, box[1] + 6, box[2] - 16, box[3] - 6)
+    test = _words_on_ember if i == 0 else _words_on_ink
+    px = img.crop(inner).load()
+    w, h = inner[2] - inner[0], inner[3] - inner[1]
+    cols = [x for x in range(w) if any(test(px[x, y]) for y in range(h))]
+    return (min(cols) + max(cols)) / 2 + inner[0] if cols else None
+
+
+CENTER_TOLERANCE = 16     # px: a space is about 8 px and the selected row's Bold is wider than the others' Regular (N-502c)
+
+
 def bar_fraction(img):
     """How much of the countdown bar is filled (0 to 1), or None when there is no Ember run in it."""
     img = img.convert("RGB")
@@ -96,7 +112,7 @@ def check_menu(img, rows):
     share = _count(img, inside, _ember) / ((inside[2] - inside[0]) * (inside[3] - inside[1]))
     if share < 0.7:
         problems.append(f"the selected row (the first) is not an Ember box ({share * 100:.0f}% Ember, expected at least 70%)")
-    elif _count(img, (first[0] + 20, first[1] + 4, first[0] + 300, first[3] - 4), _words_on_ember) < 150:
+    elif _count(img, (SIZE[0] // 2 - 150, first[1] + 4, SIZE[0] // 2 + 150, first[3] - 4), _words_on_ember) < 150:
         problems.append("the selected row has no words in it (Ink on Ember)")
     if _ember(img.getpixel((first[0] + 1, first[1] + 1))):
         problems.append("the corners of the selected row are not rounded")
@@ -111,6 +127,10 @@ def check_menu(img, rows):
     for i in range(1, MAX_ROWS):
         if _count(img, row_box(i), _ember) > 40:
             problems.append(f"row {i + 1} is Ember, but only the first row may be selected")
+    for i in range(min(rows, MAX_ROWS)):
+        c = text_center(img, i)
+        if c is not None and abs(c - SIZE[0] / 2) > CENTER_TOLERANCE:
+            problems.append(f"the words of row {i + 1} are not centered (their middle is at x={c:.0f}, the screen's is {SIZE[0] // 2})")
     outside = 0
     full = img.load()
     boxes = [row_box(0), (TRACK_BOX[0], TRACK_BOX[1], TRACK_BOX[2], TRACK_BOX[3])]

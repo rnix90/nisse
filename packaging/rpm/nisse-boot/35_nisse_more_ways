@@ -4,7 +4,7 @@
 # read from /boot/grub2/nisse-more.cfg that nisse-boot menu writes (see 09_nisse_menu). No file, no row. Hotkey m opens it.
 cat << 'EOF'
 if [ -f ${prefix}/nisse-more.cfg ]; then
-  submenu 'More Ways to Start' --hotkey=m --id nisse-more {
+  submenu '                          More Ways to Start' --hotkey=m --id nisse-more {
     source ${prefix}/nisse-more.cfg
   }
 fi

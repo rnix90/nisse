@@ -16,7 +16,7 @@ terminal-font: "Unifont Regular 16"
     width = 732
     height = 336
     item_font = "Nunito Regular 32"
-    selected_item_font = "Nunito Bold 32"
+    selected_item_font = "Nunito SemiBold Regular 32"
     item_color = "#f6f2e9"
     selected_item_color = "#1b2330"
     icon_width = 0
