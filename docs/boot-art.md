@@ -24,7 +24,7 @@ animate the sliding blocks; Plymouth does. It works, so the bar stays on the GRU
 | `grub-menu`, `grub-menu-live`, `grub-menu-1366x768`, `-1360x768`, `-1280x720`, `-1024x768` | GRUB menu (N-502), installed system and live ISO; the other sizes are the same menu on smaller screens (N-502b); rows centered by padded titles (N-502c) | Ink background; the stacked logo with the name below, 200 px wide near the top; entries in plain words, the default as an Ember row with Ink text. Installed: **nisse**, **Start from Earlier Snapshots** (the snapshot menu of N-307), **Computer Settings** (the firmware entry) and **More Ways to Start** (the older kernels). Live ISO: **nisse**, **Computer Settings** (UEFI only) and **More Ways to Start** (check the media, basic graphics). The countdown line ("nisse starts in 4 s.") and bar, and a quiet hint "Press E to change how nisse starts.". No kernel versions, ids or options on the main screen (advanced ones stay one key away, Bert's 2026-11-15 note) |
 | `plymouth-boot`, `-early`, `-late` | Plymouth (N-501) | Ink; the stacked logo 300 wide, centered a little above the middle; the boot bar below it. Three frames show the blocks moving |
 | `splash-dark`, `splash-light` | Plasma splash after login (N-505) | solid Ink (or Paper on the light look); the nisse **n** with the tipped hat, 260 px, inside the comet ring (the N-404 spinner in Ember), centered. Nothing else |
-| `login-dark`, `login-light` | Login screen (N-503) | the wallpaper (Fjell Layers) under a 50% Ink (or Paper) veil; a round avatar (220 px), the user name, a password field, an Ember **Log in** pill with Ink text (the light look: brick with Paper); keyboard layout bottom left, the small logo bottom center, restart and shut down bottom right |
+| `login-dark` | Login screen (N-503) | what Plasma Login Manager really draws (redrawn 2026-11-26 after the VM look; Bert chose to keep Plasma's own greeter): the nisse wallpaper (Fjell Layers, dark) blurred, the clock and date, a round avatar with its ring, the user name, a password box with its eye and arrow, and Sleep, Restart, Shut Down and Other at the bottom. No Log In pill, no logo, no light version (the greeter has one look, the system default, dark) |
 | `lock-dark`, `lock-light` | Lock screen (N-504) | the wallpaper under a 50% veil; a large light-weight clock and the date, kept above the sun so they never cross it; the password field low in the screen; the small logo and name bottom left |
 | `logout-dark`, `logout-light` | Log out, restart, shut down (N-504) | the wallpaper under an 82% veil; "What would you like to do?"; three round buttons (Log out, Restart, Shut down, the default selected in Ember with an Ink icon); the countdown line and **Cancel** |
 
@@ -154,6 +154,35 @@ command wins over a function of the same name). What does: `blscfg` reads the di
 - **After the next ISO rebuild:** `tests/iso/test_iso_contents.sh` (the boot screen block), then
   `tools/vm/plymouth_overlay.sh ISO DIR --plain`, `tools/vm/plymouth_boot.sh` and `tools/vm/plymouth_check.py boot` on the rebuilt ISO's
   own initramfs, and the same initramfs check (`tests/iso/plymouth_initrd_check.sh`) on an installed disk's initramfs.
+
+## The login screen: built (N-503)
+
+**What Fedora 44 uses:** Plasma Login Manager 6.6.4 (`plasmalogin.service`, enabled by nisse-release; the notes were right). It is a fork of
+SDDM with a new greeter: a Plasma session of its own, run as the user `plasmalogin` (home `/var/lib/plasmalogin`), whose screen is QML compiled
+into `/usr/libexec/plasma-login-greeter`. Nothing in it can be re-laid-out without forking the package (Bert chose not to, 2026-11-26).
+
+**What nisse sets, and where:**
+- **Colors, font, icons, cursor: nothing to do.** The greeter reads `/etc/xdg/kdeglobals` like every Plasma session, so the NisseEmber colors, Nunito and
+  the nisse icons already show (seen in the VM before any login change; `docs/screenshots/n503-login-before-fedora-*.png`).
+- **Wallpaper:** `/usr/lib/plasmalogin/defaults.conf`, the distro defaults file the greeter reads under the administrator's `/etc/plasmalogin.conf`
+  (shipped by `nisse-lookandfeel` 0.2-6, source `assets/theme/plasmalogin/defaults.conf`): `[Greeter] WallpaperPluginId=org.kde.image` and
+  `[Greeter][Wallpaper][org.kde.image][General] Image=file:///usr/share/wallpapers/nisse`. The whole nisse wallpaper package is named, so the
+  dark picture of the right shape is chosen by the dark color scheme. **Not** `/usr/lib/plasmalogin/plasmalogin.conf.d/`: that folder is the
+  daemon's, and a wallpaper placed there is ignored (tried first in the VM). The KCM's "Apply Plasma Settings" copies a user's own
+  kdeglobals into `/var/lib/plasmalogin/.config`, which would override these defaults; nisse does not do that.
+- **No logo** (Bert's call): the greeter has no slot for one, so it would have to be painted into the wallpaper, and the greeter blurs the wallpaper
+  as soon as a key is pressed or the mouse moves.
+- **The greeter does not appear on the live ISO** (livesys logs in automatically); it is what an installed disk shows.
+
+**Proof (VM, the installed disk with the package's file in place):** `docs/screenshots/n503-login-nisse-idle.png` and `-awake.png` against
+the Fedora cityscape before (`n503-login-before-fedora-*.png`). `tools/vm/login_check.py --idle|--awake SHOT` judges a screenshot: dark, not
+blue, the Ember sun (sharp when idle, a soft glow when awake) and the clock; tests keep it able to refuse Fedora's picture and a missing sun or clock.
+`tests/e2e/test_login_screen.sh` runs it against a real boot of the installed disk with the built package.
+
+**Replacing Fedora's file.** Fedora's `kde-settings-plasmalogin` (a package of one file) already ships `/usr/lib/plasmalogin/defaults.conf`,
+naming Fedora's wallpaper, and plasma-login-manager recommends it. nisse-lookandfeel therefore `Provides` and `Obsoletes` it (the same
+pattern as nisse-setup for plasma-setup) and kiwi ignores it; the e2e installs the package on a disk that has Fedora's and checks it is replaced.
+**After the next ISO rebuild:** the login block of `tests/iso/test_iso_contents.sh` (the defaults file, no kde-settings-plasmalogin, the greeter is in the image).
 
 ## Decisions and open points handed on
 

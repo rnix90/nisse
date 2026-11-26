@@ -85,6 +85,23 @@ grep -qE '^font=Nunito,' "$g" || fail "system default font is not Nunito"
 grep -qE '^fixed=Fira Code,' "$g" || fail "system default monospace font is not Fira Code"
 echo "ok   system default is the nisse dark look, Nunito and Fira Code"
 
+# the login screen (N-503): Plasma Login Manager (Fedora 44's display manager) reads /usr/lib/plasmalogin/defaults.conf as the distro default
+# for its greeter; the wallpaper there is what shows behind the clock and the password box. Its colors, font and icons already come from
+# /etc/xdg/kdeglobals above, because the greeter is a Plasma session of its own.
+printf '%s
+' "$files" | grep -qxF /usr/lib/plasmalogin/defaults.conf || fail "look-and-feel RPM lacks /usr/lib/plasmalogin/defaults.conf (the login screen default)"
+lg="$scratch/usr/lib/plasmalogin/defaults.conf"
+want "$lg" Greeter WallpaperPluginId org.kde.image
+want "$lg" 'Greeter][Wallpaper][org.kde.image][General' Image file:///usr/share/wallpapers/nisse
+want "$lg" 'Greeter][Wallpaper][org.kde.image][General' PreviewImage file:///usr/share/wallpapers/nisse
+[ -f assets/art/wallpaper/package/nisse/metadata.json ] || fail "the login screen names the wallpaper nisse, which nisse-wallpaper does not ship"
+if grep -v '^#' "$lg" | grep -qiE 'fedora|/f4[0-9]|default[.]jx'; then fail "the login screen default names a Fedora wallpaper"; fi
+echo "ok   the login screen shows the nisse wallpaper (Plasma Login defaults file)"
+# Fedora's kde-settings-plasmalogin ships the same path (its wallpaper is Fedora's): the package must replace it, not collide with it
+rpm -qp --obsoletes "$rpm_path" | grep -q '^kde-settings-plasmalogin' || fail "nisse-lookandfeel must obsolete kde-settings-plasmalogin (it ships the same defaults.conf)"
+rpm -qp --provides "$rpm_path" | grep -q '^kde-settings-plasmalogin' || fail "nisse-lookandfeel must provide kde-settings-plasmalogin (Plasma Login Manager recommends it)"
+echo "ok   the package replaces Fedora's kde-settings-plasmalogin (same file)"
+
 # the start button icon script is Fedora's, unchanged in effect: it sets the icon to start-here, which nisse-branding owns
 for id in org.nisse.desktop org.nisse.desktop.light; do
     for p in kickoff kicker kickerdash; do

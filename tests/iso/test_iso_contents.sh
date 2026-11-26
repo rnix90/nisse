@@ -111,6 +111,15 @@ for laf in org.nisse.desktop org.nisse.desktop.light; do
         || fail "$laf does not default to the nisse wallpaper (Image=nisse under [Wallpaper])"
 done
 
+# The login screen (N-503): Plasma Login Manager's distro defaults name the nisse wallpaper (its greeter already takes the colors, the font
+# and the icons from /etc/xdg/kdeglobals). The display manager itself is enabled by nisse-release's preset.
+lg="$root/usr/lib/plasmalogin/defaults.conf"
+[ -f "$lg" ] || fail "the login screen default is missing (/usr/lib/plasmalogin/defaults.conf)"
+awk '$0=="[Greeter][Wallpaper][org.kde.image][General]"{s=1;next} /^\[/{s=0} s&&$1=="Image=file:///usr/share/wallpapers/nisse"{f=1} END{exit !f}' "$lg"     || fail "the login screen does not default to the nisse wallpaper"
+if rpmq -q kde-settings-plasmalogin >/dev/null 2>&1; then fail "kde-settings-plasmalogin is installed (it ships Fedora's login wallpaper at the same path)"; fi
+[ -f "$root/usr/libexec/plasma-login-greeter" ] || fail "the image has no Plasma Login greeter (the login screen the nisse wallpaper is for)"
+echo "ok   the login screen defaults to the nisse wallpaper"
+
 # Every approved art asset (N-415): the path-by-path check of the whole manifest against the image.
 art_n=0
 while read -r path pkg task opts; do

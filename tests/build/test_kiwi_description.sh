@@ -152,17 +152,13 @@ if command -v kiwi-ng >/dev/null 2>&1; then
     for p in nisse-release nisse-release-common nisse-branding nisse-fonts-nunito nisse-theme nisse-wallpaper nisse-cursors nisse-icons nisse-sounds nisse-lookandfeel nisse-defaults nisse-hw nisse-installer nisse-snapshots nisse-boot nisse-update nisse-sudo nisse-choices nisse-setup nisse-avatars nisse-firstboot nisse-daemon nisse-panel nisse-plymouth anaconda-live; do
         grep -q "<package name=\"$p\"/>" "$live" && ok "Nisse-Live installs $p" || bad "Nisse-Live lacks $p"
     done
-    for p in fedora-release-kde fedora-release generic-logos fedora-logos plasma-setup; do
+    for p in fedora-release-kde fedora-release generic-logos fedora-logos plasma-setup kde-settings-plasmalogin; do
         if grep -q "<package name=\"$p\"/>" "$live"; then bad "Nisse-Live installs $p"; else ok "Nisse-Live does not install $p"; fi
     done
 
     [ -f "$D/nisse/grub-x86.cfg.iso-template" ] && ok "the rendered description carries the nisse menu template" || bad "the rendered description lacks nisse/grub-x86.cfg.iso-template"
     if command -v grub2-script-check >/dev/null 2>&1; then
-        "$py" -c '
-import string, sys
-t = string.Template(open(sys.argv[1], encoding="ascii").read())
-print(t.substitute(search_params="--file --set=root /boot/0x12345678", terminal_output="console", boot_timeout="10", boot_timeout_style="menu",
-                   bootpath="/boot/x86_64/loader", kernel_file="linux", initrd_file="initrd", boot_options="quiet root=live:CDLABEL=nisse-0.2 rd.live.image"))'             "$D/nisse/grub-x86.cfg.iso-template" > "$tmp/menu.cfg" 2>"$tmp/menu.err"             && grub2-script-check "$tmp/menu.cfg" >"$tmp/menu.chk" 2>&1             && ok "the filled-in menu passes grub2-script-check" || bad "the menu template does not pass grub2-script-check: $(tail -2 "$tmp/menu.err" "$tmp/menu.chk" | tr '
+        "$py" tests/build/render_menu.py "$D/nisse/grub-x86.cfg.iso-template" > "$tmp/menu.cfg" 2>"$tmp/menu.err"             && grub2-script-check "$tmp/menu.cfg" >"$tmp/menu.chk" 2>&1             && ok "the filled-in menu passes grub2-script-check" || bad "the menu template does not pass grub2-script-check: $(tail -2 "$tmp/menu.err" "$tmp/menu.chk" | tr '
 ' ' ')"
     else
         echo "skip grub2-script-check: not installed here"

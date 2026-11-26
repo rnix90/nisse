@@ -58,6 +58,7 @@
     <ignore name="fedora-logos"/>
     <ignore name="generic-logos"/>
     <ignore name="plasma-setup"/>
+    <ignore name="kde-settings-plasmalogin"/>
   </packages>
   <!-- The live-install set, copied from Fedora's components/liveinstall.xml: the point of a live image is to install. -->
   <packages type="iso" patternType="plusRecommended" profiles="Nisse-Live">

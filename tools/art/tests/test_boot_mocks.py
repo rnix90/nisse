@@ -32,7 +32,7 @@ def drawn(name):
 
 
 def test_every_surface_the_ledger_names_is_mocked():
-    for want in ("grub-menu", "grub-menu-live", "plymouth-boot", "splash-dark", "splash-light", "login-dark", "login-light", "lock-dark", "lock-light",
+    for want in ("grub-menu", "grub-menu-live", "plymouth-boot", "splash-dark", "splash-light", "login-dark", "lock-dark", "lock-light",
                  "logout-dark", "logout-light"):
         assert want in NAMES
 
@@ -115,7 +115,7 @@ def test_the_grub_menus_name_their_entries_in_plain_words_with_a_clear_default()
 
 def test_the_ember_fill_carries_ink_text_never_paper():
     """Palette rule: Paper on Ember is only 3.1:1. Check the texts drawn on an Ember button or row in the dark mocks."""
-    for name in ("grub-menu", "grub-menu-live", "login-dark", "logout-dark"):
+    for name in ("grub-menu", "grub-menu-live", "logout-dark"):
         svg = drawn(name)
         assert boot_mocks.d("on-accent") in svg
 
@@ -148,3 +148,15 @@ def test_rendering_makes_a_1920_by_1080_png_with_the_ink_background_and_ember_bl
     assert im.getpixel((5, 5)) == tuple(int(boot_mocks.d("base")[i:i + 2], 16) for i in (1, 3, 5))
     ember = tuple(int(boot_mocks.d("accent")[i:i + 2], 16) for i in (1, 3, 5))
     assert any(im.getpixel((x, 760)) == ember for x in range(740, 1180))
+
+
+def test_the_login_mock_is_the_screen_plasma_login_really_draws():
+    """N-503 (Bert, 2026-11-26: keep Plasma's own greeter, no fork): the mock shows what the VM shows, a blurred nisse wallpaper under the
+    clock, the date, the round avatar, the name, a password box with its eye and arrow, and Sleep, Restart, Shut Down and Other at the
+    bottom. There is no Log In pill, no logo, and no light version: the greeter has one look (the system default, dark)."""
+    assert "login-light" not in NAMES
+    svg = drawn("login-dark")
+    for words in ("9:41 PM", "Thursday, November 26, 2026", "tester", "Password", "Sleep", "Restart", "Shut Down", "Other..."):
+        assert f">{words}<" in svg, words
+    assert "feGaussianBlur" in svg, "the greeter blurs the wallpaper once someone touches a key"
+    assert ">Log In<" not in svg

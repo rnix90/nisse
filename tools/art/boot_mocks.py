@@ -120,6 +120,19 @@ def icon_restart(cx, cy, size, color):
             f'stroke-linecap="round" stroke-linejoin="round"><path d="M72 36 A26 26 0 1 0 76 54"/><path d="M74 20 L74 38 L56 38"/></g>')
 
 
+def icon_sleep(cx, cy, size, color):
+    k = size / 100
+    return (f'<g transform="translate({cx - size / 2},{cy - size / 2}) scale({k})" fill="none" stroke="{color}" stroke-width="8" '
+            f'stroke-linecap="round" stroke-linejoin="round"><path d="M58 14 A38 38 0 1 0 86 62 A30 30 0 0 1 58 14 Z"/></g>')
+
+
+def icon_other(cx, cy, size, color):
+    k = size / 100
+    return (f'<g transform="translate({cx - size / 2},{cy - size / 2}) scale({k})" fill="none" stroke="{color}" stroke-width="8" '
+            f'stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="24" width="76" height="22" rx="4"/>'
+            f'<rect x="12" y="54" width="76" height="22" rx="4"/><path d="M24 35 H44"/><path d="M24 65 H34 M42 65 H52"/></g>')
+
+
 def icon_logout(cx, cy, size, color):
     k = size / 100
     return (f'<g transform="translate({cx - size / 2},{cy - size / 2}) scale({k})" fill="none" stroke="{color}" stroke-width="8" '
@@ -178,24 +191,31 @@ def _wall(mode):
     return image(svg_uri(wallpaper.scene(W, H, mode)), 0, 0, W, H)
 
 
-def login(mode):
-    dark = mode == "dark"
-    ink, soft, field, edge = (d("text"), d("text-muted"), d("surface-2"), d("outline")) if dark else (lt("text"), lt("text-muted"), lt("page"), lt("outline"))
-    accent, on_accent = (d("accent"), d("on-accent")) if dark else (lt("accent"), lt("on-accent"))
-    scrim = rect(0, 0, W, H, d("base") if dark else lt("paper"), opacity=0.5)
-    b = [_wall(mode), scrim]
-    b.append(f'<clipPath id="av"><circle cx="{W / 2}" cy="420" r="110"/></clipPath>')
-    b.append(f'<g clip-path="url(#av)">{image(uri(AVATAR), W / 2 - 110, 310, 220, 220)}</g>')
-    b.append(text(W / 2, 595, "tester", 44, ink, 700))
-    b.append(rect(W / 2 - 250, 640, 500, 70, field, rx=16, stroke=edge, sw=2))
-    b.append(text(W / 2 - 220, 686, "Password", 28, soft, 400, "start"))
-    b.append(rect(W / 2 - 100, 745, 200, 64, accent, rx=32))
-    b.append(text(W / 2, 788, "Log In", 28, on_accent, 700))
-    b.append(text(48, 1030, "us", 24, ink, 400, "start"))
-    b.append(icon_restart(W - 150, 1022, 40, ink))
-    b.append(icon_power(W - 80, 1022, 40, ink))
-    b.append(image(uri(ICON_REVERSE if dark else ROOT / "assets/logo/svg/nisse-icon.svg"), W / 2 - 22, 1000, 44, 44))
-    return frame("".join(b), d("base") if dark else lt("paper"))
+def login(mode="dark"):
+    """The login screen as Plasma Login Manager really draws it (N-503: Bert chose to keep Plasma's own greeter, no fork). nisse sets the
+    wallpaper (blurred as soon as someone touches a key) and, through the system default, the colors, the font and the icons; the layout
+    is Plasma's: the clock and the date, the round avatar with its ring, the name, the password box with its eye and the arrow, and
+    Sleep, Restart, Shut Down and Other at the bottom. Dark only: the greeter has one look, the system default. The greeter tints its
+    text warmer than the palette's Paper; the mock keeps to the palette."""
+    ink, soft, field, edge = d("text"), d("text-muted"), d("surface-2"), d("outline")
+    cx = W / 2
+    b = [f'<defs><filter id="soft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="14"/></filter></defs>',
+         f'<g filter="url(#soft)">{_wall("dark")}</g>', rect(0, 0, W, H, d("base"), opacity=0.25)]
+    b.append(text(cx, 190, "9:41 PM", 150, ink, 400))
+    b.append(text(cx, 290, "Thursday, November 26, 2026", 36, ink, 400))
+    b.append(f'<clipPath id="av"><circle cx="{cx}" cy="440" r="92"/></clipPath>')
+    b.append(f'<g clip-path="url(#av)">{image(uri(AVATAR), cx - 92, 348, 184, 184)}</g>')
+    b.append(f'<circle cx="{cx}" cy="440" r="92" fill="none" stroke="{ink}" stroke-width="4"/>')
+    b.append(text(cx, 580, "tester", 32, ink, 400))
+    b.append(rect(cx - 190, 620, 380, 48, field, rx=6, stroke=d("accent"), sw=2))
+    b.append(text(cx - 176, 652, "Password", 22, soft, 400, "start"))
+    b.append(rect(cx + 200, 620, 48, 48, field, rx=6, stroke=edge, sw=1))
+    b.append(text(cx + 224, 652, ">", 26, ink, 400))
+    for i, (label, icon) in enumerate((("Sleep", icon_sleep), ("Restart", icon_restart), ("Shut Down", icon_power), ("Other...", icon_other))):
+        x = cx - 288 + i * 192
+        b.append(icon(x, 960, 56, ink))
+        b.append(text(x, 1030, label, 21, soft, 400))
+    return frame("".join(b), d("base"))
 
 
 def lock(mode):
@@ -250,8 +270,7 @@ SURFACES = [
     ("plymouth-boot-late", "Plymouth, Later Frame", lambda: plymouth(0.85)),
     ("splash-dark", "Plasma splash after login (N-505), dark: the n and the comet", lambda: splash("dark")),
     ("splash-light", "Plasma Splash, Light", lambda: splash("light")),
-    ("login-dark", "Login Screen (N-503), Dark", lambda: login("dark")),
-    ("login-light", "Login Screen, Light", lambda: login("light")),
+    ("login-dark", "Login Screen (N-503)", lambda: login("dark")),
     ("lock-dark", "Lock Screen (N-504), Dark", lambda: lock("dark")),
     ("lock-light", "Lock Screen, Light", lambda: lock("light")),
     ("logout-dark", "Logout, restart and shut down (N-504), dark", lambda: logout("dark")),
