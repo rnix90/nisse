@@ -39,7 +39,7 @@ Method Selector, GnuPG Log Viewer, KMouth, Firefox, Fedora Media Writer, KDE Par
 - N-508: remove the drops, add the additions that are in Fedora (VLC, Xournal++, GParted, Qalculate, Chromium, KDE ISO Image Writer, Kate).
 - N-507a (new): build Moonlight and Sunshine as nisse RPMs. Spike first.
 - N-507b (new): the first-run browser choice, including Chrome.
-- N-508b (new): Discover must not become a second update path next to nisse-update.
+- N-508b (built, below): Discover must not become a second update path next to nisse-update.
 - N-508a (built, below): the shipped taskbar pins name only apps that are installed, and no browser is pinned (Bert, 2026-11-15).
 - N-508c (new): the installer offers the taskbar pins as a checkbox list (Bert, 2026-11-27); the live session keeps the defaults.
 - N-510 covers, on a light surface with the shell dark: KMail (mail), LibreOffice Writer and Calc (word processor and
@@ -108,6 +108,19 @@ list, no browser), `tests/build/test_image_apps.sh` (each pin is a desktop file 
 panel built from the layout script pins exactly the four; `docs/screenshots/n508a-taskbar-before.png` and `-after.png`). The five
 screenshot goldens in `tests/golden` show the taskbar and lose the browser icon, so they are re-accepted at the next rebuild (N-403a's
 way). Bert asked (2026-11-27) that the installer let the user tick the pins as a checkbox list: N-508c.
+
+### Discover and the update path (N-508b)
+
+Discover stays, without its RPM side (Bert, 2026-11-27, out of three options; the research is `docs/discover-spike.md`). The RPM backend
+and the notifier's RPM part are one package, `plasma-discover-packagekit` ("Discover RPM backend" in `build/default-apps.txt`), which
+`plasma-discover` only recommends; it is `<ignore>`d in `nisse-live.xml`, so Discover is Flatpak, KDE Store and firmware (fwupd). The
+Flatpak backend (`plasma-discover-flatpak`, "Discover Flatpak backend") is listed explicitly so that dropping a weak dependency can never
+take it away. Why: `nisse-update` arms the boot fallback, runs the health check and rolls back; a Discover update through PackageKit would
+take the snapshot pair (verified) but skip all of that. Consequences: no RPM updates and no RPM app installs from Discover (those go through
+nisse-update, the terminal or the AI); firmware updates through fwupd stay in Discover. Proof: the dnf dry run of
+`tests/build/test_image_apps.sh` (the package is absent, the Flatpak one present), the queued ISO check of the backend plugin files, and
+`tools/vm/discover_check.py` (a live session: after removing the package the PackageKit backend is gone, the Flatpak one is listed and
+Discover starts; `docs/screenshots/n508b-discover-updates-after.png`).
 
 ### Moonlight and Sunshine (N-507a)
 

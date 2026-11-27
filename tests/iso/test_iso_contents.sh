@@ -169,6 +169,15 @@ pim_auto="$(ls "$root/etc/xdg/autostart" | grep -iE 'akonadi|kmail|kontact|korga
 [ -z "$pim_auto" ] || fail "a mail suite program has an autostart entry: $pim_auto (N-508)"
 echo "ok   the default apps: $apps_n packages checked (dropped out, added in, hidden hidden), the mail suite wired to nothing"
 
+# Discover and the update path (N-508b, docs/discover-spike.md): no RPM backend, so nothing in Discover can apply an RPM update outside
+# nisse-update; the Flatpak backend and Discover itself are in. (The package-level checks are the drop and add lines above.)
+dpl="$root/usr/lib64/qt6/plugins"
+[ -x "$root/usr/bin/plasma-discover" ] || fail "Discover is not in the image (N-508b)"
+[ ! -e "$dpl/discover/packagekit-backend.so" ] || fail "Discover's PackageKit (RPM) backend is in the image (N-508b)"
+[ ! -e "$dpl/discover-notifier/DiscoverPackageKitNotifier.so" ] || fail "Discover's notifier PackageKit part is in the image (N-508b)"
+[ -e "$dpl/discover/flatpak-backend.so" ] || fail "Discover's Flatpak backend is not in the image (N-508b)"
+echo "ok   Discover has its Flatpak backend and no RPM backend or RPM notifier"
+
 # The default taskbar (N-508a): the layout both looks ship pins only apps that are in the image, and no browser. The pin list is read
 # from the installed layout script itself, not from the repo, so it is what a new user really gets.
 pin_n=0

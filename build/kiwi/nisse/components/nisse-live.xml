@@ -93,6 +93,8 @@
     <package name="kate"/>
     <package name="moonlight-qt"/>
     <package name="sunshine"/>
+    <ignore name="plasma-discover-packagekit"/>
+    <package name="plasma-discover-flatpak"/>
   </packages>
   <!-- The live-install set, copied from Fedora's components/liveinstall.xml: the point of a live image is to install. -->
   <packages type="iso" patternType="plusRecommended" profiles="Nisse-Live">

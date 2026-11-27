@@ -40,3 +40,5 @@ add|isoimagewriter|KDE ISO Image Writer|org.kde.isoimagewriter.desktop
 add|kate|Kate|org.kde.kate.desktop
 add|moonlight-qt|Moonlight|com.moonlight_stream.Moonlight.desktop
 add|sunshine|Sunshine|dev.lizardbyte.app.Sunshine.desktop
+drop|plasma-discover-packagekit|Discover RPM backend|
+add|plasma-discover-flatpak|Discover Flatpak backend|

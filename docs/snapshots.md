@@ -131,7 +131,9 @@ removes an old unpaired pre, and the next prompt of the same session closes it.
 - A real package install on an installed btrfs nisse system taking a real pair through dnf5 (the install-to-disk
   harness, `docs/install-harness.md`); queued with the next ISO rebuild.
 - That `snapper create-config /` works on the installer's `root` subvolume layout at first boot (same queue).
-- Discover (PackageKit or dnf5daemon) transactions run the same actions plugin: unchecked.
+- Discover (PackageKit) transactions run the same actions plugin: CHECKED at N-508b with PackageKit 1.4.0 in the build VM
+  (`tools/spike/pk_actions_probe.sh`: a `pkcon` install fired the pre and post hooks like `dnf` did); not rerun on the image's 1.3.4.
+  Moot for the image, which leaves Discover's RPM backend out (`docs/discover-spike.md`).
 - `/boot` is outside the snapshots (N-307 to N-310).
 - An AI turn on an installed btrfs nisse system taking a real pair through the packaged daemon and `sudo` (the install-to-disk
   harness, then a message to the panel); queued with the next ISO rebuild.
