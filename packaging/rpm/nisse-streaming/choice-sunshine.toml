@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Enable Sunshine as an install choice (ledger N-507c, docs/streaming-spike.md). Off by default.
+id = "sunshine"
+title = "Enable Sunshine"
+description = "Sunshine lets you stream this computer's screen and games to another device that runs Moonlight. It is off unless you turn it on here. Turned on, it opens its ports on the networks you marked as trustworthy above, and nowhere else."
+stage = "firstboot"
+order = 50
+kind = "bool"
+default = false
+
+[apply]
+command = ["/usr/libexec/nisse/nisse-sunshine-setup", "enabled", "{value}"]
+status = ["/usr/libexec/nisse/nisse-sunshine-setup", "status", "enabled"]

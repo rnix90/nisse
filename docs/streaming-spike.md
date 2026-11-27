@@ -103,3 +103,36 @@ The public nisse repo carries nothing patent-encumbered. Concretely:
 4. Tests: RPM tests (contents, the service disabled, the firewalld file, no x264 or x265 in the binary), a live test in a VM (install, the
    service stays disabled and nothing listens on the Sunshine ports; Moonlight starts), the ISO block queued for the rebuild.
 5. The installer option that turns Sunshine on and opens the local network is N-507c.
+
+## Enabling Sunshine at setup (N-507c)
+
+### What a started Sunshine does (verified in a live session of the previous ISO, `tools/vm/sunshine_probe.py`)
+
+- With the default capture on a Plasma Wayland session, Sunshine goes through the desktop portal (`RemoteDesktop` `CreateSession`,
+  `SelectDevices`, `SelectSources`) and then waits, with every thread idle, for the person to approve a screen-sharing prompt. It opens NO
+  port until that is answered. That is what the N-507a probe saw and took for a hang.
+- With `capture = kms` (or `wlr`) it does not ask: it opens its ports at once (the streaming ports 47984 and 47989, the settings page 47990), logs
+  "Configuration UI available at https://localhost:47990" and announces itself over mDNS. In a VM with no GPU it then logs "Video failed to find
+  working encoder" (the software encoder wants libx264, which nisse does not ship), so it can be paired but cannot stream. Streaming itself still needs
+  a machine with a GPU encoder.
+- Sunshine has no default password: the first visitor of the settings page creates the login. That is why the web UI is "this PC only" by default.
+
+### The choices (Bert, 2026-11-27): a switch plus a few choices, and a "trustworthy network" question
+
+| Choice | Kind | Default | What it does |
+|---|---|---|---|
+| `trusted-network` (order 40) | switch | off | "Are you on a trustworthy network?" Yes: the ethernet and Wi-Fi connections in use go in firewalld's `home` zone (NetworkManager `connection.zone`, and the interface at once). A connection the user put in another zone is left alone. General, not only for Sunshine. |
+| `sunshine` (50) | switch | off | The firewalld service `sunshine` goes in the `home` zone (permanently) and the user service is enabled for login. Off: out of the zone, not enabled, starter config removed. |
+| `sunshine-web-ui` (51) | this-pc or local-network | this-pc | `origin_web_ui_allowed = pc` or `lan` in the starter config. |
+| `sunshine-start` (52) | login or manual | login | At login: `systemctl --global enable` of the user unit. When I ask: not enabled; the menu entry starts it. |
+
+"Locally" means the `home` zone only (Bert's choice over private address ranges): the public zone is never touched, and a network that is not marked
+home gets no streaming. Nothing here ever starts Sunshine: its own user service does, at login, or the person does, from the menu.
+`nisse-streaming` 0.1-1 holds the four manifests, the root steps `nisse-network-trust` and `nisse-sunshine-setup`, and `nisse-apply-sunshine-config`,
+which at each user's first login copies the starter config (`/etc/nisse/sunshine.conf`, with `capture = kms`) to `~/.config/sunshine/` when the user
+has none and never overwrites one. Changes after setup are made in Sunshine's own settings page (its config is the user's).
+
+### Moved to N-507d
+
+The codec and encoder pieces (Cisco's OpenH264 for Moonlight, RPM Fusion's drivers, LizardByte's full-codec Sunshine, the NVIDIA driver) became a
+menu of proprietary options of its own (Bert: "a whole menu of proprietary options, including and beyond the codec and encoder stuff").

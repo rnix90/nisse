@@ -225,6 +225,21 @@ cw="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["X-KDE-Wei
 { [ "$tw" -gt "$cw" ] && [ "$tw" -lt 200 ]; } || fail "the wizard's taskbar page (weight $tw) is not after the choices page ($cw) and before Finished (N-508c)"
 echo "ok   the taskbar pins choice is in the image, last in the choice order; its wizard page comes after the choices page; no pins file ships"
 
+# The Sunshine and trustworthy network choices (N-507c, docs/streaming-spike.md): four manifests ordered before the taskbar pins, the three
+# scripts, the autostart entry of the config seed; and nothing of what the choices set ships already switched on (no starter config, no
+# state file), so a machine where nobody said yes has no Sunshine port open.
+for m in 40-trusted-network 50-sunshine 51-sunshine-web-ui 52-sunshine-start; do
+    [ -f "$root/usr/share/nisse/choices.d/$m.toml" ] || fail "the choice $m is not in the image (N-507c)"
+    o="$(sed -n 's/^order = \([0-9]*\)/\1/p' "$root/usr/share/nisse/choices.d/$m.toml")"
+    [ -n "$o" ] && [ "$o" -lt 90 ] || fail "the choice $m does not come before the taskbar pins (N-507c)"
+done
+for f in /usr/libexec/nisse/nisse-network-trust /usr/libexec/nisse/nisse-sunshine-setup /usr/libexec/nisse/nisse-apply-sunshine-config; do
+    [ -x "$root$f" ] || fail "$f is not in the image or not executable (N-507c)"
+done
+[ -f "$root/etc/xdg/autostart/nisse-sunshine-config.desktop" ] || fail "the Sunshine config autostart entry is not in the image (N-507c)"
+[ ! -e "$root/etc/nisse/sunshine.conf" ] && [ ! -e "$root/etc/nisse/sunshine-setup.state" ] || fail "the image ships a Sunshine starter config or state, so Sunshine would already be set up (N-507c)"
+echo "ok   the Sunshine and trustworthy network choices are in the image, before the taskbar pins, and nothing of them ships switched on"
+
 # Moonlight and Sunshine (N-507a, docs/streaming-spike.md): both are in the image; Sunshine is OFF (its user service is not enabled by
 # anything in the image), its ports are closed (the default firewall zone is public and no zone has the sunshine service), and its binary
 # carries no software H.264 or HEVC encoder (the clean-repo decision).

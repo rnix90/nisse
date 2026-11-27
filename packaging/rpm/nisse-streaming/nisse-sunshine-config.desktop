@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Apply Sunshine Settings
+Comment=Copies the Sunshine settings you chose during setup into your own folder, once.
+Exec=/usr/libexec/nisse/nisse-apply-sunshine-config
+OnlyShowIn=KDE;
+NoDisplay=true
+X-KDE-autostart-phase=2

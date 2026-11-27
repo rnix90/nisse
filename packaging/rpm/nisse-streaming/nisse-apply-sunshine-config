@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# At the start of a Plasma session (ledger N-507c): if Sunshine was turned on at setup (/etc/nisse/sunshine.conf exists) and this user has no
+# Sunshine config of their own, copy the starter config to ~/.config/sunshine/sunshine.conf. A config the user already has is never touched.
+# NISSE_ROOT is a prefix for tests.
+set -u
+src="${NISSE_ROOT:-}/etc/nisse/sunshine.conf"
+cfg="${XDG_CONFIG_HOME:-${HOME:-/tmp}/.config}/sunshine"
+[ -f "$src" ] || exit 0
+[ -e "$cfg/sunshine.conf" ] && exit 0
+mkdir -p "$cfg" && cp "$src" "$cfg/sunshine.conf"
+exit 0

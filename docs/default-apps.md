@@ -140,6 +140,10 @@ image's). The research and the clean-repo decision are in `docs/streaming-spike.
   asks for a new login, Moonlight starts); `tests/build/test_image_apps.sh` (the image still resolves); the queued ISO block in
   `tests/iso/test_iso_contents.sh`.
 - Sizes in the image: 2285 packages and 7588 MiB (+4 packages, +24 MiB over N-508's figure).
+- Turning Sunshine on (N-507c): the first-boot wizard asks "Are you on a trustworthy network?" (the connections in use go in the firewall's home
+  zone) and offers Enable Sunshine, who can open its settings page (this PC only by default) and when it starts. The streaming ports are
+  open in the home zone only, never in the public one; the default capture is `capture = kms` (the default one waits for a screen-sharing
+  approval before it opens any port). `nisse-streaming` 0.1-1; the design and the live proof are in `docs/streaming-spike.md`.
 - The build needs the network (npm and Boost at build time) and fetches its sources by script into `out/sources` (nothing is committed);
   `packaging/rpm/sunshine/fetch-sources.sh` checks the tag's commit, `packaging/rpm/moonlight-qt/sources.sha256` pins the six tarballs.
 - Seen in the live session (old ISO, a VM with a `bochs-drm` display and no GPU): Moonlight starts and draws its window with its own

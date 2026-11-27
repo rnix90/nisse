@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Who can open Sunshine's settings page (ledger N-507c). Sunshine has no default password: whoever opens the page first sets it.
+id = "sunshine-web-ui"
+title = "Sunshine Settings Page"
+description = "Who can open Sunshine's settings page, where you set its password and pair your devices. It only matters if you turn Sunshine on."
+stage = "firstboot"
+order = 51
+kind = "enum"
+default = "this-pc"
+
+[[options]]
+value = "this-pc"
+title = "This Computer Only"
+description = "Only you, on this computer, can open the settings page. The safest choice."
+
+[[options]]
+value = "local-network"
+title = "Local Network"
+description = "Anyone on a trustworthy network can open it, and whoever opens it first sets the password, so do that right away."
+
+[apply]
+command = ["/usr/libexec/nisse/nisse-sunshine-setup", "web-ui", "{value}"]
+status = ["/usr/libexec/nisse/nisse-sunshine-setup", "status", "web-ui"]

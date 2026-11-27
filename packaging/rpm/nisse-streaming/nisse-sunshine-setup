@@ -1,0 +1,81 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The Sunshine install choices (ledger N-507c, docs/streaming-spike.md). nisse-choices runs it as root, once per choice:
+#   nisse-sunshine-setup enabled true|false
+#   nisse-sunshine-setup web-ui this-pc|local-network
+#   nisse-sunshine-setup start login|manual
+#   nisse-sunshine-setup status enabled|web-ui|start     the stored value, or "unset"
+# Each call stores its value and then brings everything in line with all three (so the order of the calls does not matter):
+#   - the firewalld service `sunshine` (its ports) is in the HOME zone while Sunshine is on, and in no zone while it is off. The public zone
+#     is never touched: a connection is home only when the person said it is a trustworthy network (nisse-network-trust);
+#   - the user service is enabled for every user (systemctl --global) only when Sunshine is on AND starts at login. Nothing here starts it;
+#   - /etc/nisse/sunshine.conf, the starter config, exists only while Sunshine is on. Each user gets a copy at first login
+#     (nisse-apply-sunshine-config) when they have none. It says capture = kms (the default capture asks for an approval in a dialog before it
+#     opens any port, docs/streaming-spike.md) and who may open the web UI (this PC only, or the local network).
+# NISSE_ROOT is a prefix for tests.
+set -u
+root="${NISSE_ROOT:-}"
+dir="$root/etc/nisse"
+state="$dir/sunshine-setup.state"
+conf="$dir/sunshine.conf"
+unit=app-dev.lizardbyte.app.Sunshine.service
+
+value_of() { sed -n "s/^$1=//p" "$state" 2>/dev/null | tail -1; }
+usage() { echo "usage: nisse-sunshine-setup enabled true|false | web-ui this-pc|local-network | start login|manual | status KEY" >&2; exit 2; }
+
+if [ "${1-}" = "status" ]; then
+    case "${2-}" in enabled|web-ui|start) ;; *) usage ;; esac
+    v="$(value_of "$2")"
+    echo "${v:-unset}"
+    exit 0
+fi
+
+key="${1-}"
+val="${2-}"
+case "$key:$val" in
+    enabled:true|enabled:false|web-ui:this-pc|web-ui:local-network|start:login|start:manual) ;;
+    *) usage ;;
+esac
+
+mkdir -p "$dir"
+tmp="$state.tmp$$"
+trap 'rm -f "$tmp" "$conf.tmp$$"' EXIT
+{ grep -v "^$key=" "$state" 2>/dev/null; echo "$key=$val"; } | sort > "$tmp"
+chmod 0644 "$tmp"
+mv -f "$tmp" "$state"
+
+enabled="$(value_of enabled)"; enabled="${enabled:-false}"
+web="$(value_of web-ui)"; web="${web:-this-pc}"
+start="$(value_of start)"; start="${start:-login}"
+
+# the firewall: the service in the home zone while Sunshine is on, in none while it is off
+if [ "$enabled" = "true" ]; then action=--add-service=sunshine; else action=--remove-service=sunshine; fi
+if firewall-cmd --state >/dev/null 2>&1; then
+    firewall-cmd --permanent --zone=home "$action" >/dev/null 2>&1 || { echo "nisse-sunshine-setup: the firewall refused $action" >&2; exit 1; }
+    firewall-cmd --reload >/dev/null 2>&1 || true
+else
+    # no firewall running (an install that is not booted yet): write the permanent configuration directly
+    firewall-offline-cmd --zone=home "$action" >/dev/null 2>&1 || true
+fi
+
+# the user service: enabled for everyone at login only when Sunshine is on and starts at login
+if [ "$enabled" = "true" ] && [ "$start" = "login" ]; then
+    systemctl --global enable "$unit" >/dev/null 2>&1 || { echo "nisse-sunshine-setup: could not enable $unit" >&2; exit 1; }
+else
+    systemctl --global disable "$unit" >/dev/null 2>&1 || true
+fi
+
+# the starter config
+if [ "$enabled" = "true" ]; then
+    if [ "$web" = "local-network" ]; then origin=lan; else origin=pc; fi
+    {
+        echo "# Written by nisse-sunshine-setup from the install choices (docs/streaming-spike.md in the nisse repository)."
+        echo "# Copied to ~/.config/sunshine/sunshine.conf at a user's first login when they have none; their copy is theirs."
+        echo "capture = kms"
+        echo "origin_web_ui_allowed = $origin"
+    } > "$conf.tmp$$"
+    chmod 0644 "$conf.tmp$$"
+    mv -f "$conf.tmp$$" "$conf"
+else
+    rm -f "$conf"
+fi

@@ -1,0 +1,48 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The "Are you on a trustworthy network?" install choice (ledger N-507c, docs/streaming-spike.md). nisse-choices runs it as root:
+#   nisse-network-trust true     the ethernet and Wi-Fi connections in use now go in firewalld's home zone (NetworkManager keeps it, and
+#                                the interface is moved at once, so it needs no reconnect); a connection the user put in another zone stays
+#   nisse-network-trust false    the connections that are home go back to the default zone
+#   nisse-network-trust status   true when there is at least one such connection and every one is home, else false
+# Loopback, VPN and bridge connections are never touched. With no connection (an offline install) "true" does nothing and does not fail.
+set -u
+
+# the real networks in use, as "uuid:device"
+active() {
+    nmcli -t -f UUID,TYPE,DEVICE connection show --active 2>/dev/null | while IFS=: read -r uuid type dev; do
+        case "$type" in 802-3-ethernet|802-11-wireless) echo "$uuid:$dev" ;; esac
+    done
+}
+zone_of() { nmcli -g connection.zone connection show "$1" 2>/dev/null | head -1; }
+
+case "${1-}" in
+    true)
+        active | while IFS=: read -r uuid dev; do
+            [ -z "$(zone_of "$uuid")" ] || continue
+            nmcli connection modify "$uuid" connection.zone home || exit 1
+            firewall-cmd --zone=home --change-interface="$dev" >/dev/null 2>&1 || true
+        done
+        ;;
+    false)
+        default="$(firewall-cmd --get-default-zone 2>/dev/null || echo public)"
+        active | while IFS=: read -r uuid dev; do
+            [ "$(zone_of "$uuid")" = "home" ] || continue
+            nmcli connection modify "$uuid" connection.zone "" || exit 1
+            firewall-cmd --zone="$default" --change-interface="$dev" >/dev/null 2>&1 || true
+        done
+        ;;
+    status)
+        found=0
+        all=1
+        for pair in $(active); do
+            found=1
+            [ "$(zone_of "${pair%%:*}")" = "home" ] || all=0
+        done
+        if [ "$found" = 1 ] && [ "$all" = 1 ]; then echo true; else echo false; fi
+        ;;
+    *)
+        echo "usage: nisse-network-trust true | false | status" >&2
+        exit 2
+        ;;
+esac

@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# When Sunshine starts (ledger N-507c). Nothing starts it at setup either way.
+id = "sunshine-start"
+title = "Start Sunshine"
+description = "When Sunshine starts. It only matters if you turn Sunshine on."
+stage = "firstboot"
+order = 52
+kind = "enum"
+default = "login"
+
+[[options]]
+value = "login"
+title = "At Login"
+description = "Sunshine starts when you log in, ready for your devices."
+
+[[options]]
+value = "manual"
+title = "When I Ask"
+description = "You start it yourself from the application menu when you want to stream."
+
+[apply]
+command = ["/usr/libexec/nisse/nisse-sunshine-setup", "start", "{value}"]
+status = ["/usr/libexec/nisse/nisse-sunshine-setup", "status", "start"]
