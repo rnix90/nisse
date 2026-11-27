@@ -100,6 +100,18 @@ QVariantList parseListing(const QByteArray &json, QString *error)
                     });
                 }
             }
+        } else if (kind == QLatin1String("multi")) {
+            if (!effective.isArray()) {
+                return fail(error, at + id + QStringLiteral(": a multi choice needs a list"));
+            }
+            QStringList items;
+            for (const QJsonValue &item : effective.toArray()) {
+                if (!item.isString()) {
+                    return fail(error, at + id + QStringLiteral(": every item of the list must be text"));
+                }
+                items.append(item.toString());
+            }
+            effectiveValue = items;
         } else {
             return fail(error, at + id + QStringLiteral(": unknown kind"));
         }

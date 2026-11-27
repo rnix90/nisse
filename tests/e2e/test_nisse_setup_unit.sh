@@ -13,7 +13,7 @@ engine="$root/services/target/debug/nisse-choices"
 build="$(mktemp -d)"
 trap 'rm -rf "$build"' EXIT
 cmake -S forks/nisse-setup -B "$build" -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug >"$build/configure.log" 2>&1 || { echo "FAIL: configure"; tail -5 "$build/configure.log"; exit 1; }
-cmake --build "$build" --target choiceset_test choiceslisting_test -j"$(nproc)" >"$build/build.log" 2>&1 || { echo "FAIL: build"; grep -E "error" "$build/build.log" | head; exit 1; }
+cmake --build "$build" --target choiceset_test choiceslisting_test launcherlisting_test -j"$(nproc)" >"$build/build.log" 2>&1 || { echo "FAIL: build"; grep -E "error" "$build/build.log" | head; exit 1; }
 out="$(cd "$build" && NISSE_CHOICES_REAL="$engine" ctest -R '_test$' -V 2>&1)"
 echo "$out" | grep -E "^ *[0-9]+: (PASS|FAIL|SKIP)" | sed 's/^ *[0-9]*: //' | head -30
 if echo "$out" | grep -q 'SKIP.*withTheRealEngine'; then echo "FAIL: the real-engine test was skipped"; exit 1; fi

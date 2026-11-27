@@ -524,3 +524,192 @@ fn list_gives_front_ends_everything_they_need() {
     assert_eq!(json[1]["effective"], true);
     assert_eq!(json[0]["stage"], "firstboot");
 }
+
+// ---- multi (N-508c): a list of values, for a choice whose candidates are not known in advance (the taskbar pins)
+
+const MULTI: &str = r#"
+id = "taskbar-pins"
+title = "Taskbar Apps"
+description = "Which apps are pinned to the taskbar."
+stage = "firstboot"
+order = 90
+kind = "multi"
+default = ["applications:nisse-panel.desktop", "preferred://filemanager"]
+
+[multi]
+max_items = 8
+
+[apply]
+command = ["/usr/libexec/nisse/nisse-taskbar-pins", "{value}"]
+"#;
+
+fn multi_broken(change: impl Fn(&str) -> String) -> String {
+    parse_manifest(&change(MULTI)).expect_err("this manifest must be rejected")
+}
+
+#[test]
+fn a_multi_manifest_parses() {
+    let m = parse_manifest(MULTI).unwrap();
+    assert_eq!(m.kind, Kind::Multi);
+    assert_eq!(
+        m.default,
+        Value::List(vec![
+            "applications:nisse-panel.desktop".into(),
+            "preferred://filemanager".into()
+        ])
+    );
+    assert_eq!(m.multi_max_items, 8);
+    // no [multi] section: the default limit
+    let plain = MULTI.replace("[multi]\nmax_items = 8\n", "");
+    assert_eq!(parse_manifest(&plain).unwrap().multi_max_items, 64);
+    // an empty default is a valid choice (nothing pinned)
+    let none = MULTI.replace(
+        "default = [\"applications:nisse-panel.desktop\", \"preferred://filemanager\"]",
+        "default = []",
+    );
+    assert_eq!(parse_manifest(&none).unwrap().default, Value::List(vec![]));
+}
+
+#[test]
+fn multi_manifests_obey_the_limits() {
+    assert!(multi_broken(|s| s.replace("default = [", "default = \"a\"\n#[")).contains("default"));
+    assert!(multi_broken(|s| s.replace("\"preferred://filemanager\"", "\"two words\"")).contains("default"));
+    assert!(multi_broken(|s| s.replace("\"preferred://filemanager\"", "\"a,b\"")).contains("default"));
+    assert!(
+        multi_broken(|s| s.replace("\"preferred://filemanager\"", "\"applications:nisse-panel.desktop\""))
+            .contains("default")
+    );
+    assert!(multi_broken(|s| s.replace("\"preferred://filemanager\"", "7")).contains("default"));
+    assert!(multi_broken(|s| s.replace("max_items = 8", "max_items = 1")).contains("default"));
+    assert!(multi_broken(|s| s.replace("max_items = 8", "max_items = 0")).contains("max_items"));
+    assert!(multi_broken(|s| s.replace("max_items = 8", "max_items = 257")).contains("max_items"));
+    assert!(
+        multi_broken(|s| format!("{s}\n[[options]]\nvalue = \"a\"\ntitle = \"A\"\ndescription = \"d\"\n"))
+            .contains("options")
+    );
+    // the other kinds do not take a [multi] section
+    let b = bool_manifest("ssh", 1).replace("[apply]", "[multi]\nmax_items = 3\n\n[apply]");
+    assert!(parse_manifest(&b).unwrap_err().contains("multi"));
+}
+
+#[test]
+fn multi_values_are_checked_and_typed_on_a_command_line() {
+    let m = parse_manifest(MULTI).unwrap();
+    assert_eq!(
+        m.parse_value("applications:org.kde.kate.desktop,preferred://browser")
+            .unwrap(),
+        Value::List(vec![
+            "applications:org.kde.kate.desktop".into(),
+            "preferred://browser".into()
+        ])
+    );
+    assert_eq!(
+        m.parse_value("").unwrap(),
+        Value::List(vec![]),
+        "an empty answer is an empty list"
+    );
+    assert_eq!(m.parse_value("a").unwrap().to_arg(), "a");
+    assert_eq!(
+        m.parse_value("a,b,c").unwrap().to_arg(),
+        "a,b,c",
+        "the argument is the items joined by commas"
+    );
+    assert_eq!(Value::List(vec![]).to_arg(), "");
+    for bad in [
+        "a,,b",
+        ",a",
+        "a,",
+        "a,a",
+        "a b",
+        "a\nb",
+        "a\u{e9}",
+        "a;b",
+        "a$b",
+        "a,b,c,d,e,f,g,h,i",
+    ] {
+        assert!(m.parse_value(bad).is_err(), "{bad:?}");
+    }
+    let long = "x".repeat(81);
+    assert!(m.parse_value(&long).is_err(), "an item is at most 80 characters");
+    assert!(
+        m.check_value(&Value::Str("a".into())).is_err(),
+        "a string is not a list"
+    );
+    assert!(m.check_value(&Value::Bool(true)).is_err());
+}
+
+#[test]
+fn multi_answers_are_stored_applied_exported_and_imported() {
+    let r = rig("multi");
+    r.add(
+        "90-p.toml",
+        "p",
+        90,
+        "multi",
+        "[\"a\", \"b\"]",
+        "setp",
+        false,
+        "firstboot",
+    );
+    let mut e = r.engine();
+    assert_eq!(
+        e.list(None)[0].effective,
+        Value::List(vec!["a".into(), "b".into()]),
+        "the default when unanswered"
+    );
+    assert!(e.set("p", "a,a").is_err());
+    assert!(
+        !r.state.join("answers.toml").exists(),
+        "a rejected answer writes nothing"
+    );
+    e.set("p", "x,y,z").unwrap();
+    let stored = fs::read_to_string(r.state.join("answers.toml")).unwrap();
+    assert!(stored.contains("p = [\"x\", \"y\", \"z\"]"), "{stored}");
+    assert_eq!(
+        r.engine().answer("p"),
+        Some(Value::List(vec!["x".into(), "y".into(), "z".into()])),
+        "persisted"
+    );
+
+    let out = e.apply(&ApplyOptions::default());
+    assert_eq!(statuses(&out), [("p".into(), Status::Applied)]);
+    assert_eq!(r.log(), ["setp x,y,z"], "one argument: the items joined by commas");
+
+    let exported = e.export();
+    assert!(exported.contains("p = [\"x\", \"y\", \"z\"]"), "{exported}");
+    let other = rig("multi2");
+    other.add(
+        "90-p.toml",
+        "p",
+        90,
+        "multi",
+        "[\"a\", \"b\"]",
+        "setp",
+        false,
+        "firstboot",
+    );
+    assert_eq!(other.engine().import(&exported).unwrap(), 1);
+    assert_eq!(
+        other.engine().export(),
+        exported,
+        "what was exported is what was imported"
+    );
+    for bad in [
+        "version = 1\n[answers]\np = \"x,y\"\n",
+        "version = 1\n[answers]\np = [\"x\", 3]\n",
+        "version = 1\n[answers]\np = [\"x\", \"x\"]\n",
+        "version = 1\n[answers]\np = [\"has space\"]\n",
+    ] {
+        assert!(other.engine().import(bad).is_err(), "{bad}");
+        assert_eq!(other.engine().export(), exported, "{bad}");
+    }
+    e.set("p", "").unwrap();
+    assert_eq!(
+        r.engine().answer("p"),
+        Some(Value::List(vec![])),
+        "an empty list is an answer, not no answer"
+    );
+    let json = serde_json::to_value(r.engine().list(None)).unwrap();
+    assert_eq!(json[0]["kind"], "multi");
+    assert_eq!(json[0]["effective"], serde_json::json!([]));
+}

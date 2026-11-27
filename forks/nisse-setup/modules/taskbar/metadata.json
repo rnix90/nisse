@@ -1,0 +1,16 @@
+{
+    "KPackageStructure": "KDE/PlasmaSetup",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "nisse"
+            }
+        ],
+        "Description": "Let the person choose which apps are pinned to the taskbar, from every app installed by then.",
+        "Id": "org.nisse.setup.taskbar",
+        "License": "GPL-2.0-or-later",
+        "Name": "Taskbar Apps"
+    },
+    "X-KDE-ParentApp": "org.kde.plasmasetup",
+    "X-KDE-Weight": 170
+}

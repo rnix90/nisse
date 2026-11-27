@@ -38,7 +38,13 @@ public:
     Q_INVOKABLE void reload();
 
     /**
-     * Records and applies an answer (a bool for a bool choice, text otherwise). On success the choice's effective value changes;
+     * The apps the taskbar page offers (maps with id, name, icon and pseudo, see launcherlisting.h), built from the launchers installed
+     * right now: the page asks again each time it opens, so an app an earlier choice installed is in the list.
+     */
+    Q_INVOKABLE QVariantList launchers() const;
+
+    /**
+     * Records and applies an answer (a bool for a bool choice, the items joined by commas for a multi choice, text otherwise). On success the choice's effective value changes;
      * on failure `error` says why and nothing changes.
      */
     Q_INVOKABLE bool setChoice(const QString &id, const QVariant &value);

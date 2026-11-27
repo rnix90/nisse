@@ -19,3 +19,11 @@ add_executable(choiceslisting_test
 target_include_directories(choiceslisting_test PRIVATE ${CMAKE_SOURCE_DIR}/modules/choicesutil)
 target_link_libraries(choiceslisting_test PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME choiceslisting_test COMMAND choiceslisting_test)
+
+add_executable(launcherlisting_test
+    launcherlisting_test.cpp
+    ${CMAKE_SOURCE_DIR}/modules/choicesutil/launcherlisting.cpp
+)
+target_include_directories(launcherlisting_test PRIVATE ${CMAKE_SOURCE_DIR}/modules/choicesutil)
+target_link_libraries(launcherlisting_test PRIVATE Qt6::Core Qt6::Test KF6::ConfigCore)
+add_test(NAME launcherlisting_test COMMAND launcherlisting_test)

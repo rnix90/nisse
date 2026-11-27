@@ -1,0 +1,69 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The first-login side of the taskbar pins choice (ledger N-508c, docs/taskbar-pins-spike.md). Started at the start of a Plasma session by
+# /etc/xdg/autostart/nisse-taskbar-pins.desktop. If the setup wrote /etc/nisse/taskbar-pins, it sets the Task Manager's pins of this user's
+# panel to that list, ONCE per user (a marker under the user's state folder), by sending Plasma a one-line script over D-Bus (the shell's
+# layout script cannot read a file). It replaces the pins only on a panel that still has the layout's default pins, so a panel the user
+# already changed is never touched. On live media nothing wrote the file, so the live session keeps the defaults.
+#   NISSE_ROOT, NISSE_LAYOUT, NISSE_PINS_TRIES and NISSE_PINS_SLEEP exist for the tests.
+set -u
+set -f
+root="${NISSE_ROOT:-}"
+list="$root/etc/nisse/taskbar-pins"
+layout="${NISSE_LAYOUT:-/usr/share/plasma/look-and-feel/org.nisse.desktop/contents/layouts/org.kde.plasma.desktop-layout.js}"
+state_dir="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/nisse"
+marker="$state_dir/taskbar-pins-applied"
+tries="${NISSE_PINS_TRIES:-30}"
+nap="${NISSE_PINS_SLEEP:-2}"
+
+[ -f "$list" ] || exit 0
+[ -e "$marker" ] && exit 0
+
+# a pin is 1 to 80 characters of letters, digits and . _ : / - + @; anything else is not put into a script
+safe() {
+    case "$1" in ''|*[!A-Za-z0-9._:/@+-]*) return 1 ;; esac
+    [ "${#1}" -le 80 ]
+}
+# the lines of a file as a JavaScript array of strings
+js_array() {
+    out=""
+    while IFS= read -r line || [ -n "$line" ]; do
+        safe "$line" || return 1
+        out="$out${out:+,}\"$line\""
+    done < "$1"
+    printf '[%s]' "$out"
+}
+
+want="$(js_array "$list")" || exit 0
+# the layout's own default pins are the one place they are written down (assets/theme/lookandfeel/layout.js)
+default_pins="$(sed -n '/writeConfig("launchers"/,/\])/p' "$layout" 2>/dev/null | grep -o '"[a-z]*:[^"]*"' | tr -d '"')"
+[ -n "$default_pins" ] || exit 0
+def=""
+for pin in $default_pins; do
+    safe "$pin" || exit 0
+    def="$def${def:+,}\"$pin\""
+done
+def="[$def]"
+
+script='var want='"$want"';var def='"$def"';var total=0;var changed=0;panelIds.forEach(function(id){panelById(id).widgets("org.kde.plasma.icontasks").forEach(function(w){total++;w.currentConfigGroup=["General"];if(String(w.readConfig("launchers",[]))==String(def)){w.writeConfig("launchers",want);w.reloadConfig();changed++}})});print(total+" "+changed)'
+
+i=0
+while [ "$i" -lt "$tries" ]; do
+    if reply="$(busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "$script" 2>/dev/null)"; then
+        # the reply is: s "TOTAL CHANGED"; a panel with no Task Manager yet says 0, and the shell may not be up at all: try again
+        nums="${reply#s \"}"
+        total="${nums%% *}"
+        case "$total" in
+            ''|*[!0-9]*) ;;
+            *)
+                if [ "$total" -ge 1 ]; then
+                    mkdir -p "$state_dir" && : > "$marker"
+                    exit 0
+                fi
+                ;;
+        esac
+    fi
+    i=$((i + 1))
+    sleep "$nap"
+done
+exit 0

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Apply Taskbar Pins
+Comment=Sets the taskbar apps you picked during setup, once, at your first login.
+Exec=/usr/libexec/nisse/nisse-apply-taskbar-pins
+OnlyShowIn=KDE;
+NoDisplay=true
+X-KDE-autostart-phase=2

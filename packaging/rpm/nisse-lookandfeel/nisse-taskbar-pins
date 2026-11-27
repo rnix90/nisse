@@ -1,0 +1,53 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The root side of the taskbar pins choice (ledger N-508c, docs/taskbar-pins-spike.md). nisse-choices runs it:
+#   nisse-taskbar-pins LIST     LIST is the pins joined by commas (empty means none). Writes /etc/nisse/taskbar-pins, one pin per line.
+#   nisse-taskbar-pins status   prints the stored list joined by commas, "unset" when nothing was ever written.
+# The file is read by nisse-apply-taskbar-pins when a user first logs in. NISSE_ROOT is a prefix for tests.
+set -eu
+root="${NISSE_ROOT:-}"
+dir="$root/etc/nisse"
+file="$dir/taskbar-pins"
+
+if [ "${1-}" = "status" ]; then
+    if [ -f "$file" ]; then paste -sd, "$file"; else echo unset; fi
+    exit 0
+fi
+[ "$#" -eq 1 ] || { echo "usage: nisse-taskbar-pins LIST | status" >&2; exit 2; }
+list="$1"
+
+# every item: 1 to 80 characters of letters, digits and . _ : / - + @ (a launcher or a launcher URL), none twice, no empty item
+if [ -n "$list" ]; then
+    case "$list" in *,) echo "nisse-taskbar-pins: the list ends with a comma" >&2; exit 2 ;; esac
+    seen=","
+    set -f
+    old_ifs="$IFS"
+    IFS=,
+    for item in $list; do
+        IFS="$old_ifs"
+        case "$item" in
+            ''|*[!A-Za-z0-9._:/@+-]*) echo "nisse-taskbar-pins: not a valid pin: $item" >&2; exit 2 ;;
+        esac
+        [ "${#item}" -le 80 ] || { echo "nisse-taskbar-pins: a pin is at most 80 characters" >&2; exit 2; }
+        case "$seen" in *",$item,"*) echo "nisse-taskbar-pins: listed twice: $item" >&2; exit 2 ;; esac
+        seen="$seen$item,"
+        IFS=,
+    done
+    IFS="$old_ifs"
+    set +f
+fi
+
+mkdir -p "$dir"
+tmp="$file.tmp$$"
+trap 'rm -f "$tmp"' EXIT
+: > "$tmp"
+if [ -n "$list" ]; then
+    old_ifs="$IFS"
+    IFS=,
+    set -f
+    for item in $list; do printf '%s\n' "$item" >> "$tmp"; done
+    IFS="$old_ifs"
+    set +f
+fi
+chmod 0644 "$tmp"
+mv -f "$tmp" "$file"

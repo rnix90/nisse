@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize};
 
 pub const ID_MAX: usize = 40;
 pub const TEXT_MAX_DEFAULT: usize = 64;
+/// A `multi` choice: the most items a list may have unless the manifest says less, the most it may say, and the longest item.
+pub const MULTI_MAX_DEFAULT: usize = 64;
+pub const MULTI_MAX_LIMIT: usize = 256;
+pub const MULTI_ITEM_MAX: usize = 80;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -16,6 +20,8 @@ pub enum Kind {
     Bool,
     Enum,
     Text,
+    /// A list of values (the taskbar pins): checkboxes in a front-end, a TOML array in the answers file.
+    Multi,
 }
 
 /// Where a front-end shows the choice.
@@ -37,12 +43,13 @@ impl Stage {
     }
 }
 
-/// An answer: a bool for `bool` choices, a string for `enum` and `text` choices.
+/// An answer: a bool for `bool` choices, a string for `enum` and `text` choices, a list of strings for `multi` choices.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum Value {
     Bool(bool),
     Str(String),
+    List(Vec<String>),
 }
 
 impl Value {
@@ -51,6 +58,7 @@ impl Value {
         match self {
             Value::Bool(b) => b.to_string(),
             Value::Str(s) => s.clone(),
+            Value::List(items) => items.join(","),
         }
     }
 }
@@ -73,6 +81,8 @@ pub struct Manifest {
     pub default: Value,
     pub options: Vec<ChoiceOption>,
     pub text_max_length: usize,
+    /// For a `multi` choice: the most items an answer may have.
+    pub multi_max_items: usize,
     /// The program and arguments run (as root, no shell) to apply the answer; one argument is exactly `{value}`.
     pub apply: Vec<String>,
     /// Prints the current value; equal to the wanted one means there is nothing to do.
@@ -91,6 +101,7 @@ struct Raw {
     default: toml::Value,
     options: Option<Vec<RawOption>>,
     text: Option<RawText>,
+    multi: Option<RawMulti>,
     apply: RawApply,
 }
 
@@ -106,6 +117,12 @@ struct RawOption {
 #[serde(deny_unknown_fields)]
 struct RawText {
     max_length: Option<usize>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawMulti {
+    max_items: Option<usize>,
 }
 
 #[derive(Deserialize)]
@@ -130,6 +147,14 @@ fn ascii_text(what: &str, s: &str) -> Result<(), String> {
         return Err(format!("{what} must be plain ASCII on one line"));
     }
     Ok(())
+}
+
+/// One item of a `multi` answer: a launcher or a launcher URL such as `applications:org.kde.kate.desktop` or `preferred://browser`.
+fn item_ok(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= MULTI_ITEM_MAX
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b':' | b'/' | b'-' | b'+' | b'@'))
 }
 
 fn printable(s: &str) -> bool {
@@ -182,11 +207,16 @@ pub fn parse_manifest(text: &str) -> Result<Manifest, String> {
         "bool" => Kind::Bool,
         "enum" => Kind::Enum,
         "text" => Kind::Text,
-        other => return Err(format!("kind {other:?} must be bool, enum or text")),
+        "multi" => Kind::Multi,
+        other => return Err(format!("kind {other:?} must be bool, enum, text or multi")),
     };
+    if kind != Kind::Multi && raw.multi.is_some() {
+        return Err("only a multi choice has a [multi] section".into());
+    }
 
     let mut options = Vec::new();
     let mut text_max_length = TEXT_MAX_DEFAULT;
+    let mut multi_max_items = MULTI_MAX_DEFAULT;
     match kind {
         Kind::Enum => {
             if raw.text.is_some() {
@@ -215,6 +245,20 @@ pub fn parse_manifest(text: &str) -> Result<Manifest, String> {
                 });
             }
         }
+        Kind::Multi => {
+            if raw.options.is_some() {
+                return Err("only an enum choice has [[options]]".into());
+            }
+            if raw.text.is_some() {
+                return Err("only a text choice has a [text] section".into());
+            }
+            if let Some(m) = raw.multi {
+                multi_max_items = m.max_items.unwrap_or(MULTI_MAX_DEFAULT);
+                if multi_max_items == 0 || multi_max_items > MULTI_MAX_LIMIT {
+                    return Err(format!("multi max_items must be between 1 and {MULTI_MAX_LIMIT}"));
+                }
+            }
+        }
         Kind::Bool | Kind::Text => {
             if raw.options.is_some() {
                 return Err("only an enum choice has [[options]]".into());
@@ -241,12 +285,22 @@ pub fn parse_manifest(text: &str) -> Result<Manifest, String> {
         default: Value::Bool(false),
         options,
         text_max_length,
+        multi_max_items,
         apply: raw.apply.command,
         status: raw.apply.status,
     };
     manifest.default = match (&manifest.kind, &raw.default) {
         (Kind::Bool, toml::Value::Boolean(b)) => Value::Bool(*b),
         (Kind::Enum | Kind::Text, toml::Value::String(s)) => Value::Str(s.clone()),
+        (Kind::Multi, toml::Value::Array(items)) => {
+            let strings: Option<Vec<String>> = items.iter().map(|i| i.as_str().map(String::from)).collect();
+            match strings {
+                Some(list) => Value::List(list),
+                None => {
+                    return Err("default has the wrong type for a multi choice: every item must be a string".into())
+                }
+            }
+        }
         _ => return Err(format!("default has the wrong type for a {} choice", raw.kind)),
     };
     manifest
@@ -282,6 +336,22 @@ impl Manifest {
                     ))
                 }
             }
+            (Kind::Multi, Value::List(items)) => {
+                if items.len() > self.multi_max_items {
+                    return Err(format!("at most {} items, got {}", self.multi_max_items, items.len()));
+                }
+                for (i, item) in items.iter().enumerate() {
+                    if !item_ok(item) {
+                        return Err(format!(
+                            "item {item:?} must be 1 to {MULTI_ITEM_MAX} characters of letters, digits and . _ : / - + @"
+                        ));
+                    }
+                    if items[..i].contains(item) {
+                        return Err(format!("item {item:?} is listed twice"));
+                    }
+                }
+                Ok(())
+            }
             _ => Err("the answer has the wrong type".into()),
         }
     }
@@ -295,6 +365,11 @@ impl Manifest {
                 _ => return Err(format!("{raw:?} must be true or false")),
             },
             Kind::Enum | Kind::Text => Value::Str(raw.to_string()),
+            Kind::Multi => Value::List(if raw.is_empty() {
+                Vec::new()
+            } else {
+                raw.split(',').map(String::from).collect()
+            }),
         };
         self.check_value(&value)?;
         Ok(value)

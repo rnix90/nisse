@@ -16,6 +16,10 @@ add_subdirectory(choicesutil)
 add_subdirectory(choices)
 kpackage_install_package(choices org.nisse.setup.choices packages plasma)
 
+# nisse's taskbar page (N-508c): after the choices page, so the list of apps includes what the earlier choices installed
+add_subdirectory(taskbar)
+kpackage_install_package(taskbar org.nisse.setup.taskbar packages plasma)
+
 add_subdirectory(hostname)
 kpackage_install_package(hostname org.kde.plasmasetup.hostname packages plasma)
 

@@ -201,6 +201,30 @@ for look in org.nisse.desktop org.nisse.desktop.light; do
 done
 echo "ok   the default taskbar: $pin_n pins in the two looks, each an installed app that shows, none a browser"
 
+# The taskbar pins choice (N-508c, docs/taskbar-pins-spike.md): the manifest (a multi choice for the first-boot wizard, shown AFTER every other
+# choice), the root-side step, the first-login step and its autostart entry, and the wizard's taskbar page after the choices page. The
+# live session has no pins file, so it keeps the layout's four pins.
+mf="$root/usr/share/nisse/choices.d/90-taskbar-pins.toml"
+[ -f "$mf" ] || fail "the taskbar pins manifest is not in the image (N-508c)"
+grep -q '^kind = "multi"' "$mf" || fail "the taskbar pins choice is not a multi choice (N-508c)"
+top=0
+for t in "$root"/usr/share/nisse/choices.d/*.toml; do
+    [ "$t" = "$mf" ] && continue
+    o="$(sed -n 's/^order = \([0-9]*\)/\1/p' "$t")"
+    [ -n "$o" ] && [ "$o" -gt "$top" ] && top="$o"
+done
+mo="$(sed -n 's/^order = \([0-9]*\)/\1/p' "$mf")"
+[ "$mo" -gt "$top" ] || fail "the taskbar pins choice (order $mo) does not come after every other choice (highest other $top) (N-508c)"
+for f in /usr/libexec/nisse/nisse-taskbar-pins /usr/libexec/nisse/nisse-apply-taskbar-pins; do
+    [ -x "$root$f" ] || fail "$f is not in the image or not executable (N-508c)"
+done
+[ -f "$root/etc/xdg/autostart/nisse-taskbar-pins.desktop" ] || fail "the first-login autostart entry is not in the image (N-508c)"
+[ ! -e "$root/etc/nisse/taskbar-pins" ] || fail "the image ships a taskbar pins file, so the live session would not keep the layout's pins (N-508c)"
+tw="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["X-KDE-Weight"])' "$root/usr/share/plasma/packages/org.nisse.setup.taskbar/metadata.json" 2>/dev/null || echo 0)"
+cw="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["X-KDE-Weight"])' "$root/usr/share/plasma/packages/org.nisse.setup.choices/metadata.json" 2>/dev/null || echo 0)"
+{ [ "$tw" -gt "$cw" ] && [ "$tw" -lt 200 ]; } || fail "the wizard's taskbar page (weight $tw) is not after the choices page ($cw) and before Finished (N-508c)"
+echo "ok   the taskbar pins choice is in the image, last in the choice order; its wizard page comes after the choices page; no pins file ships"
+
 # Moonlight and Sunshine (N-507a, docs/streaming-spike.md): both are in the image; Sunshine is OFF (its user service is not enabled by
 # anything in the image), its ports are closed (the default firewall zone is public and no zone has the sunshine service), and its binary
 # carries no software H.264 or HEVC encoder (the clean-repo decision).

@@ -79,7 +79,7 @@ title = "Administrator Rights for the AI"
 description = "..."               # a sentence or two for the person
 stage = "firstboot"               # where a front-end shows it: firstboot or installer
 order = 10                        # whole number; ties go by id
-kind = "enum"                     # bool, enum or text
+kind = "enum"                     # bool, enum, text or multi (a list)
 default = "full"                  # bool: true or false; enum: one of the options; text: a valid string
 
 [[options]]                       # enum only, at least two, values unique, lowercase letters, digits and dashes
@@ -105,6 +105,24 @@ sudo-mode = "limited"
 
 It is also the file N-517a imports and exports: `nisse-choices export` writes this format, `import` reads it. A bool is a TOML
 boolean, an enum and a text are strings. An id with no answer takes the manifest's default.
+
+### The multi kind (N-508c): a list of values
+
+For a choice whose candidates are not known in advance (the taskbar pins: every app installed on the machine). A manifest says
+`kind = "multi"`, a `default` that is an array of strings and, optionally, `[multi] max_items = N` (1 to 256, default 64). Each item is 1 to
+80 characters of letters, digits and `. _ : / - + @` (a launcher or a launcher URL such as `applications:org.kde.kate.desktop` or
+`preferred://browser`), no item twice, an empty list is valid. There is no `[[options]]`: a front-end builds the list of candidates itself.
+The answers file holds a TOML array (`taskbar-pins = ["applications:a.desktop", "preferred://browser"]`), `nisse-choices set ID a,b,c` takes
+the items joined by commas (an empty string is the empty list), and the apply command's `{value}` and the status command's output are the
+items joined by commas. The first multi choice is `taskbar-pins` (`docs/taskbar-pins-spike.md`).
+
+### The taskbar page (N-508c)
+
+The choices page (weight 150) shows every choice except the `multi` ones. Those get a page of their own, `org.nisse.setup.taskbar`
+(weight 170, before Finished): a search field and one checkbox per installed app that a menu would show, the two default entries (default
+file manager, default web browser) first. It is a page of its own, after the choices page, so that the list it builds each time it opens
+includes what the earlier choices installed (a different browser): Bert's requirement of 2026-11-27 (N-507b's browser choice must have an
+order below the pins choice's 90 and finish installing when it is answered). What is chosen keeps its order; a newly ticked app goes to the end.
 
 ### The engine (`nisse-choices`, root)
 

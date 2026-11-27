@@ -4,6 +4,7 @@
 #include "choicesutil.h"
 
 #include "choiceslisting.h"
+#include "launcherlisting.h"
 #include "plasmasetup_choicesutil_debug.h"
 
 #include <KAuth/Action>
@@ -11,6 +12,7 @@
 
 #include <QGuiApplication>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QWindow>
 
 using namespace Qt::StringLiterals;
@@ -78,6 +80,11 @@ void ChoicesUtil::reload()
     setError(QString());
 }
 
+QVariantList ChoicesUtil::launchers() const
+{
+    return NisseChoices::listLaunchers(QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation), u"KDE"_s);
+}
+
 bool ChoicesUtil::setChoice(const QString &id, const QVariant &value)
 {
     QList<QWindow *> topLevelWindows = QGuiApplication::topLevelWindows();
@@ -102,7 +109,13 @@ bool ChoicesUtil::setChoice(const QString &id, const QVariant &value)
     for (QVariant &entry : m_choices) {
         QVariantMap map = entry.toMap();
         if (map.value(u"id"_s).toString() == id) {
-            map.insert(u"effective"_s, value);
+            if (map.value(u"kind"_s).toString() == u"multi"_s) {
+                // the helper took the items joined by commas; the page reads the list back
+                const QString joined = value.toString();
+                map.insert(u"effective"_s, joined.isEmpty() ? QStringList() : joined.split(u',', Qt::SkipEmptyParts));
+            } else {
+                map.insert(u"effective"_s, value);
+            }
             entry = map;
         }
     }

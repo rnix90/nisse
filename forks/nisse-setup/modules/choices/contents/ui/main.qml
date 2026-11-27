@@ -16,11 +16,16 @@ import org.nisse.setup.choicesutil
 /**
  * The install choices (N-306e): one block per choice that an installed package declares for the first boot (nisse-choices
  * list), with its title and description. An answer is recorded and applied at once. With no choices the page is not shown.
+ * A `multi` choice (a list of apps: the taskbar pins, N-508c) is not here: it has a page of its own after this one, so what the
+ * choices above install is in its list.
  */
 PlasmaSetupComponents.SetupModule {
     id: root
 
-    available: ChoicesUtil.count > 0
+    /** Every choice but the `multi` ones, which the taskbar page shows. */
+    readonly property var shown: ChoicesUtil.choices.filter(c => c.kind !== "multi")
+
+    available: shown.length > 0
 
     contentItem: ScrollView {
         id: scroll
@@ -53,7 +58,7 @@ PlasmaSetupComponents.SetupModule {
                 }
 
                 Repeater {
-                    model: ChoicesUtil.choices
+                    model: root.shown
 
                     delegate: ColumnLayout {
                         id: choice

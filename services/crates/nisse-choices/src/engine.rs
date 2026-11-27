@@ -88,6 +88,11 @@ fn now() -> String {
         .unwrap_or_else(|_| "unknown".into())
 }
 
+/// The items of a TOML array when every one of them is a string.
+fn strings(items: &[toml::Value]) -> Option<Vec<String>> {
+    items.iter().map(|i| i.as_str().map(String::from)).collect()
+}
+
 /// The text of the answers file for `answers`.
 fn render_answers(answers: &BTreeMap<String, Value>) -> String {
     let mut out = String::from("version = 1\n\n[answers]\n");
@@ -95,6 +100,7 @@ fn render_answers(answers: &BTreeMap<String, Value>) -> String {
         let v = match value {
             Value::Bool(b) => toml::Value::Boolean(*b),
             Value::Str(s) => toml::Value::String(s.clone()),
+            Value::List(items) => toml::Value::Array(items.iter().cloned().map(toml::Value::String).collect()),
         };
         out.push_str(&format!("{id} = {v}\n"));
     }
@@ -232,6 +238,10 @@ impl Engine {
                 let value = match v {
                     toml::Value::Boolean(b) => Value::Bool(b),
                     toml::Value::String(s) => Value::Str(s),
+                    toml::Value::Array(items) => match strings(&items) {
+                        Some(list) => Value::List(list),
+                        None => continue,
+                    },
                     _ => continue,
                 };
                 engine.answers.insert(id, value);
@@ -322,6 +332,9 @@ impl Engine {
             let value = match (&m.kind, v) {
                 (Kind::Bool, toml::Value::Boolean(b)) => Value::Bool(b),
                 (Kind::Enum | Kind::Text, toml::Value::String(s)) => Value::Str(s),
+                (Kind::Multi, toml::Value::Array(items)) if strings(&items).is_some() => {
+                    Value::List(strings(&items).unwrap_or_default())
+                }
                 _ => {
                     errors.push(format!("{id}: the answer has the wrong type"));
                     continue;

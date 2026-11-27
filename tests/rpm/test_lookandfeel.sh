@@ -175,6 +175,25 @@ if grep -v '^//' "$src" | grep -q -i -E 'pager|discover'; then fail "layout must
 grep -q 'nisse-panel.desktop' packaging/rpm/nisse-panel/nisse-panel.spec || fail "nisse-panel does not ship nisse-panel.desktop"
 echo "ok   both looks carry the default panel layout, nisse panel app pinned first"
 
+# the taskbar pins choice (N-508c): the manifest, the root-side step, the first-login step and its autostart entry
+for f in /usr/share/nisse/choices.d/90-taskbar-pins.toml /usr/libexec/nisse/nisse-taskbar-pins /usr/libexec/nisse/nisse-apply-taskbar-pins \
+         /etc/xdg/autostart/nisse-taskbar-pins.desktop; do
+    printf '%s\n' "$files" | grep -qxF "$f" || fail "look-and-feel RPM lacks $f (the taskbar pins choice)"
+done
+for f in /usr/libexec/nisse/nisse-taskbar-pins /usr/libexec/nisse/nisse-apply-taskbar-pins; do
+    [ -x "$scratch$f" ] || fail "$f is not executable"
+done
+cmp -s "$scratch/usr/share/nisse/choices.d/90-taskbar-pins.toml" packaging/rpm/nisse-lookandfeel/choice-taskbar-pins.toml \
+    || fail "the shipped taskbar pins manifest differs from its source"
+engine="$(ls services/target/debug/nisse-choices services/target/release/nisse-choices 2>/dev/null | head -1 || true)"
+if [ -n "$engine" ]; then
+    "$engine" validate "$scratch/usr/share/nisse/choices.d" >/dev/null || fail "nisse-choices validate rejects the shipped manifest"
+    echo "ok   the taskbar pins manifest passes nisse-choices validate"
+else
+    echo "note: no built nisse-choices here (cargo build -p nisse-choices in services/): the manifest was not validated by the engine"
+fi
+echo "ok   the taskbar pins choice (manifest, apply step, first-login step, autostart entry) is in the package"
+
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpm_path")" = "GPL-2.0-or-later" ] || fail "look-and-feel License must be GPL-2.0-or-later"
 [ "$(rpm -qp --qf '%{ARCH}' "$rpm_path")" = "noarch" ] || fail "look-and-feel must be noarch"
 req="$(rpm -qp --requires "$rpm_path")"

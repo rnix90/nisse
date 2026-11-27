@@ -69,6 +69,17 @@ grep -q '/usr/lib64/qt6/qml/org/nisse/setup/choicesutil/' <<< "$files" || fail "
 page="$(member usr/share/plasma/packages/org.nisse.setup.choices/metadata.json)"
 python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["KPackageStructure"]=="KDE/PlasmaSetup" and d["X-KDE-ParentApp"]=="org.kde.plasmasetup"; w=d["X-KDE-Weight"]; assert 50 < w < 200, w' "$page" \
     || fail "the choices page must be a KDE/PlasmaSetup page weighted between Wi-Fi (50) and Finished (200)"
+# N-508c: the taskbar page, a page of its own AFTER the choices page (Bert, 2026-11-27: the list of apps is built when the page opens, so
+# whatever the earlier choices installed, such as a different browser, is in it), and before Finished
+grep -qx "/usr/share/plasma/packages/org.nisse.setup.taskbar/metadata.json" <<< "$files" || fail "the taskbar page package is missing"
+grep -qx "/usr/share/plasma/packages/org.nisse.setup.taskbar/contents/ui/main.qml" <<< "$files" || fail "the taskbar page has no main.qml"
+tpage="$(member usr/share/plasma/packages/org.nisse.setup.taskbar/metadata.json)"
+python3 -c 'import json,sys; d=json.loads(sys.argv[1]); c=json.loads(sys.argv[2]); assert d["KPackageStructure"]=="KDE/PlasmaSetup" and d["X-KDE-ParentApp"]=="org.kde.plasmasetup"; assert c["X-KDE-Weight"] < d["X-KDE-Weight"] < 200, d["X-KDE-Weight"]' "$tpage" "$page" \
+    || fail "the taskbar page must come after the choices page and before Finished (200)"
+tqml="$(member usr/share/plasma/packages/org.nisse.setup.taskbar/contents/ui/main.qml)"
+grep -q 'onPageActivated' <<< "$tqml" && grep -q 'ChoicesUtil.launchers()' <<< "$tqml" || fail "the taskbar page must build its app list when it opens"
+cqml="$(member usr/share/plasma/packages/org.nisse.setup.choices/contents/ui/main.qml)"
+grep -q 'multi' <<< "$cqml" || fail "the choices page must leave the multi choices to the taskbar page"
 grep -q 'action id="org.nisse.setup.setchoice"' <<< "$policy" || fail "the helper does not declare org.nisse.setup.setchoice"
 grep -q '"org.nisse.setup.setchoice"' <<< "$rules" || fail "polkit does not allow org.nisse.setup.setchoice for the wizard's user"
 # its default is no for everybody else: only the polkit rule's user may use it

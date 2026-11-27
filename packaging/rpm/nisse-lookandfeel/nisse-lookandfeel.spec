@@ -3,7 +3,7 @@
 
 Name:           nisse-lookandfeel
 Version:        0.2
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        The nisse global themes and the system defaults for new users
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -13,6 +13,14 @@ Requires:       nisse-wallpaper
 Requires:       nisse-cursors
 Requires:       nisse-icons
 Requires:       nisse-sounds
+# the taskbar pins choice (N-508c) is shown by nisse-setup and applied by nisse-choices; the first-login step sends Plasma a script with busctl
+Recommends:     nisse-choices
+Requires:       systemd
+
+Source1:        choice-taskbar-pins.toml
+Source2:        nisse-taskbar-pins
+Source3:        nisse-apply-taskbar-pins
+Source4:        nisse-taskbar-pins.desktop
 
 # Fedora's kde-settings-plasmalogin ships the same /usr/lib/plasmalogin/defaults.conf (naming Fedora's wallpaper) and plasma-login-manager
 # recommends it: nisse-lookandfeel replaces it, so the two never collide and an update never brings it back
@@ -27,6 +35,10 @@ system default settings, so a new user starts in the nisse dark look with the
 nisse interface font, the login and lock screen default (the nisse wallpaper
 behind Plasma's own screens), nisse's logout screen and nisse's splash. The
 color schemes and fonts come from nisse-theme.
+
+It also carries the taskbar pins choice: a list of apps the first-boot
+wizard offers to pin, and a step that sets the chosen pins once at each
+user's first login.
 
 %prep
 
@@ -56,6 +68,11 @@ install -d %{buildroot}%{_sysconfdir}/xdg
 install -pm 0644 %{nisse_root}/assets/theme/xdg/kdeglobals %{buildroot}%{_sysconfdir}/xdg/kdeglobals
 install -pm 0644 %{nisse_root}/assets/theme/xdg/kscreenlockerrc %{buildroot}%{_sysconfdir}/xdg/kscreenlockerrc
 install -pm 0644 %{nisse_root}/assets/theme/xdg/ksplashrc %{buildroot}%{_sysconfdir}/xdg/ksplashrc
+# the taskbar pins choice (N-508c)
+install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/nisse/choices.d/90-taskbar-pins.toml
+install -Dpm 0755 %{SOURCE2} %{buildroot}%{_libexecdir}/nisse/nisse-taskbar-pins
+install -Dpm 0755 %{SOURCE3} %{buildroot}%{_libexecdir}/nisse/nisse-apply-taskbar-pins
+install -Dpm 0644 %{SOURCE4} %{buildroot}%{_sysconfdir}/xdg/autostart/nisse-taskbar-pins.desktop
 install -d %{buildroot}%{_prefix}/lib/plasmalogin
 install -pm 0644 %{nisse_root}/assets/theme/plasmalogin/defaults.conf %{buildroot}%{_prefix}/lib/plasmalogin/defaults.conf
 
@@ -67,8 +84,19 @@ install -pm 0644 %{nisse_root}/assets/theme/plasmalogin/defaults.conf %{buildroo
 %config(noreplace) %{_sysconfdir}/xdg/kscreenlockerrc
 %config(noreplace) %{_sysconfdir}/xdg/ksplashrc
 %{_prefix}/lib/plasmalogin/defaults.conf
+%dir %{_datadir}/nisse
+%dir %{_datadir}/nisse/choices.d
+%{_datadir}/nisse/choices.d/90-taskbar-pins.toml
+%dir %{_libexecdir}/nisse
+%{_libexecdir}/nisse/nisse-taskbar-pins
+%{_libexecdir}/nisse/nisse-apply-taskbar-pins
+%{_sysconfdir}/xdg/autostart/nisse-taskbar-pins.desktop
 
 %changelog
+* Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-10
+- the taskbar pins choice (N-508c): a nisse-choices manifest (a list, shown last by the first-boot wizard), its root-side apply step, and a
+  once-per-user first-login step that sets the Task Manager's pins through Plasma's scripting
+
 * Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-9
 - the default taskbar no longer pins a browser: nisse panel, Files, Terminal and System Settings only
 

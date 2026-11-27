@@ -18,6 +18,8 @@ ecm_add_qml_module(plasmasetup_choicesutil
         choicesutil.h
         choiceslisting.cpp
         choiceslisting.h
+        launcherlisting.cpp
+        launcherlisting.h
         ${logging_SRCS}
 )
 
@@ -26,6 +28,7 @@ target_link_libraries(plasmasetup_choicesutil PRIVATE
     Qt::Gui
     Qt::Qml
     KF6::AuthCore
+    KF6::ConfigCore
     KF6::I18n
 )
 

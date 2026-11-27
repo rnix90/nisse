@@ -69,4 +69,17 @@ New files are nisse's own (GPL-2.0-or-later, `SPDX-FileCopyrightText: 2026 nisse
 | `tests/choiceset_test.cpp` | new: the helper's logic against a fake engine and, with `NISSE_CHOICES_REAL`, the real one | nisse's tests |
 | `tests/choiceslisting_test.cpp` | new: the parser | nisse's tests |
 | `CMakeLists.txt` | adds the tests directory when testing is on | nisse's tests |
+| `modules/choicesutil/launcherlisting.h` | new (N-508c): `listLaunchers`, the apps the taskbar page offers | the taskbar page's data |
+| `modules/choicesutil/launcherlisting.cpp` | new (N-508c): reads the launchers a menu would show (applications only, not NoDisplay or Hidden, for KDE, TryExec present, the first folder wins), by name, after the two default entries | the taskbar page's data |
+| `modules/taskbar/CMakeLists.txt` | new (N-508c): the taskbar page's QML module | follows the page |
+| `modules/taskbar/metadata.json` | new (N-508c): a KDE/PlasmaSetup page `org.nisse.setup.taskbar`, weight 170 (after the choices page, before Finished) | the list of apps is built after the earlier choices |
+| `modules/taskbar/metadata.json.license` | new (N-508c): licence of the metadata | REUSE convention |
+| `modules/taskbar/contents/ui/main.qml` | new (N-508c): the page: a search field and a checkbox per installed app for each multi choice, listed when the page opens | the taskbar pins choice |
+| `tests/launcherlisting_test.cpp` | new (N-508c): the launcher listing | nisse's tests |
+| `modules/taskbar/contents/ui/pins.js` | new (N-508c): the tick logic of the taskbar page (a newly ticked app goes to the end, an unticked one is dropped, the answer is the items joined by commas) | testable on its own |
+| `tests/tst_pins.qml` | new (N-508c): QtTest checks of `pins.js`, run by `tests/e2e/test_nisse_setup_taskbar_page.sh` | nisse's tests |
+| `modules/choices/contents/ui/main.qml` | N-508c: leaves multi choices to the taskbar page | follows the new page |
+| `modules/choicesutil/choiceslisting.cpp` | N-508c: reads a multi choice (a list of strings) | the taskbar pins choice |
+| `modules/choicesutil/choicesutil.cpp` | N-508c: `launchers()` for the taskbar page; a multi answer is kept as a list | the taskbar pins choice |
+| `src/auth/choiceset.cpp` | N-508c: an empty value and up to 4096 characters are passed on to the engine, which validates strictly | a list of pins and an empty list |
 | `CMakeLists.txt` | the minimum versions are the release repository's Qt 6.10 and Frameworks 6.25 (upstream: 6.11 and 6.30) | the image is Fedora 44 release only; it builds and links on those (2026-11-19). Re-check the first-boot run at the ISO gate |

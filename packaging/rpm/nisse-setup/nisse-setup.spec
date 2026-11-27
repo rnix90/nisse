@@ -18,7 +18,7 @@
 
 Name:           nisse-setup
 Version:        0.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        nisse's first-boot setup wizard (a fork of KDE Plasma Setup)
 License:        (GPL-2.0-or-later or GPL-3.0-or-later) and GPL-2.0-or-later and GPL-3.0-or-later and (LGPL-2.0-or-later or LGPL-3.0-or-later) and (LGPL-2.1-or-later or LGPL-3.0-or-later) and LGPL-2.1-or-later and BSD-2-Clause and CC0-1.0
 URL:            https://github.com/rnix90/nisse
@@ -123,6 +123,9 @@ cp -p %{_vpath_srcdir}/LICENSES/* licenses/
 %{_datadir}/nisse-setup/
 
 %changelog
+* Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-3
+- The taskbar page (org.nisse.setup.taskbar, weight 170, after the choices page): a checkbox per installed app for a multi choice, listed when the page opens (N-508c); the root helper passes an empty value and a list of up to 4096 characters on to the engine
+
 * Wed Nov 18 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
 - The choices page (org.nisse.setup.choices, weight 150) and the root helper action org.nisse.setup.setchoice that records and applies one install choice through nisse-choices (N-306e)
 

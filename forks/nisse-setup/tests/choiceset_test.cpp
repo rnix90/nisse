@@ -74,12 +74,24 @@ private Q_SLOTS:
         QVERIFY(isValidValue(QStringLiteral("limited")));
         QVERIFY(isValidValue(QStringLiteral("true")));
         QVERIFY(isValidValue(QStringLiteral("a name with spaces")));
-        QVERIFY(!isValidValue(QString()));
+        // an empty value is passed on (an empty list of pins is an answer); the engine refuses it for the kinds that need text
+        QVERIFY(isValidValue(QString()));
         QVERIFY(!isValidValue(QStringLiteral("two\nlines")));
         QVERIFY(!isValidValue(QStringLiteral("tab\there")));
         QVERIFY(!isValidValue(QString::fromUtf8("caf\xc3\xa9")));
-        QVERIFY(!isValidValue(QString(257, QLatin1Char('a'))));
-        QVERIFY(isValidValue(QString(256, QLatin1Char('a'))));
+        // a list of up to 40 pins of 80 characters with their commas fits (N-508c)
+        QVERIFY(isValidValue(QString(3300, QLatin1Char('a'))));
+        QVERIFY(isValidValue(QString(4096, QLatin1Char('a'))));
+        QVERIFY(!isValidValue(QString(4097, QLatin1Char('a'))));
+    }
+
+    void anEmptyValueIsLeftToTheEngine()
+    {
+        QTemporaryDir dir;
+        const QString bin = fakeBinary(dir, QStringLiteral("ok"));
+        QVERIFY(setAndApply(QStringLiteral("taskbar-pins"), QString(), bin).ok);
+        const QStringList seen = calls(dir);
+        QVERIFY2(!seen.isEmpty() && seen.first().startsWith(QStringLiteral("set taskbar-pins")), qPrintable(seen.join(QLatin1Char('|'))));
     }
 
     void setThenApplyInOrder()
@@ -97,7 +109,6 @@ private Q_SLOTS:
         const QString bin = fakeBinary(dir, QStringLiteral("ok"));
         QVERIFY(!setAndApply(QStringLiteral("Bad Id"), QStringLiteral("x"), bin).ok);
         QVERIFY(!setAndApply(QStringLiteral("sudo-mode"), QStringLiteral("bad\nvalue"), bin).ok);
-        QVERIFY(!setAndApply(QStringLiteral("sudo-mode"), QString(), bin).ok);
         QVERIFY2(calls(dir).isEmpty(), "the engine ran for an invalid request");
     }
 

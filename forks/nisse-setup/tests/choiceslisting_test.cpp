@@ -57,6 +57,15 @@ static const char *SAMPLE = R"JSON([
   }
 ])JSON";
 
+static const char *MULTI_LISTING = R"JSON([{"id": "taskbar-pins", "title": "Taskbar Apps", "description": "Which apps are pinned.",
+  "stage": "firstboot", "order": 90, "kind": "multi", "options": [],
+  "default": ["applications:a.desktop", "applications:c.desktop"],
+  "answer": null, "effective": ["applications:a.desktop", "applications:b.desktop"], "current": null, "state": null}])JSON";
+static const char *MULTI_EMPTY = R"JSON([{"id": "x", "title": "T", "description": "D", "kind": "multi", "effective": []}])JSON";
+static const char *MULTI_BAD_ITEM = R"JSON([{"id": "x", "title": "T", "description": "D", "kind": "multi", "effective": ["a", 3]}])JSON";
+static const char *MULTI_BAD_STRING = R"JSON([{"id": "x", "title": "T", "description": "D", "kind": "multi", "effective": "a,b"}])JSON";
+static const char *MULTI_BAD_BOOL = R"JSON([{"id": "x", "title": "T", "description": "D", "kind": "multi", "effective": true}])JSON";
+
 class ChoicesListingTest : public QObject
 {
     Q_OBJECT
@@ -98,6 +107,27 @@ private Q_SLOTS:
             ids << v.toMap().value(QStringLiteral("id")).toString();
         }
         QCOMPARE(ids, (QStringList{QStringLiteral("sudo-mode"), QStringLiteral("remote-login"), QStringLiteral("computer-name")}));
+    }
+
+    void readsAListChoice()
+    {
+        // N-508c: a multi choice has a list of strings as its value and its default
+        QString error;
+        const QVariantList list = parseListing(QByteArray(MULTI_LISTING), &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(list.size(), 1);
+        const QVariantMap pins = list.at(0).toMap();
+        QCOMPARE(pins.value(QStringLiteral("kind")).toString(), QStringLiteral("multi"));
+        QCOMPARE(pins.value(QStringLiteral("effective")).toStringList(),
+                 (QStringList{QStringLiteral("applications:a.desktop"), QStringLiteral("applications:b.desktop")}));
+        QCOMPARE(pins.value(QStringLiteral("default")).toStringList(),
+                 (QStringList{QStringLiteral("applications:a.desktop"), QStringLiteral("applications:c.desktop")}));
+        // an empty list is a value
+        QVERIFY(parseListing(QByteArray(MULTI_EMPTY), &error).size() == 1 && error.isEmpty());
+        // a list with anything but strings, or no list, is refused
+        for (const char *bad : {MULTI_BAD_ITEM, MULTI_BAD_STRING, MULTI_BAD_BOOL}) {
+            QVERIFY2(parseListing(QByteArray(bad), &error).isEmpty() && !error.isEmpty(), bad);
+        }
     }
 
     void anEmptyListIsFine()

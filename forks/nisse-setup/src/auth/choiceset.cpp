@@ -10,7 +10,8 @@ namespace NisseChoices
 {
 
 constexpr int ID_MAX = 40;
-constexpr int VALUE_MAX = 256;
+// room for a list of 40 pins of 80 characters (N-508c); the engine, not this check, decides what a value may be
+constexpr int VALUE_MAX = 4096;
 constexpr int SET_TIMEOUT_MS = 20000;
 
 bool isValidId(const QString &id)
@@ -31,7 +32,7 @@ bool isValidId(const QString &id)
 
 bool isValidValue(const QString &value)
 {
-    if (value.isEmpty() || value.size() > VALUE_MAX) {
+    if (value.size() > VALUE_MAX) {
         return false;
     }
     for (const QChar ch : value) {

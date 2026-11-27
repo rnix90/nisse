@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The taskbar pins as an install choice (ledger N-508c, docs/taskbar-pins-spike.md). A list of launchers; the first-boot wizard shows every
+# installed app with a launcher as a checkbox. It comes AFTER every other choice (order 90) because the list is built when the page opens, so
+# an app an earlier choice installed (a different browser) is in it. Applied by nisse-choices through nisse-taskbar-pins, which writes
+# /etc/nisse/taskbar-pins; each user's first login applies it (nisse-apply-taskbar-pins). The default is the layout script's four pins
+# (assets/theme/lookandfeel/layout.js; tests/rpm/test_taskbar_pins.sh keeps them equal).
+id = "taskbar-pins"
+title = "Taskbar Apps"
+description = "Which apps are pinned to the taskbar when you log in. Tick the ones you want: the list shows every app installed on this computer, and you can change the taskbar any time by right-clicking an app."
+stage = "firstboot"
+order = 90
+kind = "multi"
+default = ["applications:nisse-panel.desktop", "preferred://filemanager", "applications:org.kde.konsole.desktop", "applications:systemsettings.desktop"]
+
+[multi]
+max_items = 40
+
+[apply]
+command = ["/usr/libexec/nisse/nisse-taskbar-pins", "{value}"]
+status = ["/usr/libexec/nisse/nisse-taskbar-pins", "status"]
