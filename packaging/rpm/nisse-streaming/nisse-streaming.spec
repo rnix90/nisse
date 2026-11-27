@@ -3,7 +3,7 @@
 
 Name:           nisse-streaming
 Version:        0.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Sunshine and trustworthy network install choices
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -29,7 +29,8 @@ is on a trustworthy network, and if so marks its current connections as home
 in the firewall. Three are about Sunshine, which streams the screen to a
 Moonlight device: turning it on, who can open its settings page, and whether it
 starts at login. Sunshine is off unless the person turns it on, and its ports
-are only ever open on connections marked as home.
+are only ever open on connections marked as home. The same home zone carries
+KDE Connect's ports, so KDE Connect works on those connections and only there.
 
 %prep
 
@@ -62,5 +63,8 @@ install -Dpm 0644 %{SOURCE8} %{buildroot}%{_sysconfdir}/xdg/autostart/nisse-suns
 %{_sysconfdir}/xdg/autostart/nisse-sunshine-config.desktop
 
 %changelog
+* Sat Nov 28 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
+- The home zone always carries the kdeconnect firewall service, whatever the trustworthy network answer, so KDE Connect works on connections marked as home and nowhere else; status says pending until it does
+
 * Sat Nov 28 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1
 - Initial package: the trustworthy network and Sunshine install choices (N-507c)

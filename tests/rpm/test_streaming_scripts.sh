@@ -39,6 +39,9 @@ cat > "$bin/firewall-cmd" <<'EOF'
 #!/bin/sh
 case "$*" in
     "--get-default-zone") echo public ;;
+    "--state") [ ! -e "$STUB_FX/fw-down" ] ;;
+    "--permanent --zone=home --query-service=kdeconnect") [ -e "$STUB_FX/kdeconnect" ] ;;
+    "--permanent --zone=home --add-service=kdeconnect") echo "firewall-cmd $*" >> "$STUB_LOG"; : > "$STUB_FX/kdeconnect" ;;
     *) echo "firewall-cmd $*" >> "$STUB_LOG" ;;
 esac
 EOF
@@ -48,6 +51,20 @@ echo "systemctl $*" >> "$STUB_LOG"
 EOF
 chmod +x "$bin"/*
 run() { : > "$log"; PATH="$bin:$PATH" "$@"; }
+
+# ---- KDE Connect: the home zone always has the kdeconnect firewall service, whatever the answer. A default install (nobody answered) must get it too,
+#      so status says "pending" while it is missing, which makes nisse-choices apply the step even when the answer would be "false".
+printf '%s
+' 'u-eth:802-3-ethernet:enp1s0' > "$fx/active"
+[ "$(run sh "$trust" status)" = "pending" ] && ok "status says pending while the home zone lacks kdeconnect (so the engine applies the step)" || bad "status before: $(run sh "$trust" status)"
+run sh "$trust" false
+grep -q 'firewall-cmd --permanent --zone=home --add-service=kdeconnect' "$log" && ok "no (or no answer at all): the kdeconnect service is still added to the home zone, permanently" || bad "no kdeconnect add on false: $(cat "$log")"
+[ "$(run sh "$trust" status)" = "false" ] && ok "and then status is false: the engine has nothing more to do" || bad "status after: $(run sh "$trust" status)"
+run sh "$trust" false; grep -q 'add-service=kdeconnect' "$log" && bad "the kdeconnect service was added again" || ok "it is added once, not on every run"
+grep -q 'firewall-cmd --permanent --zone=public' "$log" && bad "the public zone was touched" || ok "the public zone is never touched"
+rm -f "$fx/kdeconnect"; : > "$fx/fw-down"
+run sh "$trust" false; grep -q 'add-service=kdeconnect' "$log" && bad "tried the running firewall while it is down" || ok "with the firewall not running it does not fail (the next boot's apply does it)"
+rm -f "$fx/fw-down" "$fx/kdeconnect"
 
 # ---- network trust: the connections the computer is on now go in the home zone
 printf '%s\n' 'u-eth:802-3-ethernet:enp1s0' 'u-wifi:802-11-wireless:wlp2s0' 'u-lo:loopback:lo' 'u-vpn:vpn:tun0' 'u-br:bridge:virbr0' > "$fx/active"
@@ -72,7 +89,7 @@ printf '%s' work > "$fx/zone-u-wifi"; printf '%s' home > "$fx/zone-u-eth"
 run sh "$trust" false; grep -q 'modify u-wifi' "$log" && bad "no reset a connection the user put in the work zone" || ok "no leaves a connection in another zone alone"
 
 : > "$fx/active"
-run sh "$trust" true && [ ! -s "$log" ] && ok "with no network connection (an offline install) yes does nothing and does not fail" || bad "offline handling"
+run sh "$trust" true && ! grep -q modify "$log" && ok "with no network connection (an offline install) yes marks nothing and does not fail" || bad "offline handling"
 [ "$(run sh "$trust" status)" = "false" ] && ok "and status says false" || bad "offline status"
 run sh "$trust" maybe 2>/dev/null; [ "$?" = 2 ] && ok "a bad argument exits 2" || bad "bad argument not refused"
 

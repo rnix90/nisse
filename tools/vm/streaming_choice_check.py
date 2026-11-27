@@ -66,6 +66,14 @@ def main(iso, out, folder):
             time.sleep(5)
             return ""
 
+    def kc_probe():
+        """Tries KDE Connect's port from the client namespace; the result goes to a file that is read separately, because the daemon logs to the
+        console when it is connected to and that can hide the end marker of the command that did it."""
+        soft("sudo rm -f /tmp/kc.out", 30)
+        soft("sudo ip netns exec peer sh /tmp/kc.sh > /tmp/kc.out 2>&1", 60)
+        time.sleep(4)
+        return got("echo kc=$(grep -o 'kc=[0-9]*' /tmp/kc.out | head -1 | cut -d= -f2)", "kc")
+
     def got(cmd, key, timeout=60):
         for attempt in range(2):
             try:
@@ -107,6 +115,10 @@ def main(iso, out, folder):
             z1 = got(f"echo z=$(nmcli -g connection.zone connection show {uuid})", "z")
             z2 = got(f"echo z=$(sudo firewall-cmd --get-zone-of-interface={dev})", "z")
             check("no: the connection is back in the default zone", (z1 or "") == "" and z2 == "public", f"nm='{z1}' now={z2}")
+            kc = got("echo s=$(sudo firewall-cmd --permanent --zone=home --list-services)", "s") or ""
+            check("whatever the answer, the home zone has the kdeconnect service", "kdeconnect" in kc.split(), kc)
+            pub0 = got("echo s=$(sudo firewall-cmd --permanent --zone=public --list-services)", "s") or ""
+            check("and the public zone does not", "kdeconnect" not in pub0.split(), pub0)
 
         # 3  Sunshine on
         vm.run("sudo nisse-choices set sunshine true 2>&1 | tail -1; sudo nisse-choices apply --id sunshine 2>&1 | tail -2", 180)
@@ -155,6 +167,29 @@ def main(iso, out, folder):
         soft("sudo firewall-cmd --zone=public --change-interface=vh0 2>&1 | tail -1", 60)
         pubr = got(f"echo r=$({reach})", "r")
         check("the same client in the public zone does not reach it", pubr in ("000", ""), str(pubr))
+
+        # KDE Connect: its daemon listens, and the same client reaches its port from the home zone and not from the public zone
+        listening = got("echo k=$(ss -Hltn 2>/dev/null | grep -c ':1716[[:space:]]')", "k")
+        if listening in (None, "0"):
+            vm.run(". /tmp/env.sh; nohup kdeconnectd > /tmp/kdec.log 2>&1 &", 20)
+            time.sleep(20)
+            listening = got("echo k=$(ss -Hltn 2>/dev/null | grep -c ':1716[[:space:]]')", "k")
+        check("the KDE Connect daemon listens on its port (1716)", (listening or "0") != "0", str(listening))
+        vm.put("/tmp/kc.sh", ("timeout 5 bash -c 'exec 3<>/dev/tcp/192.168.77.1/1716'" + chr(10) + "echo kc=$?" + chr(10)).encode())
+        soft("sudo firewall-cmd --zone=home --change-interface=vh0 2>&1 | tail -1", 60)
+        kc_home = kc_probe()
+        check("a client in the home zone reaches KDE Connect's port", kc_home == "0", str(kc_home))
+        soft("sudo firewall-cmd --zone=public --change-interface=vh0 2>&1 | tail -1", 60)
+        kc_pub = kc_probe()
+        check("the same client in the public zone does not", kc_pub not in ("0", None), str(kc_pub))
+
+        # a reload of the firewall (every step that changes a service does one) must not take the connection out of the home zone
+        if uuid and dev:
+            vm.run("sudo nisse-choices set trusted-network true 2>&1 | tail -1; sudo nisse-choices apply --id trusted-network 2>&1 | tail -2", 120)
+            soft("sudo firewall-cmd --reload 2>&1 | tail -1", 60)
+            zr = got(f"echo z=$(sudo firewall-cmd --get-zone-of-interface={dev})", "z")
+            check("a firewall reload keeps the real interface in the home zone", zr == "home", str(zr))
+            vm.run("sudo nisse-choices set trusted-network false 2>&1 | tail -1; sudo nisse-choices apply --id trusted-network 2>&1 | tail -2", 120)
 
         # 5  off
         vm.sh(f"systemctl --user stop {UNIT}; true", 60)

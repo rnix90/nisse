@@ -3,7 +3,7 @@
 # firewalld's home zone, which is where services that listen on the network (Sunshine) are opened. Off by default.
 id = "trusted-network"
 title = "Trustworthy Network"
-description = "Are you on a trustworthy network, like the one at home? If you say yes, this computer's current network connections are marked as home, so other computers on them can reach the services you turn on, such as Sunshine. Say no on a shared or public network."
+description = "Are you on a trustworthy network, like the one at home? If you say yes, this computer's current network connections are marked as home, so other computers on them can reach the services you turn on, such as Sunshine, and KDE Connect works there. Say no on a shared or public network."
 stage = "firstboot"
 order = 40
 kind = "bool"

@@ -136,3 +136,12 @@ has none and never overwrites one. Changes after setup are made in Sunshine's ow
 
 The codec and encoder pieces (Cisco's OpenH264 for Moonlight, RPM Fusion's drivers, LizardByte's full-codec Sunshine, the NVIDIA driver) became a
 menu of proprietary options of its own (Bert: "a whole menu of proprietary options, including and beyond the codec and encoder stuff").
+
+### KDE Connect rides the same home zone (N-507c follow-up, Bert 2026-11-27)
+
+KDE Connect starts at every login (`/etc/xdg/autostart/org.kde.kdeconnect.daemon.desktop`), and firewalld ships a `kdeconnect` service (TCP and
+UDP 1714-1764), but neither the `public` zone (ssh, mdns, dhcpv6-client) nor `home` (those and samba-client) includes it, and nisse's default zone
+is `public`: so its ports were closed on every network. Decision (Bert): no new switch; the `kdeconnect` service is always part of the `home`
+zone, so marking a network home (the "trustworthy network" answer, or later by hand in firewall-config) is what opens it, and only there.
+`nisse-network-trust` makes sure of it on every apply, whatever the answer: `status` prints `pending` while the home zone lacks it, which makes
+nisse-choices run the step even on a default install where nobody answered. Nothing in the public zone changes.
