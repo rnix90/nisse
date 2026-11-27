@@ -25,7 +25,7 @@ animate the sliding blocks; Plymouth does. It works, so the bar stays on the GRU
 | `plymouth-boot`, `-early`, `-late` | Plymouth (N-501) | Ink; the stacked logo 300 wide, centered a little above the middle; the boot bar below it. Three frames show the blocks moving |
 | `splash-dark`, `splash-light` | Plasma splash after login (N-505) | solid Ink (or Paper on the light look); the nisse **n** with the tipped hat, 260 px, inside the comet ring (the N-404 spinner in Ember), centered. Nothing else |
 | `login-dark` | Login screen (N-503) | what Plasma Login Manager really draws (redrawn 2026-11-26 after the VM look; Bert chose to keep Plasma's own greeter): the nisse wallpaper (Fjell Layers, dark) blurred, the clock and date, a round avatar with its ring, the user name, a password box with its eye and arrow, and Sleep, Restart, Shut Down and Other at the bottom. No Log In pill, no logo, no light version (the greeter has one look, the system default, dark) |
-| `lock-dark`, `lock-light` | Lock screen (N-504) | the wallpaper under a 50% veil; a large light-weight clock and the date, kept above the sun so they never cross it; the password field low in the screen; the small logo and name bottom left |
+| `lock-dark`, `lock-light` | Lock screen (N-504) | the screen nobody has touched, as Plasma really draws it (redrawn 2026-11-26 after the VM look; Bert chose to keep Plasma's own lock screen): the sharp nisse wallpaper under Plasma's clock and the date. No veil, no logo; the password box, the user and the buttons show after a key press and are Plasma's |
 | `logout-dark`, `logout-light` | Log out, restart, shut down (N-504) | the wallpaper under an 82% veil; "What would you like to do?"; three round buttons (Log out, Restart, Shut down, the default selected in Ember with an Ink icon); the countdown line and **Cancel** |
 
 Colors are palette colors only (tested). The name is lowercase everywhere ("nisse starts in 4 s.", "Start from Earlier Snapshots").
@@ -183,6 +183,38 @@ blue, the Ember sun (sharp when idle, a soft glow when awake) and the clock; tes
 naming Fedora's wallpaper, and plasma-login-manager recommends it. nisse-lookandfeel therefore `Provides` and `Obsoletes` it (the same
 pattern as nisse-setup for plasma-setup) and kiwi ignores it; the e2e installs the package on a disk that has Fedora's and checks it is replaced.
 **After the next ISO rebuild:** the login block of `tests/iso/test_iso_contents.sh` (the defaults file, no kde-settings-plasmalogin, the greeter is in the image).
+
+## The lock screen and the logout screen: built (N-504)
+
+**Lock screen (Bert: keep Plasma's own, wallpaper only).** Since Plasma 6.0 the lock screen's layout lives in the shell package
+(`/usr/share/plasma/shells/org.kde.plasma.desktop/contents/lockscreen/`, plasma-desktop), and kscreenlocker's greeter loads it from there: a
+look-and-feel cannot replace it, and a nisse layout would mean patching plasma-desktop. Its colors, Nunito and icons already come from
+`/etc/xdg/kdeglobals`. The wallpaper was Fedora's cityscape again (seen in the live VM); `nisse-lookandfeel` 0.2-7 ships
+`/etc/xdg/kscreenlockerrc` (source `assets/theme/xdg/kscreenlockerrc`): `[Greeter] WallpaperPlugin=org.kde.image` and
+`[Greeter][Wallpaper][org.kde.image][General] Image=file:///usr/share/wallpapers/nisse`. A user's own `~/.config/kscreenlockerrc` still wins.
+
+**Logout screen (Bert: nisse's own copy, matching the mock).** A look-and-feel DOES own `contents/logout/Logout.qml`.
+`assets/theme/lookandfeel/logout/` (Logout.qml, LogoutButton.qml, timer.js) is a restyled copy of Breeze's (plasma-workspace 6.6.4) with the same
+host contract (the signals and the context properties sdtype, maysd, canLogout, spdMethods, softwareUpdatePending and the reboot notes), so
+every Breeze behavior stays: the software-update variants, the other-users warning, the firmware-setup note, the countdown, Escape. What
+changed: the veil is the look's own window color at 82% (Ink in the dark look, Paper in the light one; Breeze's is hard-coded black at 85%);
+the question "What would you like to do?" over the buttons (only when every option is offered); round buttons drawn in the content (circle
+108 px at the default size, a thin ring, the one with the keyboard focus, the default, an Ember circle with an Ink icon from the Selection
+colors); the countdown line under the buttons ("Shutting down in 21 seconds."); Cancel a plain Ember word; no avatar and name (the mock has
+none). The words are plain English, not Plasma's translation catalog, so they end with punctuation (rule 13); this costs the translations,
+which nisse does not have yet. One source file serves both looks (`org.nisse.desktop` and `.light`).
+**Carrying it:** about 350 lines of QML to compare with Breeze's after each Plasma update (the contract above is what can break).
+
+**Proof (live VM, `tools/vm/lock_logout_check.py ISO OUTDIR RPM`):** the built package is installed in a live session; the screen is locked
+(idle, then awake after a key press with a password set so the box shows, then really unlocked by typing it), and the logout screen is
+opened with every option, with the shut down countdown and with the log out countdown. Each photo is judged by `tools/vm/login_check.py`
+(`--idle`/`--awake` for the lock screen, `--logout`/`--logout-all` for the logout screen: the Ink veil rather than black, the Ember default
+circle, Cancel, the question), which tests keep able to refuse Fedora's cityscape and Breeze's black screen. Photos:
+`docs/screenshots/n504-lock-nisse-*.png`, `n504-logout-nisse-*.png`, against `n504-*-before-*.png`.
+**Not verified:** the light look's logout screen (same file, the light scheme's colors); the rebuilt ISO (the block in
+`tests/iso/test_iso_contents.sh` is queued); an installed disk with another user logged in; a real click on the buttons (the keys and the
+countdown are what the photos show). The Log Out button's icon is the nisse icon theme's own (a chevron in a ring), not the mock's door
+and arrow: a question for the icon theme, not this screen.
 
 ## Decisions and open points handed on
 

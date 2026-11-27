@@ -33,6 +33,7 @@ tools/art/boot_mocks.py | Start from Earlier Snapshots | a boot menu entry
 tools/art/boot_mocks.py | More Ways to Start | a boot menu entry
 tools/art/boot_mocks.py | Plymouth boot screen (N-501): the logo and the sliding-block bar | a caption on the mock sheet, not shipped
 tools/art/boot_mocks.py | Plasma splash after login (N-505), dark: the n and the comet | a caption on the mock sheet, not shipped
-tools/art/boot_mocks.py | Lock Screen (N-504), Dark | a caption on the mock sheet, not shipped
 tools/art/boot_mocks.py | Logout, restart and shut down (N-504), dark | a caption on the mock sheet, not shipped
 packaging/rpm/nisse-boot/nisse-boot | Start nisse in Rescue Mode | a boot menu entry
+assets/theme/lookandfeel/logout/Logout.qml | Install Updates and Restart | a button label (headline case), not a sentence
+assets/theme/lookandfeel/logout/Logout.qml | Install Updates and Shut Down | a button label (headline case), not a sentence

@@ -3,7 +3,7 @@
 
 Name:           nisse-lookandfeel
 Version:        0.2
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        The nisse global themes and the system defaults for new users
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -24,8 +24,9 @@ The nisse global themes for Plasma: nisse (the Ember dark desktop, the default)
 and nisse Light. Each one applies a nisse color scheme with the stock Breeze
 widget style, window decoration, icons, cursor and splash. Also installs the
 system default settings, so a new user starts in the nisse dark look with the
-nisse interface font, and the login screen default (the nisse wallpaper behind
-Plasma Login). The color schemes and fonts come from nisse-theme.
+nisse interface font, the login and lock screen default (the nisse wallpaper
+behind Plasma's own screens) and nisse's logout screen. The color schemes and
+fonts come from nisse-theme.
 
 %prep
 
@@ -36,7 +37,10 @@ mkdir -p licenses
 install -pm 0644 %{nisse_root}/LICENSE licenses/LICENSE
 laf=%{buildroot}%{_datadir}/plasma/look-and-feel
 for id in org.nisse.desktop org.nisse.desktop.light; do
-    install -d "$laf/$id/contents/plasmoidsetupscripts" "$laf/$id/contents/layouts"
+    install -d "$laf/$id/contents/plasmoidsetupscripts" "$laf/$id/contents/layouts" "$laf/$id/contents/logout"
+    install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/logout/Logout.qml "$laf/$id/contents/logout/"
+    install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/logout/LogoutButton.qml "$laf/$id/contents/logout/"
+    install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/logout/timer.js "$laf/$id/contents/logout/"
     install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/layout.js "$laf/$id/contents/layouts/org.kde.plasma.desktop-layout.js"
     install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/$id/metadata.json "$laf/$id/metadata.json"
     install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/$id/contents/defaults "$laf/$id/contents/defaults"
@@ -47,6 +51,7 @@ for id in org.nisse.desktop org.nisse.desktop.light; do
 done
 install -d %{buildroot}%{_sysconfdir}/xdg
 install -pm 0644 %{nisse_root}/assets/theme/xdg/kdeglobals %{buildroot}%{_sysconfdir}/xdg/kdeglobals
+install -pm 0644 %{nisse_root}/assets/theme/xdg/kscreenlockerrc %{buildroot}%{_sysconfdir}/xdg/kscreenlockerrc
 install -d %{buildroot}%{_prefix}/lib/plasmalogin
 install -pm 0644 %{nisse_root}/assets/theme/plasmalogin/defaults.conf %{buildroot}%{_prefix}/lib/plasmalogin/defaults.conf
 
@@ -55,9 +60,14 @@ install -pm 0644 %{nisse_root}/assets/theme/plasmalogin/defaults.conf %{buildroo
 %{_datadir}/plasma/look-and-feel/org.nisse.desktop
 %{_datadir}/plasma/look-and-feel/org.nisse.desktop.light
 %config(noreplace) %{_sysconfdir}/xdg/kdeglobals
+%config(noreplace) %{_sysconfdir}/xdg/kscreenlockerrc
 %{_prefix}/lib/plasmalogin/defaults.conf
 
 %changelog
+* Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-7
+- The lock screen shows the nisse wallpaper (system default kscreenlockerrc)
+- nisse's own logout screen in both looks (a restyled copy of Breeze's)
+
 * Thu Nov 26 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-6
 - The login screen shows the nisse wallpaper (Plasma Login defaults file)
 

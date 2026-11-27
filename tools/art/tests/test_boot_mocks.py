@@ -160,3 +160,15 @@ def test_the_login_mock_is_the_screen_plasma_login_really_draws():
         assert f">{words}<" in svg, words
     assert "feGaussianBlur" in svg, "the greeter blurs the wallpaper once someone touches a key"
     assert ">Log In<" not in svg
+
+
+def test_the_lock_mock_is_the_screen_plasma_really_draws():
+    """N-504 (Bert, 2026-11-26: keep Plasma's own lock screen, only the wallpaper is nisse's): the mock is the screen nobody has touched, the
+    sharp nisse wallpaper under Plasma's clock and date. No logo, no keyboard layout, no password box (they show only once a key is pressed,
+    and the box is Plasma's), no veil."""
+    for name in ("lock-dark", "lock-light"):
+        svg = drawn(name)
+        for words in ("12:21 AM", "Friday, November 27, 2026"):
+            assert f">{words}<" in svg, (name, words)
+        assert ">nisse<" not in svg and "Type your password" not in svg, name
+        assert "fill-opacity" not in svg, f"{name}: the lock screen has no veil"

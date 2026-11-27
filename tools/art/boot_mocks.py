@@ -219,18 +219,14 @@ def login(mode="dark"):
 
 
 def lock(mode):
+    """The lock screen nobody has touched (N-504; Bert chose to keep Plasma's own lock screen, whose layout a look-and-feel cannot replace):
+    the sharp nisse wallpaper under Plasma's clock and date. The clock and date sit above the sun, as in Plasma. The password box, the
+    user and the buttons show only after a key press and are Plasma's. No veil, no logo."""
     dark = mode == "dark"
-    ink, soft = (d("text"), d("text-muted")) if dark else (lt("text"), lt("text-muted"))
-    scrim = rect(0, 0, W, H, d("base") if dark else lt("paper"), opacity=0.5)   # calm enough that the date never fights the sun
-    b = [_wall(mode), scrim]
-    b.append(text(W / 2, 430, "9:41", 250, ink, 300))
-    b.append(text(W / 2, 520, "Thursday, November 19", 48, ink, 400))   # above the sun, so the date never crosses it
-    field, edge = (d("surface-2"), d("outline")) if dark else (lt("page"), lt("outline"))
-    b.append(rect(W / 2 - 230, 840, 460, 64, field, rx=16, stroke=edge, sw=2, opacity=0.92))
-    b.append(text(W / 2, 883, "Type your password to unlock.", 24, soft, 400))
-    b.append(image(uri(ICON_REVERSE if dark else ROOT / "assets/logo/svg/nisse-icon.svg"), 48, 990, 44, 44))
-    b.append(text(104, 1022, "nisse", 28, ink, 700, "start"))
-    b.append(text(W - 48, 1022, "us", 24, ink, 400, "end"))
+    ink = d("text") if dark else lt("text")
+    b = [_wall(mode)]
+    b.append(text(W / 2, 190, "12:21 AM", 150, ink, 400))
+    b.append(text(W / 2, 290, "Friday, November 27, 2026", 36, ink, 400))
     return frame("".join(b), d("base") if dark else lt("paper"))
 
 
@@ -271,7 +267,7 @@ SURFACES = [
     ("splash-dark", "Plasma splash after login (N-505), dark: the n and the comet", lambda: splash("dark")),
     ("splash-light", "Plasma Splash, Light", lambda: splash("light")),
     ("login-dark", "Login Screen (N-503)", lambda: login("dark")),
-    ("lock-dark", "Lock Screen (N-504), Dark", lambda: lock("dark")),
+    ("lock-dark", "Lock Screen (N-504)", lambda: lock("dark")),
     ("lock-light", "Lock Screen, Light", lambda: lock("light")),
     ("logout-dark", "Logout, restart and shut down (N-504), dark", lambda: logout("dark")),
     ("logout-light", "Logout Screen, Light", lambda: logout("light")),

@@ -109,7 +109,8 @@ def test_the_shipped_tree_has_no_unclosed_sentence():
 
 def test_the_boot_mock_sentences_are_closed():
     text = (REPO / "tools/art/boot_mocks.py").read_text(encoding="utf-8")
-    for want in ('"Type your password to unlock."', '"What would you like to do?"'):
+    # the lock mock's old line "Type your password to unlock." is gone: the lock screen is Plasma's own now (N-504), with Plasma's words
+    for want in ('"What would you like to do?"',):
         assert want in text, want
     # the GRUB menu's two sentences are the theme's (N-502): the mock draws what tools/art/grub_theme.py says
     theme = (REPO / "tools/art/grub_theme.py").read_text(encoding="utf-8")

@@ -26,6 +26,10 @@
 # the avatars (N-406a): 17 gnome pictures and the nisse sticker
 /usr/share/plasma/avatars/ nisse-avatars N-406a min=17
 /usr/share/nisse/art-replacements/ nisse-avatars N-406a min=3
+# the logout screen (N-504): nisse's restyled copy of Breeze's, in both looks
+/usr/share/plasma/look-and-feel/org.nisse.desktop/contents/logout/Logout.qml nisse-lookandfeel N-504
+/usr/share/plasma/look-and-feel/org.nisse.desktop.light/contents/logout/Logout.qml nisse-lookandfeel N-504
+
 # the wallpaper (N-407a)
 /usr/share/wallpapers/nisse/metadata.json nisse-wallpaper N-407a
 /usr/share/wallpapers/nisse/contents/images/1920x1080.png nisse-wallpaper N-407a

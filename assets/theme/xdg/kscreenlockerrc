@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The nisse system default for the lock screen (ledger N-504). Installed as /etc/xdg/kscreenlockerrc: the Plasma session reads it under the
+# user's own ~/.config/kscreenlockerrc, so a user who picks another lock screen picture keeps it. The lock screen's layout (the clock, the
+# date and the password box) is Plasma's: since Plasma 6.0 it lives in plasma-desktop and a look-and-feel cannot replace it (Bert chose to keep
+# it, 2026-11-26). Its colors, font and icons already come from /etc/xdg/kdeglobals; the wallpaper is what needs naming here, and the nisse
+# wallpaper package picks its dark or light picture by the color scheme.
+[Greeter]
+WallpaperPlugin=org.kde.image
+
+[Greeter][Wallpaper][org.kde.image][General]
+Image=file:///usr/share/wallpapers/nisse

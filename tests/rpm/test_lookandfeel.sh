@@ -102,6 +102,26 @@ rpm -qp --obsoletes "$rpm_path" | grep -q '^kde-settings-plasmalogin' || fail "n
 rpm -qp --provides "$rpm_path" | grep -q '^kde-settings-plasmalogin' || fail "nisse-lookandfeel must provide kde-settings-plasmalogin (Plasma Login Manager recommends it)"
 echo "ok   the package replaces Fedora's kde-settings-plasmalogin (same file)"
 
+# the lock screen (N-504): its layout is plasma-desktop's and cannot be replaced by a look-and-feel (Bert: keep it), so the system default
+# names the nisse wallpaper for it; the logout screen IS part of a look-and-feel, so both looks carry nisse's own restyled copy of Breeze's
+printf '%s
+' "$files" | grep -qxF /etc/xdg/kscreenlockerrc || fail "look-and-feel RPM lacks /etc/xdg/kscreenlockerrc (the lock screen default)"
+lk="$scratch/etc/xdg/kscreenlockerrc"
+want "$lk" Greeter WallpaperPlugin org.kde.image
+want "$lk" 'Greeter][Wallpaper][org.kde.image][General' Image file:///usr/share/wallpapers/nisse
+echo "ok   the lock screen shows the nisse wallpaper (system default kscreenlockerrc)"
+for id in org.nisse.desktop org.nisse.desktop.light; do
+    for f in Logout.qml LogoutButton.qml timer.js; do
+        printf '%s
+' "$files" | grep -qxF "$LAF/$id/contents/logout/$f" || fail "$id lacks contents/logout/$f (nisse's logout screen)"
+        cmp -s "$scratch$LAF/$id/contents/logout/$f" "assets/theme/lookandfeel/logout/$f" || fail "$id logout/$f differs from assets/theme/lookandfeel/logout/$f"
+    done
+done
+grep -q 'What would you like to do?' assets/theme/lookandfeel/logout/Logout.qml || fail "the logout screen lacks the question"
+if grep -q 'org.kde.breeze.components' assets/theme/lookandfeel/logout/*.qml; then fail "the logout screen must not depend on Breeze's private components"; fi
+if grep -q 'color: "black"' assets/theme/lookandfeel/logout/Logout.qml; then fail "the logout veil must use the look's own background, not black"; fi
+echo "ok   both looks carry nisse's logout screen (one source, no Breeze components, a veil in the look's color)"
+
 # the start button icon script is Fedora's, unchanged in effect: it sets the icon to start-here, which nisse-branding owns
 for id in org.nisse.desktop org.nisse.desktop.light; do
     for p in kickoff kicker kickerdash; do

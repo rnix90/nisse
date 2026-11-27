@@ -120,6 +120,18 @@ if rpmq -q kde-settings-plasmalogin >/dev/null 2>&1; then fail "kde-settings-pla
 [ -f "$root/usr/libexec/plasma-login-greeter" ] || fail "the image has no Plasma Login greeter (the login screen the nisse wallpaper is for)"
 echo "ok   the login screen defaults to the nisse wallpaper"
 
+# The lock screen and the logout screen (N-504): the lock screen's layout is plasma-desktop's, so only its wallpaper is nisse's (a system
+# default); the logout screen is nisse's own copy in both looks.
+lk="$root/etc/xdg/kscreenlockerrc"
+[ -f "$lk" ] || fail "the lock screen default is missing (/etc/xdg/kscreenlockerrc)"
+awk '$0=="[Greeter][Wallpaper][org.kde.image][General]"{s=1;next} /^\[/{s=0} s&&$1=="Image=file:///usr/share/wallpapers/nisse"{f=1} END{exit !f}' "$lk" || fail "the lock screen does not default to the nisse wallpaper"
+for laf in org.nisse.desktop org.nisse.desktop.light; do
+    for f in Logout.qml LogoutButton.qml timer.js; do
+        [ -f "$root/usr/share/plasma/look-and-feel/$laf/contents/logout/$f" ] || fail "$laf has no contents/logout/$f (nisse's logout screen)"
+    done
+done
+echo "ok   the lock screen defaults to the nisse wallpaper and both looks carry nisse's logout screen"
+
 # Every approved art asset (N-415): the path-by-path check of the whole manifest against the image.
 art_n=0
 while read -r path pkg task opts; do
