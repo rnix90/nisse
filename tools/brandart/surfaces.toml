@@ -67,6 +67,7 @@ missing = true
 requests = [
   { title = "GRUB boot menu background and logo", seen = "Boot menu: the image today has a plain text menu with no artwork", shipped = "/usr/share/grub/themes/nisse/logo.png" },
   { title = "Plasma Login Manager background and theme", seen = "Login screen: plasmalogin ships no artwork of its own", shipped = "/usr/share/wallpapers/nisse/contents/images_dark/1920x1080.png" },
+  { title = "Plasma splash after login", seen = "The screen between the login and the desktop (Breeze's said Plasma made by KDE)", shipped = "/usr/share/plasma/look-and-feel/org.nisse.desktop/contents/splash/images/n.svg" },
   { title = "Lock screen scene", seen = "When the screen locks (today it reuses the wallpaper)", shipped = "/usr/share/wallpapers/nisse/contents/images_dark/1920x1080.png" },
   { title = "Logout / shutdown / restart screen", seen = "The full-screen choice dialog", shipped = "/usr/share/plasma/look-and-feel/org.nisse.desktop/contents/logout/Logout.qml" },
 ]

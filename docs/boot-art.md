@@ -216,6 +216,32 @@ circle, Cancel, the question), which tests keep able to refuse Fedora's cityscap
 countdown are what the photos show). The Log Out button's icon is the nisse icon theme's own (a chevron in a ring), not the mock's door
 and arrow: a question for the icon theme, not this screen.
 
+## The Plasma splash: built (N-505)
+
+**Before:** both nisse looks named Breeze's splash (`ksplashrc Theme=org.kde.breeze.desktop`), which shows "Plasma made by KDE" and KDE's logo.
+**Now:** `contents/splash/` in both looks (`org.nisse.desktop` and `.light`, one source in `assets/theme/lookandfeel/splash/`): `Splash.qml` and two
+single-color pictures, `images/n.svg` (the approved n with its tipped hat, `assets/logo/n/svg/nisse-n-reverse.svg`) and `images/comet.svg` (the N-404
+comet, `assets/art/comet/svg/nisse-comet.svg`). The QML keeps Breeze's stages and fades (everything fades in at stage 2, the ring fades out at stage
+5) and its fixed 2 s turn that does not follow the animation speed (and not at all with animations off). The colors come from the active color
+scheme, so one file serves both looks: the Window background (Ink, or Paper), the text color for the n (Paper, or Ink), the highlight color for the
+comet (Ember, or brick); the pictures are tinted with `Kirigami.Icon { isMask: true }`. Sizes are in grid units, not pixels (the n 14, the ring 24),
+so it scales with the screen's scale factor, as Breeze's does. **No text and no KDE logo** (a test keeps it that way). Both looks' defaults and a new
+system default `/etc/xdg/ksplashrc` (`Theme=org.nisse.desktop`) name it; the light look's defaults name `org.nisse.desktop.light`. Shipped by
+`nisse-lookandfeel` 0.2-8.
+
+**How ksplashqml really runs (read in plasma-workspace 6.6.4 and seen in the VM):** it is the only thing that plays a splash, and in
+`--test` mode it steps its stages on a timer and quits at stage 6, about a second after it starts; the Ink window covers the screen at once and the
+picture fades in over it. So the real run only ever shows the first moments of the fade, and Breeze's own splash would too. The proof therefore has
+two parts (`tools/vm/splash_vm_check.py ISO OUTDIR RPM`, in a live session with the built package): the REAL `ksplashqml org.nisse.desktop --test` is
+sampled every 0.12 s, and the Ink window is seen covering the screen; a copy of the installed splash with ONLY its timing changed (the fade made 40 ms,
+the stage 5 fade removed, under `~/.local`) is sampled the same way, in the dark look and in the light look (the light color scheme applied first), and
+`tools/vm/splash_check.py` judges the frames (Ink or Paper all round, the n and the ring in the middle, nothing else) and that the comet has turned
+between them. 8 of 8 checks pass; photos `docs/screenshots/n505-splash-nisse-{dark,light}.png` and `n505-splash-real-ksplashqml-fade.png`. The live
+session's own `~/.config/kdedefaults/ksplashrc` still said Breeze (the image was built before this package), so the system default is checked in a
+clean home (`env -i`, the XDG paths a new user has).
+**Not verified:** a real login on an installed disk (the splash there is driven by Plasma's start stages, not the test timer); the ISO (the splash block
+in `tests/iso/test_iso_contents.sh` is queued); other screen sizes and scale factors; a user whose own `~/.config/ksplashrc` already names another splash.
+
 ## Decisions and open points handed on
 
 - The default entry is plain "nisse"; the snapshot entry is "Start from Earlier Snapshots" (Bert's wording, N-502); the older

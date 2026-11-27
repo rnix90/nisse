@@ -57,7 +57,7 @@ for f in "$dark" "$light"; do
     want "$f" 'kdeglobals][KDE' widgetStyle Breeze
     want "$f" 'kwinrc][org.kde.kdecoration2' library org.kde.breeze
     want "$f" 'kwinrc][org.kde.kdecoration2' theme Breeze
-    want "$f" 'ksplashrc][KSplash' Theme org.kde.breeze.desktop
+    # (the splash is nisse's own since N-505: checked with the splash below)
     want "$f" 'kcminputrc][Mouse' cursorTheme nisse_cursors
 done
 for n in NisseEmber NisseEmberLight; do
@@ -121,6 +121,28 @@ grep -q 'What would you like to do?' assets/theme/lookandfeel/logout/Logout.qml 
 if grep -q 'org.kde.breeze.components' assets/theme/lookandfeel/logout/*.qml; then fail "the logout screen must not depend on Breeze's private components"; fi
 if grep -q 'color: "black"' assets/theme/lookandfeel/logout/Logout.qml; then fail "the logout veil must use the look's own background, not black"; fi
 echo "ok   both looks carry nisse's logout screen (one source, no Breeze components, a veil in the look's color)"
+
+# the Plasma splash (N-505): nisse's own, in both looks (one source): the n and the comet ring, Ink or Paper from the color scheme, no text.
+# Until now both looks named Breeze's splash, which says "Plasma made by KDE" and shows KDE's logo.
+for id in org.nisse.desktop org.nisse.desktop.light; do
+    for f in Splash.qml images/n.svg images/comet.svg; do
+        printf '%s
+' "$files" | grep -qxF "$LAF/$id/contents/splash/$f" || fail "$id lacks contents/splash/$f (nisse's splash)"
+    done
+    cmp -s "$scratch$LAF/$id/contents/splash/Splash.qml" assets/theme/lookandfeel/splash/Splash.qml || fail "$id splash/Splash.qml differs from assets/theme/lookandfeel/splash/Splash.qml"
+    cmp -s "$scratch$LAF/$id/contents/splash/images/n.svg" assets/logo/n/svg/nisse-n-reverse.svg || fail "$id splash/images/n.svg is not the approved n (assets/logo/n/svg/nisse-n-reverse.svg)"
+    cmp -s "$scratch$LAF/$id/contents/splash/images/comet.svg" assets/art/comet/svg/nisse-comet.svg || fail "$id splash/images/comet.svg is not the approved comet (assets/art/comet/svg/nisse-comet.svg)"
+done
+want "$dark"  'ksplashrc][KSplash' Theme org.nisse.desktop
+want "$light" 'ksplashrc][KSplash' Theme org.nisse.desktop.light
+printf '%s
+' "$files" | grep -qxF /etc/xdg/ksplashrc || fail "look-and-feel RPM lacks /etc/xdg/ksplashrc (the splash system default)"
+want "$scratch/etc/xdg/ksplashrc" KSplash Theme org.nisse.desktop
+sp=assets/theme/lookandfeel/splash/Splash.qml
+if grep -qiE 'kde\.svgz|plasma\.svgz|Plasma made by|i18n|Text *\{|Label *\{' "$sp"; then fail "the splash must show no text and no KDE logo"; fi
+grep -q 'RotationAnimator' "$sp" || fail "the splash comet does not turn (no RotationAnimator)"
+grep -q 'onStageChanged' "$sp" || fail "the splash does not follow Plasma's start stages"
+echo "ok   both looks carry nisse's splash (the n and the comet), name it, and the system default names it"
 
 # the start button icon script is Fedora's, unchanged in effect: it sets the icon to start-here, which nisse-branding owns
 for id in org.nisse.desktop org.nisse.desktop.light; do

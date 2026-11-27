@@ -132,6 +132,17 @@ for laf in org.nisse.desktop org.nisse.desktop.light; do
 done
 echo "ok   the lock screen defaults to the nisse wallpaper and both looks carry nisse's logout screen"
 
+# The Plasma splash (N-505): both looks carry nisse's own (the n and the comet ring) and name it, and so does the system default; Breeze's (with
+# "Plasma made by KDE" and the KDE logo) is not what either look uses.
+for laf in org.nisse.desktop org.nisse.desktop.light; do
+    for f in Splash.qml images/n.svg images/comet.svg; do
+        [ -f "$root/usr/share/plasma/look-and-feel/$laf/contents/splash/$f" ] || fail "$laf has no contents/splash/$f (nisse's splash)"
+    done
+    awk '$0=="[ksplashrc][KSplash]"{s=1;next} /^\[/{s=0} s&&$1=="Theme=" want{f=1} END{exit !f}' want="$laf" "$root/usr/share/plasma/look-and-feel/$laf/contents/defaults"         || fail "$laf does not name its own splash (Theme=$laf under [ksplashrc][KSplash])"
+done
+grep -qx 'Theme=org.nisse.desktop' "$root/etc/xdg/ksplashrc" || fail "the system default does not name nisse's splash (/etc/xdg/ksplashrc)"
+echo "ok   both looks and the system default use nisse's splash"
+
 # Every approved art asset (N-415): the path-by-path check of the whole manifest against the image.
 art_n=0
 while read -r path pkg task opts; do

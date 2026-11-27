@@ -3,7 +3,7 @@
 
 Name:           nisse-lookandfeel
 Version:        0.2
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        The nisse global themes and the system defaults for new users
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -25,8 +25,8 @@ and nisse Light. Each one applies a nisse color scheme with the stock Breeze
 widget style, window decoration, icons, cursor and splash. Also installs the
 system default settings, so a new user starts in the nisse dark look with the
 nisse interface font, the login and lock screen default (the nisse wallpaper
-behind Plasma's own screens) and nisse's logout screen. The color schemes and
-fonts come from nisse-theme.
+behind Plasma's own screens), nisse's logout screen and nisse's splash. The
+color schemes and fonts come from nisse-theme.
 
 %prep
 
@@ -37,7 +37,10 @@ mkdir -p licenses
 install -pm 0644 %{nisse_root}/LICENSE licenses/LICENSE
 laf=%{buildroot}%{_datadir}/plasma/look-and-feel
 for id in org.nisse.desktop org.nisse.desktop.light; do
-    install -d "$laf/$id/contents/plasmoidsetupscripts" "$laf/$id/contents/layouts" "$laf/$id/contents/logout"
+    install -d "$laf/$id/contents/plasmoidsetupscripts" "$laf/$id/contents/layouts" "$laf/$id/contents/logout" "$laf/$id/contents/splash/images"
+    install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/splash/Splash.qml "$laf/$id/contents/splash/Splash.qml"
+    install -pm 0644 %{nisse_root}/assets/logo/n/svg/nisse-n-reverse.svg "$laf/$id/contents/splash/images/n.svg"
+    install -pm 0644 %{nisse_root}/assets/art/comet/svg/nisse-comet.svg "$laf/$id/contents/splash/images/comet.svg"
     install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/logout/Logout.qml "$laf/$id/contents/logout/"
     install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/logout/LogoutButton.qml "$laf/$id/contents/logout/"
     install -pm 0644 %{nisse_root}/assets/theme/lookandfeel/logout/timer.js "$laf/$id/contents/logout/"
@@ -52,6 +55,7 @@ done
 install -d %{buildroot}%{_sysconfdir}/xdg
 install -pm 0644 %{nisse_root}/assets/theme/xdg/kdeglobals %{buildroot}%{_sysconfdir}/xdg/kdeglobals
 install -pm 0644 %{nisse_root}/assets/theme/xdg/kscreenlockerrc %{buildroot}%{_sysconfdir}/xdg/kscreenlockerrc
+install -pm 0644 %{nisse_root}/assets/theme/xdg/ksplashrc %{buildroot}%{_sysconfdir}/xdg/ksplashrc
 install -d %{buildroot}%{_prefix}/lib/plasmalogin
 install -pm 0644 %{nisse_root}/assets/theme/plasmalogin/defaults.conf %{buildroot}%{_prefix}/lib/plasmalogin/defaults.conf
 
@@ -61,9 +65,13 @@ install -pm 0644 %{nisse_root}/assets/theme/plasmalogin/defaults.conf %{buildroo
 %{_datadir}/plasma/look-and-feel/org.nisse.desktop.light
 %config(noreplace) %{_sysconfdir}/xdg/kdeglobals
 %config(noreplace) %{_sysconfdir}/xdg/kscreenlockerrc
+%config(noreplace) %{_sysconfdir}/xdg/ksplashrc
 %{_prefix}/lib/plasmalogin/defaults.conf
 
 %changelog
+* Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-8
+- nisse's own Plasma splash in both looks (the n and the comet ring), named by both looks and the system default
+
 * Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-7
 - The lock screen shows the nisse wallpaper (system default kscreenlockerrc)
 - nisse's own logout screen in both looks (a restyled copy of Breeze's)

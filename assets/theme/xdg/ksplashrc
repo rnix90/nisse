@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The nisse system default for the Plasma splash (ledger N-505). Installed as /etc/xdg/ksplashrc: the Plasma session reads it under the user's own
+# ~/.config/ksplashrc, so a new user gets nisse's splash and a user who picks another one keeps it. The light look names its own splash in its
+# defaults (org.nisse.desktop.light); the two share one file, which takes its colors from the color scheme.
+[KSplash]
+Engine=KSplashQML
+Theme=org.nisse.desktop

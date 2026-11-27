@@ -46,3 +46,8 @@ clockwise by the angle it is told to, a full turn comes back, and the same Rotat
   image really ships when N-505 runs.
 - Playing it in a real Plasma splash (`ksplashqml`) needs a look-and-feel that carries it: that is N-505. The Qt check
   above runs the same Image and RotationAnimator in an offscreen scene.
+
+## Done in N-505 (2026-11-27)
+
+nisse's splash ships in both looks (`docs/boot-art.md`, "The Plasma splash: built"): the n and this comet ring, the ring turned by the same
+`RotationAnimator` (2 s, fixed). The comet file is the Paper one, tinted by the color scheme (Ember, or brick). It was played in the real `ksplashqml`.
