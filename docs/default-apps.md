@@ -109,6 +109,36 @@ panel built from the layout script pins exactly the four; `docs/screenshots/n508
 screenshot goldens in `tests/golden` show the taskbar and lose the browser icon, so they are re-accepted at the next rebuild (N-403a's
 way). Bert asked (2026-11-27) that the installer let the user tick the pins as a checkbox list: N-508c.
 
+### Moonlight and Sunshine (N-507a)
+
+Both are nisse RPMs, built by `tools/rpm/mock-build.sh NAME` in a clean mock chroot against Fedora's release repository only (the
+image's). The research and the clean-repo decision are in `docs/streaming-spike.md`.
+
+- `moonlight-qt` 6.2.0^20261105git3fead13-1.fc44.nisse1: Fedora's own source package rebuilt unchanged (Fedora ships it only in
+  `updates`). 2.3 MB installed. It decodes AV1, and H.264 once the user installs Cisco's `openh264`; no HEVC without RPM Fusion.
+- `sunshine` 2026.914.233613-1.fc44.nisse1: built from the pinned upstream tag against a static FFmpeg that nisse builds from
+  LizardByte's recipe with x264 and x265 off, so the public repo carries no software H.264 or HEVC encoder (the GPU's own encoders and
+  SVT-AV1 only). 22.6 MB installed, 7.3 MB package. It is installed OFF: its user service is not enabled and nothing enables it, and
+  the firewalld service `sunshine` (its ports) is in no zone, so with nisse's default zone (public) its ports stay closed until the user
+  turns it on (N-507c).
+- Proof: `tests/rpm/test_moonlight.sh` and `tests/rpm/test_sunshine.sh` (contents, no scriptlet enables anything, the firewalld file, no
+  x264 or x265 encoder in the binary and the hardware encoders in, rpmlint 0 errors); `tools/vm/streaming_check.py` (a live session:
+  default zone public, the service not enabled and not running, nothing listening, Sunshine started by hand opens its ports and its web UI
+  asks for a new login, Moonlight starts); `tests/build/test_image_apps.sh` (the image still resolves); the queued ISO block in
+  `tests/iso/test_iso_contents.sh`.
+- Sizes in the image: 2285 packages and 7588 MiB (+4 packages, +24 MiB over N-508's figure).
+- The build needs the network (npm and Boost at build time) and fetches its sources by script into `out/sources` (nothing is committed);
+  `packaging/rpm/sunshine/fetch-sources.sh` checks the tag's commit, `packaging/rpm/moonlight-qt/sources.sha256` pins the six tarballs.
+- Seen in the live session (old ISO, a VM with a `bochs-drm` display and no GPU): Moonlight starts and draws its window with its own
+  "No functioning hardware accelerated video decoder" warning (expected without a GPU); its log also says "Failed to find ANY working
+  H.264 or HEVC decoder" because only the `noopenh264` stub is installed, not Cisco's library. Sunshine, started by hand, finds the Wayland
+  display and the monitor, then logs nothing more and opens no port in 75 seconds: not diagnosed (a startup probe with no encoder to
+  find, or KMS capture on a virtual display). So "Sunshine opens its ports and a client can pair" is NOT shown; it needs a machine with a
+  GPU encoder (hand check, and a bearing on N-507c). The `tools/vm/streaming_check.py` also installs `libopusenc`, `miniupnpc` and
+  `SDL2_ttf` by hand because that old ISO lacks them; the image pulls them in (the image test shows 2285 packages).
+- NOT verified: a real stream between two machines, hardware encode and decode (the VM has no GPU), the license audit of Sunshine's bundled
+  components (the spec says GPL-3.0-only as upstream's does), the rebuilt ISO.
+
 ### Size
 
 From the dry run (the package sizes as dnf lists them, not the compressed ISO): 2093 packages and 7099 MiB before, 2281 packages and

@@ -1,0 +1,4 @@
+# Findings that come from upstream's sources and Fedora's own spec, not from nisse's rebuild (checked by tests/rpm/test_moonlight.sh).
+addFilter("spelling-error")
+addFilter("incorrect-fsf-address")
+addFilter("no-manual-page-for-binary")

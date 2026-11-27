@@ -58,7 +58,11 @@ The public nisse repo carries nothing patent-encumbered. Concretely:
 
   Three traps found: (1) the recipe passes `--jobs=N` to its build tool, so it needs the Makefiles generator (Ninja rejects it);
   (2) it assumes `lib/`, Fedora's default is `lib64/`, so set `CMAKE_INSTALL_LIBDIR=lib` or FFmpeg's configure cannot find SVT-AV1;
-  (3) its `--enable-cuda_llvm` needs `clang`.
+  (3) its `--enable-cuda_llvm` needs `clang`; (4) SVT-AV1 needs its git tags to work out its version, so the source tarball keeps that one
+  submodule's git directory (with `core.worktree` removed from its config by editing the file, because `git config` itself fails while
+  that relative path is missing) and the spec fetches the tags in `%prep` with an absolute path; (5) Fedora's default RPM flags (LTO,
+  hardened PIE) break the link of the static FFmpeg's inline assembly (`undefined reference to mul15_hi` in libswscale), so the spec
+  turns them off, as upstream's does.
 - Verified what is in the clean libavcodec.a: `av1_nvenc`, `h264_nvenc`, `hevc_nvenc`, `*_vaapi`, `*_vulkan`, `*_amf`, `h264_v4l2m2m`,
   `hevc_v4l2m2m`, `libsvtav1`, plus the old `mpeg2video` and `h263p`; zero symbols matching x264, x265 or openh264.
   The cost: a host without a hardware H.264/HEVC encoder has no software H.264 fallback (only SVT-AV1 software AV1, which is heavy).

@@ -192,6 +192,27 @@ for look in org.nisse.desktop org.nisse.desktop.light; do
 done
 echo "ok   the default taskbar: $pin_n pins in the two looks, each an installed app that shows, none a browser"
 
+# Moonlight and Sunshine (N-507a, docs/streaming-spike.md): both are in the image; Sunshine is OFF (its user service is not enabled by
+# anything in the image), its ports are closed (the default firewall zone is public and no zone has the sunshine service), and its binary
+# carries no software H.264 or HEVC encoder (the clean-repo decision).
+[ -x "$root/usr/bin/moonlight" ] || fail "Moonlight is not in the image (N-507a)"
+[ -x "$root/usr/bin/sunshine" ] || fail "Sunshine is not in the image (N-507a)"
+sun_unit=app-dev.lizardbyte.app.Sunshine.service
+[ -f "$root/usr/lib/systemd/user/$sun_unit" ] || fail "Sunshine's user service file is not in the image (N-507a)"
+if find "$root/etc/systemd/user" "$root/usr/lib/systemd/user" -name "$sun_unit" \( -type l -o -path '*.wants/*' -o -path '*.requires/*' \) 2>/dev/null | grep -q .; then
+    fail "something in the image enables Sunshine's user service (N-507a)"
+fi
+if grep -rIl 'sunshine' "$root"/usr/lib/systemd/user-preset "$root"/etc/systemd/user-preset "$root"/usr/lib/systemd/system-preset 2>/dev/null | grep -q .; then
+    fail "a systemd preset names Sunshine (N-507a)"
+fi
+[ -f "$root/usr/lib/firewalld/services/sunshine.xml" ] || fail "the sunshine firewalld service is not in the image (N-507a)"
+grep -qx 'DefaultZone=public' "$root/etc/firewalld/firewalld.conf" || fail "the default firewall zone is not public (N-507a: Sunshine's ports rely on it)"
+if grep -rl 'sunshine' "$root/etc/firewalld" "$root/usr/lib/firewalld/zones" "$root/usr/lib/firewalld/policies" 2>/dev/null | grep -q .; then
+    fail "a firewall zone or policy of the image has the sunshine service (N-507a)"
+fi
+if strings -a "$root/usr/bin/sunshine" | grep -qiE 'libx264|libx265|x264 |x265 |openh264'; then fail "Sunshine in the image carries x264, x265 or OpenH264 (N-507a)"; fi
+echo "ok   Moonlight and Sunshine are in the image; Sunshine is off, its ports are closed (zone public, no zone has its service) and it carries no software H.264 or HEVC encoder"
+
 # Every approved art asset (N-415): the path-by-path check of the whole manifest against the image.
 art_n=0
 while read -r path pkg task opts; do

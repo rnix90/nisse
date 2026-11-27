@@ -1,0 +1,1 @@
+Sunshine's build fetches its web UI's npm packages and Boost (CPM) while it builds, so tools/rpm/mock-build.sh gives the chroot a network.

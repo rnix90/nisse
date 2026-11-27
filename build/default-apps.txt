@@ -38,3 +38,5 @@ add|qalculate-qt|Qalculate (Qt)|io.github.Qalculate.qalculate-qt.desktop
 add|chromium|Chromium|chromium-browser.desktop
 add|isoimagewriter|KDE ISO Image Writer|org.kde.isoimagewriter.desktop
 add|kate|Kate|org.kde.kate.desktop
+add|moonlight-qt|Moonlight|com.moonlight_stream.Moonlight.desktop
+add|sunshine|Sunshine|dev.lizardbyte.app.Sunshine.desktop

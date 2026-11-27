@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- The ports Sunshine listens on (docs/streaming-spike.md). nisse ships this service definition and puts it in NO zone: nothing
+     is opened until the user (the installer option of N-507c, or the user by hand) adds it to a zone. -->
+<service>
+  <short>Sunshine</short>
+  <description>Sunshine game streaming host: lets Moonlight clients connect to this computer and see and control its screen. Open this only on a network you trust.</description>
+  <port protocol="tcp" port="47984"/>
+  <port protocol="tcp" port="47989"/>
+  <port protocol="tcp" port="47990"/>
+  <port protocol="tcp" port="48010"/>
+  <port protocol="udp" port="47998-48000"/>
+</service>

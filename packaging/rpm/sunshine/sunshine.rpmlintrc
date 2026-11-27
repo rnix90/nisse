@@ -1,0 +1,5 @@
+# Findings that come from upstream's sources or its build, not from nisse's packaging (checked by tests/rpm/test_sunshine.sh).
+# rpmlint reports a filter that matches nothing as an error, so only what really shows up is listed.
+addFilter("spelling-error")
+addFilter("no-manual-page-for-binary")
+addFilter("no-documentation")
