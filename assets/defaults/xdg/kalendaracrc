@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# nisse system default for Calendar Reminders (kalendarac, from akonadi-calendar): N-508. The mail suite ships but is wired to nothing,
+# and this is the one KDE PIM program that autostarts: its autostart file asks "kalendaracrc:General:Autostart:true", so this key
+# turns that off for everyone. A user who sets up reminders can turn it on in their own kalendaracrc. Installed as /etc/xdg/kalendaracrc.
+[General]
+Autostart=false

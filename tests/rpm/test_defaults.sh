@@ -39,6 +39,36 @@ if printf '%s\n' "$files" | grep -qxF /etc/xdg/konsolerc; then fail "defaults RP
 want "$scratch$kr" 'Desktop Entry' DefaultProfile Nisse.profile
 echo "ok   the nisse terminal profile is the default"
 
+# N-508: the mail suite is shipped but wired to nothing. Calendar Reminders (kalendarac, from akonadi-calendar) is the one PIM program
+# that autostarts, and the autostart file asks "kalendaracrc:General:Autostart:true"; the system default says false.
+printf '%s\n' "$files" | grep -qxF /etc/xdg/kalendaracrc || fail "defaults RPM lacks /etc/xdg/kalendaracrc"
+want "$scratch/etc/xdg/kalendaracrc" General Autostart false
+echo "ok   Calendar Reminders does not autostart (Autostart=false in the system kalendaracrc)"
+
+# N-508: a package that cannot be dropped (something requires it) keeps its program but not its launcher entry: a file trigger sets
+# NoDisplay=true in the entries listed in /usr/share/nisse/hidden-launchers.txt whenever they are installed or updated
+printf '%s\n' "$files" | grep -qxF /usr/share/nisse/hidden-launchers.txt || fail "defaults RPM lacks the hidden launchers list"
+grep -qxF org.kde.kwatchgnupg.desktop "$scratch/usr/share/nisse/hidden-launchers.txt" || fail "the GnuPG Log Viewer entry is not in the hidden list"
+trig="$(rpm -qp --filetriggers "$rpm_path")"
+grep -qF /usr/share/applications <<< "$trig" && grep -qF /usr/libexec/nisse-hide-launchers <<< "$trig" || fail "no file trigger on /usr/share/applications running nisse-hide-launchers"
+hide="$scratch/usr/libexec/nisse-hide-launchers"
+[ -x "$hide" ] || fail "nisse-hide-launchers is not executable"
+apps="$scratch/usr/share/applications"; mkdir -p "$apps"
+printf '[Desktop Entry]\nName=GnuPG Log Viewer\nName[de]=Protokoll\nExec=kwatchgnupg\nType=Application\n' > "$apps/org.kde.kwatchgnupg.desktop"
+printf '[Desktop Entry]\nName=Kleopatra\nNoDisplay=false\nExec=kleopatra\n\n[Desktop Action x]\nName=Act\n' > "$apps/org.kde.kleopatra.desktop"
+printf '[Desktop Entry]\nName=Other\nExec=other\nNoDisplay=false\n' > "$apps/other.desktop"
+printf '%s\n' /usr/share/applications/org.kde.kwatchgnupg.desktop /usr/share/applications/other.desktop /usr/share/applications/gone.desktop | NISSE_ROOT="$scratch" "$hide"
+grep -qxF 'NoDisplay=true' "$apps/org.kde.kwatchgnupg.desktop" || fail "the GnuPG Log Viewer entry is not hidden"
+grep -qxF 'Name[de]=Protokoll' "$apps/org.kde.kwatchgnupg.desktop" && grep -qxF 'Exec=kwatchgnupg' "$apps/org.kde.kwatchgnupg.desktop" || fail "the hidden entry lost lines"
+[ "$(grep -c '^NoDisplay' "$apps/org.kde.kwatchgnupg.desktop")" = 1 ] || fail "more than one NoDisplay line"
+grep -qxF 'NoDisplay=false' "$apps/other.desktop" || fail "an entry that is not in the list was changed"
+printf '%s\n' /usr/share/applications/org.kde.kwatchgnupg.desktop | NISSE_ROOT="$scratch" "$hide"      # an update fires the trigger again
+[ "$(grep -c '^NoDisplay' "$apps/org.kde.kwatchgnupg.desktop")" = 1 ] || fail "the second run added a second NoDisplay line"
+printf '[Desktop Entry]\nName=Log\nNoDisplay=false\nExec=kwatchgnupg\n' > "$apps/org.kde.kwatchgnupg.desktop"
+printf '%s\n' /usr/share/applications/org.kde.kwatchgnupg.desktop | NISSE_ROOT="$scratch" "$hide"
+grep -qxF 'NoDisplay=true' "$apps/org.kde.kwatchgnupg.desktop" && ! grep -qxF 'NoDisplay=false' "$apps/org.kde.kwatchgnupg.desktop" || fail "an entry that said NoDisplay=false was not turned off"
+echo "ok   the launcher entries of kept-but-unwanted packages are hidden, once, and nothing else is touched"
+
 # the lines the list keeps from Fedora must not be overridden here: this package sets only what changed
 for bad in SingleClick loginMode VirtualKeyboardEnabled; do
     if grep -rq "$bad" "$scratch/etc"; then fail "the package overrides $bad (approved line: keep Fedora's value)"; fi
@@ -48,10 +78,10 @@ echo "ok   only the changed lines are set"
 
 [ "$(rpm -qp --qf '%{LICENSE}' "$rpm_path")" = "GPL-2.0-or-later" ] || fail "defaults License must be GPL-2.0-or-later"
 [ "$(rpm -qp --qf '%{ARCH}' "$rpm_path")" = "noarch" ] || fail "defaults must be noarch"
-for dep in kwin-common kde-settings nisse-theme; do
+for dep in kwin-common kde-settings nisse-theme nisse-release-common; do
     rpm -qp --requires "$rpm_path" | grep -qxE "$dep( .*)?" || fail "defaults RPM must require $dep"
 done
-echo "ok   requires kwin-common, kde-settings and nisse-theme"
+echo "ok   requires kwin-common, kde-settings, nisse-theme and nisse-release-common"
 
 out="$(rpmlint "$rpm_path" 2>&1 || true)"
 echo "$out" | tail -3

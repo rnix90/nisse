@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Launcher entries nisse hides (N-508): the package cannot be dropped because something requires it, so the program stays on the disk
+# but its entry does not show in the menu or in search. One desktop file name per line; the "hide" lines of build/default-apps.txt are
+# the source of this list (a test keeps the two equal). Installed as /usr/share/nisse/hidden-launchers.txt, read by nisse-hide-launchers.
+org.kde.kwatchgnupg.desktop

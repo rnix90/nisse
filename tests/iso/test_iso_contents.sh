@@ -93,8 +93,9 @@ gnomes="$(ls "$av" | grep -c ' gnome\.png$' || true)"
 [ -f "$av/nisse.png" ] || fail "the plain gnome user picture nisse.png is missing"
 [ -d "$av/photos" ] || fail "the photo avatars were removed"
 rep="$root/usr/share/nisse/art-replacements"
-for pair in "usr/share/icons/hicolor/scalable/apps/fedora-loves-kde.svg:fedora-loves-kde.svg" \
-            "usr/share/icons/hicolor/scalable/apps/mascot_konqi_3rdparty.svg:mascot_konqi_3rdparty.svg" \
+# (the "Fedora loves KDE" sticker, fedora-loves-kde.svg, came from plasma-welcome-fedora, which went with the Welcome Center in N-508)
+[ ! -e "$root/usr/share/icons/hicolor/scalable/apps/fedora-loves-kde.svg" ] || fail "fedora-loves-kde.svg is in the image: plasma-welcome-fedora should be gone (N-508)"
+for pair in "usr/share/icons/hicolor/scalable/apps/mascot_konqi_3rdparty.svg:mascot_konqi_3rdparty.svg" \
             "usr/share/plasma/packages/org.kde.plasmasetup.finished/contents/ui/konqi-calling.png:konqi-calling.png"; do
     cmp -s "$root/${pair%%:*}" "$rep/${pair##*:}" || fail "${pair%%:*} is not the nisse replacement (the nisse-avatars trigger did not run)"
 done
@@ -142,6 +143,31 @@ for laf in org.nisse.desktop org.nisse.desktop.light; do
 done
 grep -qx 'Theme=org.nisse.desktop' "$root/etc/xdg/ksplashrc" || fail "the system default does not name nisse's splash (/etc/xdg/ksplashrc)"
 echo "ok   both looks and the system default use nisse's splash"
+
+# The default apps (N-508, build/default-apps.txt, docs/default-apps.md): every dropped package is out of the image and its launcher
+# entries with it, every added one is in, a hidden one is in but its entry says NoDisplay=true, and the mail suite is wired to nothing.
+# tests/build/test_image_apps.sh proves the same from the dependency solver before the ISO is built; this is the image itself.
+pkgs="$(rpm --root "$root" -qa --qf '%{NAME}\n' 2>/dev/null | sort -u)"
+[ -n "$pkgs" ] || fail "could not read the package list of the image (rpm --root)"
+apps_n=0
+while IFS='|' read -r kind pkg app entries; do
+    case "$kind" in ""|"#"*) continue ;; esac
+    has=0; printf '%s\n' "$pkgs" | grep -qx -- "$pkg" && has=1
+    case "$kind" in
+        drop) [ "$has" = 0 ] || fail "$app ($pkg) is dropped (N-508) but is in the image"
+              for e in $entries; do [ ! -e "$root/usr/share/applications/$e" ] || fail "the launcher entry $e of the dropped $app is in the image"; done;;
+        add)  [ "$has" = 1 ] || fail "$app ($pkg) is an addition (N-508) but is not in the image"
+              for e in $entries; do [ -f "$root/usr/share/applications/$e" ] || fail "$app is in the image without its launcher entry $e"; done;;
+        hide) [ "$has" = 1 ] || fail "$app ($pkg) should stay in the image, hidden (N-508)"
+              for e in $entries; do grep -qx 'NoDisplay=true' "$root/usr/share/applications/$e" || fail "the launcher entry $e is not hidden (the nisse-defaults file trigger did not run)"; done;;
+    esac
+    apps_n=$((apps_n + 1))
+done < "$(dirname "$0")/../../build/default-apps.txt"
+# the mail suite's one autostart is turned off by the system default, and nothing else of it autostarts
+awk '$0=="[General]"{s=1;next} /^\[/{s=0} s&&$1=="Autostart=false"{f=1} END{exit !f}' "$root/etc/xdg/kalendaracrc" || fail "/etc/xdg/kalendaracrc does not turn Calendar Reminders off (N-508)"
+pim_auto="$(ls "$root/etc/xdg/autostart" | grep -iE 'akonadi|kmail|kontact|korganizer|kalarm|kaddressbook|merkuro' || true)"
+[ -z "$pim_auto" ] || fail "a mail suite program has an autostart entry: $pim_auto (N-508)"
+echo "ok   the default apps: $apps_n packages checked (dropped out, added in, hidden hidden), the mail suite wired to nothing"
 
 # Every approved art asset (N-415): the path-by-path check of the whole manifest against the image.
 art_n=0

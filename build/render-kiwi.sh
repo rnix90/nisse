@@ -35,6 +35,9 @@ for f in "$out/Nisse.kiwi" "$out/nisse/repositories/nisse.xml" "$out/nisse/compo
     sed -i -e "s|@RELEASE@|$rel_s|g" -e "s|@PRODUCT@|$prod_s|g" -e "s|@NISSE_REPO@|$repo_s|g" -e "s|@KERNELCMDLINE@|$cmdline_s|g" "$f"
 done
 
+# N-508: an app nisse drops must not also be listed by name in Fedora's lists (dnf5 refuses to install what it is told to exclude).
+python3 tools/build/apply_drops.py "$out" build/default-apps.txt
+
 if grep -rn '@[A-Z_]*@' "$out/Nisse.kiwi" "$out/nisse" >&2; then
     echo "render-kiwi: unfilled placeholder left in $out" >&2
     exit 1

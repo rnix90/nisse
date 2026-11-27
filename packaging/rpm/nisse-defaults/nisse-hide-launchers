@@ -1,0 +1,25 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Run by the nisse-defaults file trigger (N-508) with the paths of files that were just installed under /usr/share/applications on
+# stdin, one per line. For each desktop file named in /usr/share/nisse/hidden-launchers.txt it makes sure the [Desktop Entry] group says
+# NoDisplay=true (the program stays; its entry leaves the menu and search). Other files are not touched; running it again changes nothing.
+# NISSE_ROOT is a path prefix for tests; it is empty on a real system.
+root="${NISSE_ROOT:-}"
+list="$root/usr/share/nisse/hidden-launchers.txt"
+[ -f "$list" ] || exit 0
+while IFS= read -r f; do
+    case "$f" in */applications/*.desktop) ;; *) continue ;; esac
+    base="${f##*/}"
+    grep -qxF -- "$base" "$list" || continue
+    [ -f "$root$f" ] || continue
+    tmp="$(mktemp)" || continue
+    # keep every line except an old NoDisplay of the main group, and put NoDisplay=true right under its header
+    awk '
+        /^\[/ { group = $0 }
+        group == "[Desktop Entry]" && /^NoDisplay[ \t]*=/ { next }
+        { print }
+        $0 == "[Desktop Entry]" && !done { print "NoDisplay=true"; done = 1 }
+    ' "$root$f" > "$tmp" && cat "$tmp" > "$root$f"
+    rm -f "$tmp"
+done
+exit 0

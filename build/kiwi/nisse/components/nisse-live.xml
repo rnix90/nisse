@@ -52,13 +52,45 @@
     <package name="nisse-panel"/>
     <package name="nisse-plymouth"/>
     <package name="nisse-grub-theme"/>
-    <package name="plasma-welcome-fedora"/>
     <ignore name="fedora-release"/>
     <ignore name="fedora-release-*"/>
     <ignore name="fedora-logos"/>
     <ignore name="generic-logos"/>
     <ignore name="plasma-setup"/>
     <ignore name="kde-settings-plasmalogin"/>
+    <!-- The default apps (N-507, docs/default-apps.md; the same list as data in build/default-apps.txt, checked by a real dnf
+         dry run in tests/build/test_image_apps.sh). kiwi turns an ignore into a dnf exclude, so a package that something
+         hard-requires cannot be dropped here: it is kept and its launcher entries are hidden instead (see the "hide" lines). -->
+    <ignore name="dragon"/>
+    <ignore name="kmahjongg"/>
+    <ignore name="kmines"/>
+    <ignore name="kpat"/>
+    <ignore name="krdc"/>
+    <ignore name="krfb"/>
+    <ignore name="neochat"/>
+    <ignore name="setroubleshoot"/>
+    <ignore name="gnome-abrt"/>
+    <ignore name="abrt-gui"/>
+    <ignore name="abrt-desktop"/>
+    <ignore name="kdebugsettings"/>
+    <ignore name="im-chooser"/>
+    <ignore name="imsettings-plasma"/>
+    <ignore name="kmouth"/>
+    <ignore name="firefox"/>
+    <ignore name="mediawriter"/>
+    <ignore name="kde-partitionmanager"/>
+    <ignore name="kfind"/>
+    <ignore name="kwrite"/>
+    <ignore name="khelpcenter"/>
+    <ignore name="plasma-welcome"/>
+    <ignore name="plasma-welcome-fedora"/>
+    <package name="vlc"/>
+    <package name="xournalpp"/>
+    <package name="gparted"/>
+    <package name="qalculate-qt"/>
+    <package name="chromium"/>
+    <package name="isoimagewriter"/>
+    <package name="kate"/>
   </packages>
   <!-- The live-install set, copied from Fedora's components/liveinstall.xml: the point of a live image is to install. -->
   <packages type="iso" patternType="plusRecommended" profiles="Nisse-Live">

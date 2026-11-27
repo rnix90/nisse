@@ -76,7 +76,7 @@ if grep -q 'GPL-3.0-or-later' docs/build-host.md; then bad "docs/build-host.md c
 # Values are substituted into XML attributes: sed metacharacters (| & \) must stay literal and XML metacharacters
 # (& < > ") must be escaped, or the rendered description is wrong or not even well-formed.
 r="$tmp/render"
-mkdir -p "$r" && cp -a build "$r/build"
+mkdir -p "$r/tools/build" && cp -a build "$r/build" && cp tools/build/apply_drops.py "$r/tools/build/"   # render-kiwi.sh runs tools/build/apply_drops.py (N-508)
 cmd='quiet a|b&c\d "q" <x>'
 if NISSE_KERNELCMDLINE="$cmd" NISSE_REPO_URL='dir:///re|po&x' bash "$r/build/render-kiwi.sh" >"$tmp/render-odd.log" 2>&1; then
     rl="$r/out/kiwi-description/nisse/components/nisse-live.xml"
@@ -155,6 +155,16 @@ if command -v kiwi-ng >/dev/null 2>&1; then
     for p in fedora-release-kde fedora-release generic-logos fedora-logos plasma-setup kde-settings-plasmalogin; do
         if grep -q "<package name=\"$p\"/>" "$live"; then bad "Nisse-Live installs $p"; else ok "Nisse-Live does not install $p"; fi
     done
+
+    # N-508: dnf5 refuses to install a package it is told to exclude, so no dropped app may also be listed by name (Fedora's own lists
+    # name mediawriter): render-kiwi.sh takes those lines out of the rendered copy, and each drop is ignored.
+    listed_and_dropped=""
+    while IFS='|' read -r kind pkg rest; do
+        [ "$kind" = drop ] || continue
+        grep -rq "<package name=\"$pkg\"/>" "$D" && listed_and_dropped="$listed_and_dropped $pkg"
+        grep -q "<ignore name=\"$pkg\"/>" "$live" || bad "the dropped $pkg is not ignored in the rendered nisse-live.xml"
+    done < build/default-apps.txt
+    [ -z "$listed_and_dropped" ] && ok "no dropped app is also listed by name in the rendered description" || bad "dropped but still listed by name (dnf5 would refuse the install):$listed_and_dropped"
 
     [ -f "$D/nisse/grub-x86.cfg.iso-template" ] && ok "the rendered description carries the nisse menu template" || bad "the rendered description lacks nisse/grub-x86.cfg.iso-template"
     if command -v grub2-script-check >/dev/null 2>&1; then

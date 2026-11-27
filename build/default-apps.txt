@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The decisions of docs/default-apps.md (N-507, Bert 2026-11-25) as data, for N-508 and its tests. One line per package:
+#   kind | Fedora package | the app as the launcher names it | its launcher entries (space separated)
+# kind:
+#   drop  the package is <ignore>d in build/kiwi/nisse/components/nisse-live.xml and must not be in the image
+#   hide  the package cannot be dropped (something hard-requires it): it stays, its launcher entries are hidden
+#         by nisse-defaults; the reason is in docs/default-apps.md under "Dropping is blocked by a dependency"
+#   add   the package is listed in nisse-live.xml and must be in the image
+# tests/build/test_image_apps.sh (in the build VM, a real dnf dry run) and tests/build/test_kiwi_description.sh read this file.
+drop|dragon|Dragon Player|org.kde.dragonplayer.desktop
+drop|kmahjongg|KMahjongg|org.kde.kmahjongg.desktop
+drop|kmines|KMines|org.kde.kmines.desktop
+drop|kpat|KPatience|org.kde.kpat.desktop
+drop|krdc|KRDC|org.kde.krdc.desktop
+drop|krfb|Krfb|org.kde.krfb.desktop org.kde.krfb.virtualmonitor.desktop
+drop|neochat|NeoChat|org.kde.neochat.desktop
+drop|setroubleshoot|SELinux Troubleshooter|setroubleshoot.desktop
+drop|gnome-abrt|Problem Reporting|org.freedesktop.GnomeAbrt.desktop
+drop|abrt-gui|Problem Reporting (command line pieces)|
+drop|abrt-desktop|Problem Reporting (group package)|
+drop|kdebugsettings|KDebugSettings|org.kde.kdebugsettings.desktop
+drop|im-chooser|Input Method Selector|im-chooser.desktop
+drop|imsettings-plasma|Input Method Selector (Plasma settings)|
+drop|kmouth|KMouth|org.kde.kmouth.desktop
+drop|firefox|Firefox|org.mozilla.firefox.desktop
+drop|mediawriter|Fedora Media Writer|org.fedoraproject.MediaWriter.desktop
+drop|kde-partitionmanager|KDE Partition Manager|org.kde.partitionmanager.desktop
+drop|kfind|KFind|org.kde.kfind.desktop
+drop|kwrite|KWrite|org.kde.kwrite.desktop
+drop|khelpcenter|Help Center|org.kde.khelpcenter.desktop
+drop|plasma-welcome|Welcome Center|org.kde.plasma-welcome.desktop
+drop|plasma-welcome-fedora|Welcome Center (Fedora pages)|
+hide|kleopatra|GnuPG Log Viewer|org.kde.kwatchgnupg.desktop
+add|vlc|VLC|vlc.desktop
+add|xournalpp|Xournal++|com.github.xournalpp.xournalpp.desktop
+add|gparted|GParted|gparted.desktop
+add|qalculate-qt|Qalculate (Qt)|io.github.Qalculate.qalculate-qt.desktop
+add|chromium|Chromium|chromium-browser.desktop
+add|isoimagewriter|KDE ISO Image Writer|org.kde.isoimagewriter.desktop
+add|kate|Kate|org.kde.kate.desktop
