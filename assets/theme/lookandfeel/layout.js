@@ -3,7 +3,8 @@
 // looks. Based on Plasma's stock default panel (KDE, GPL-2.0-or-later): a bottom panel, the start button, pinned
 // launchers, the task list, a separator, the tray, the clock and the show-desktop button. Differences from stock: the
 // nisse AI panel app is pinned first, the virtual desktop pager and Discover are not shown, and the terminal is pinned.
-// The file manager and the browser are pinned as preferred:// entries so the default apps chosen in N-507 flow through.
+// The file manager is pinned as a preferred:// entry so the default app chosen in N-507 flows through. No browser is pinned
+// (N-508a); the installer lets the user tick more pins (N-508c).
 var panel = new Panel
 var panelScreen = panel.screen
 
@@ -29,7 +30,6 @@ tasks.currentConfigGroup = ["General"]
 tasks.writeConfig("launchers", [
     "applications:nisse-panel.desktop",
     "preferred://filemanager",
-    "preferred://browser",
     "applications:org.kde.konsole.desktop",
     "applications:systemsettings.desktop"
 ])

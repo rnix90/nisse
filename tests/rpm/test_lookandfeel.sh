@@ -162,8 +162,12 @@ for id in org.nisse.desktop org.nisse.desktop.light; do
     cmp -s "$f" "$src" || fail "$id layout differs from $src"
 done
 launchers="$(sed -n '/writeConfig("launchers"/,/\])/p' "$src" | grep -o '"[a-z]*:[^"]*"' | tr -d '"' | tr '\n' ' ')"
-[ "$launchers" = "applications:nisse-panel.desktop preferred://filemanager preferred://browser applications:org.kde.konsole.desktop applications:systemsettings.desktop " ] \
-    || fail "pinned launchers are not, in order: nisse-panel, file manager, browser, terminal, System Settings (got: $launchers)"
+[ "$launchers" = "applications:nisse-panel.desktop preferred://filemanager applications:org.kde.konsole.desktop applications:systemsettings.desktop " ] \
+    || fail "pinned launchers are not, in order: nisse-panel, file manager, terminal, System Settings (got: $launchers)"
+# N-508a: no browser is pinned by default (Bert, 2026-11-15; the live session pins exactly these four, the installer lets the user tick more, N-508c)
+if printf '%s\n' "$launchers" | grep -q -i -E 'browser|firefox|chromium|chrome|brave|falkon|epiphany|vivaldi|opera'; then
+    fail "a browser is pinned by default (got: $launchers)"
+fi
 grep -q 'addWidget("org.kde.plasma.kickoff")' "$src" || fail "layout lacks the start button"
 for w in systemtray digitalclock showdesktop; do grep -q "addWidget(\"org.kde.plasma.$w\")" "$src" || fail "layout lacks $w"; done
 if grep -v '^//' "$src" | grep -q -i -E 'pager|discover'; then fail "layout must not add the pager or Discover (approved N-109)"; fi

@@ -3,7 +3,7 @@
 
 Name:           nisse-lookandfeel
 Version:        0.2
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        The nisse global themes and the system defaults for new users
 License:        GPL-2.0-or-later
 BuildArch:      noarch
@@ -69,6 +69,9 @@ install -pm 0644 %{nisse_root}/assets/theme/plasmalogin/defaults.conf %{buildroo
 %{_prefix}/lib/plasmalogin/defaults.conf
 
 %changelog
+* Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-9
+- the default taskbar no longer pins a browser: nisse panel, Files, Terminal and System Settings only
+
 * Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.2-8
 - nisse's own Plasma splash in both looks (the n and the comet ring), named by both looks and the system default
 

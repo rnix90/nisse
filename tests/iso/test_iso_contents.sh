@@ -169,6 +169,29 @@ pim_auto="$(ls "$root/etc/xdg/autostart" | grep -iE 'akonadi|kmail|kontact|korga
 [ -z "$pim_auto" ] || fail "a mail suite program has an autostart entry: $pim_auto (N-508)"
 echo "ok   the default apps: $apps_n packages checked (dropped out, added in, hidden hidden), the mail suite wired to nothing"
 
+# The default taskbar (N-508a): the layout both looks ship pins only apps that are in the image, and no browser. The pin list is read
+# from the installed layout script itself, not from the repo, so it is what a new user really gets.
+pin_n=0
+for look in org.nisse.desktop org.nisse.desktop.light; do
+    layout="$root/usr/share/plasma/look-and-feel/$look/contents/layouts/org.kde.plasma.desktop-layout.js"
+    [ -f "$layout" ] || fail "$look has no panel layout in the image (N-508a)"
+    pins="$(sed -n '/writeConfig("launchers"/,/\])/p' "$layout" | grep -o '"[a-z]*:[^"]*"' | tr -d '"')"
+    [ -n "$pins" ] || fail "no pinned launchers found in the $look layout (N-508a)"
+    for pin in $pins; do
+        case "$pin" in
+            applications:*) desk="${pin#applications:}" ;;
+            preferred://filemanager) desk=org.kde.dolphin.desktop ;;
+            *) fail "the $look layout pins $pin: not a kind of pin the default taskbar may have (no browser, N-508a)" ;;
+        esac
+        f="$root/usr/share/applications/$desk"
+        [ -f "$f" ] || fail "the $look layout pins $pin, but the image has no $desk (N-508a)"
+        if grep -q '^Categories=.*WebBrowser' "$f"; then fail "the $look layout pins a web browser: $pin (N-508a)"; fi
+        grep -qx 'NoDisplay=true' "$f" && fail "the $look layout pins $pin, whose launcher is hidden (N-508a)"
+        pin_n=$((pin_n + 1))
+    done
+done
+echo "ok   the default taskbar: $pin_n pins in the two looks, each an installed app that shows, none a browser"
+
 # Every approved art asset (N-415): the path-by-path check of the whole manifest against the image.
 art_n=0
 while read -r path pkg task opts; do

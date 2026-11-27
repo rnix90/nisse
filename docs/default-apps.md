@@ -40,7 +40,8 @@ Method Selector, GnuPG Log Viewer, KMouth, Firefox, Fedora Media Writer, KDE Par
 - N-507a (new): build Moonlight and Sunshine as nisse RPMs. Spike first.
 - N-507b (new): the first-run browser choice, including Chrome.
 - N-508b (new): Discover must not become a second update path next to nisse-update.
-- N-508a: the shipped taskbar pins name only apps that are installed, and no browser is pinned (Bert, 2026-11-15).
+- N-508a (built, below): the shipped taskbar pins name only apps that are installed, and no browser is pinned (Bert, 2026-11-15).
+- N-508c (new): the installer offers the taskbar pins as a checkbox list (Bert, 2026-11-27); the live session keeps the defaults.
 - N-510 covers, on a light surface with the shell dark: KMail (mail), LibreOffice Writer and Calc (word processor and
   spreadsheet), Okular and Xournal++ (PDF), Chromium (browser).
 - N-511: Kate is the code editor that stays dark.
@@ -95,6 +96,18 @@ and the Welcome Center.
 `plasma-welcome-fedora` requires `plasma-welcome`, so dropping the Welcome Center drops it too, and with it the "Fedora loves KDE"
 sticker that nisse-avatars replaces (N-406a). The nisse sticker stays in `nisse-avatars` with nothing to replace until N-515 (the nisse
 tour) either uses it or removes it.
+
+### The default taskbar (N-508a)
+
+The live session and a fresh install pin four things, in this order: the nisse panel, Files (`preferred://filemanager`, Dolphin),
+Terminal (Konsole) and System Settings. No browser is pinned (Bert, 2026-11-15; Chromium is one click away in the launcher, and the
+first-run browser choice is N-507b). `nisse-lookandfeel` 0.2-9 ships the layout script. Proof: `tests/rpm/test_lookandfeel.sh` (the exact
+list, no browser), `tests/build/test_image_apps.sh` (each pin is a desktop file shipped by a package of the resolved image and is not a
+`WebBrowser`), the queued block in `tests/iso/test_iso_contents.sh` (the same on the real image, read from the installed layout), and
+`tools/vm/pins_check.py` (a live session: the old taskbar pins Firefox; with the package in and the panel configuration removed, the
+panel built from the layout script pins exactly the four; `docs/screenshots/n508a-taskbar-before.png` and `-after.png`). The five
+screenshot goldens in `tests/golden` show the taskbar and lose the browser icon, so they are re-accepted at the next rebuild (N-403a's
+way). Bert asked (2026-11-27) that the installer let the user tick the pins as a checkbox list: N-508c.
 
 ### Size
 

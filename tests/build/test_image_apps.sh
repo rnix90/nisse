@@ -39,6 +39,7 @@ done < build/default-apps.txt
 # The PIM suite is shipped but wired to nothing: list every autostart entry and every user service the image's packages carry.
 repoargs=(--use-host-config --releasever="$(tr -d '[:space:]' < build/FEDORA_RELEASE)" --disablerepo='*' --enablerepo=fedora
           --repofrompath="nisse,file://$PWD/out/repo" --setopt=nisse.gpgcheck=0 --setopt=nisse.priority=90)
+tmp="$(mktemp -d)"; trap 'sudo rm -rf "$tmp" 2>/dev/null' EXIT
 files=out/image-autostart.txt
 # repoquery prints one file per line for the packages named; chunked so the command line stays short
 : > "$files"
@@ -50,7 +51,6 @@ hits="$(grep -iE "$pim" "$files" | grep -E '/etc/xdg/autostart/' | grep -v 'org.
 # Calendar Reminders does have one. Its autostart file asks a KDE config key, and nisse-defaults sets that key to false: check the file
 # still asks for the key we set (an update of akonadi-calendar that renames it would switch the reminders back on).
 if grep -qx /etc/xdg/autostart/org.kde.kalendarac.desktop "$files"; then
-    tmp="$(mktemp -d)"; trap 'sudo rm -rf "$tmp" 2>/dev/null' EXIT
     sudo dnf download --quiet "${repoargs[@]}" --destdir="$tmp" akonadi-calendar >/dev/null 2>&1
     cond="$(rpm2cpio "$tmp"/akonadi-calendar-*.rpm 2>/dev/null | (cd "$tmp" && cpio -i --to-stdout ./etc/xdg/autostart/org.kde.kalendarac.desktop 2>/dev/null) | sed -n 's/^X-KDE-autostart-condition=//p')"
     key="$(sed -n 's/^\(Autostart\)=.*/\1/p' assets/defaults/xdg/kalendaracrc)"
@@ -58,9 +58,29 @@ if grep -qx /etc/xdg/autostart/org.kde.kalendarac.desktop "$files"; then
         && ok "Calendar Reminders asks '$cond' and nisse-defaults sets $key=false" \
         || bad "Calendar Reminders' autostart condition is '$cond': nisse-defaults' kalendaracrc no longer turns it off"
 fi
-# no taskbar pin names a mail suite program
-pins="$(sed -n '/launchers/,/\])/p' assets/theme/lookandfeel/layout.js)"
+# The default taskbar (N-508a): every pin is an installed app, none is a browser, none is a mail suite program.
+pins="$(sed -n '/writeConfig("launchers"/,/\])/p' assets/theme/lookandfeel/layout.js | grep -o '"[a-z]*:[^"]*"' | tr -d '"')"
+[ -n "$pins" ] && ok "the shipped panel layout pins: $(echo $pins)" || bad "no pinned launchers found in assets/theme/lookandfeel/layout.js"
 if printf '%s\n' "$pins" | grep -qiE "$pim"; then bad "a taskbar pin names a mail suite program: $(printf '%s\n' "$pins" | grep -iE "$pim" | tr '\n' ' ')"
 else ok "no taskbar pin names a mail suite program"; fi
+for pin in $pins; do
+    case "$pin" in
+        applications:*) desk="${pin#applications:}";;
+        preferred://filemanager) desk=org.kde.dolphin.desktop;;   # Plasma resolves it to the default file manager, Dolphin
+        *) bad "pin $pin: not a kind this test knows (a browser pin, preferred://browser, is not allowed)"; continue;;
+    esac
+    owner=""
+    for p in $(sudo dnf repoquery "${repoargs[@]}" --quiet --qf '%{name}\n' --whatprovides "/usr/share/applications/$desk" 2>/dev/null | sort -u); do
+        grep -qx -- "$p" "$list" && { owner="$p"; break; }
+    done
+    if [ -z "$owner" ]; then bad "pin $pin: no package of the image ships /usr/share/applications/$desk"; continue; fi
+    dir="$tmp/pin-$owner"; mkdir -p "$dir"
+    sudo dnf download --quiet "${repoargs[@]}" --destdir="$dir" "$owner" >/dev/null 2>&1
+    rpm2cpio "$dir"/"$owner"-[0-9]*.rpm 2>/dev/null | (cd "$dir" && cpio -idm --quiet "./usr/share/applications/$desk" 2>/dev/null)
+    cats="$(sed -n 's/^Categories=//p' "$dir/usr/share/applications/$desk" 2>/dev/null | head -1)"
+    if [ -z "$cats" ]; then bad "pin $pin: could not read the launcher's Categories from $owner"
+    elif printf '%s' "$cats" | grep -q 'WebBrowser'; then bad "pin $pin ($owner) is a web browser (Categories=$cats)"
+    else ok "pin $pin is an installed app ($owner) and not a browser"; fi
+done
 
 if [ "$fail" -eq 0 ]; then echo "PASS: image apps"; else echo "$fail failure(s)"; exit 1; fi
