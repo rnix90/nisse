@@ -71,6 +71,7 @@ python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["KPackageStruct
     || fail "the choices page must be a KDE/PlasmaSetup page weighted between Wi-Fi (50) and Finished (200)"
 # N-508c: the taskbar page, a page of its own AFTER the choices page (Bert, 2026-11-27: the list of apps is built when the page opens, so
 # whatever the earlier choices installed, such as a different browser, is in it), and before Finished
+grep -q 'dialout' <<< "$(member etc/xdg/nissesetuprc)" || fail "the first user does not join dialout (N-514)"
 grep -qx "/usr/share/plasma/packages/org.nisse.setup.taskbar/metadata.json" <<< "$files" || fail "the taskbar page package is missing"
 grep -qx "/usr/share/plasma/packages/org.nisse.setup.taskbar/contents/ui/main.qml" <<< "$files" || fail "the taskbar page has no main.qml"
 tpage="$(member usr/share/plasma/packages/org.nisse.setup.taskbar/metadata.json)"

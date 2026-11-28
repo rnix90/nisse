@@ -3,10 +3,11 @@
 
 Name:           nisse-devtools
 Version:        0.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The development toolchain that ships with nisse
 License:        GPL-2.0-or-later
 BuildArch:      noarch
+BuildRequires:  systemd-rpm-macros
 URL:            https://github.com/rnix90/nisse
 # Source and build
 Requires:       git
@@ -60,6 +61,7 @@ Conflicts:      rustfmt
 Source1:        nisse-rust-setup
 Source2:        nisse-rust-shim
 Source3:        nisse-rust.sh
+Source4:        60-nisse-boards.rules
 
 %description
 One package for the tools a developer reaches for first: build tools, the
@@ -68,7 +70,9 @@ and what ESP32 work needs on the machine. Rust itself is not on the image:
 cargo, rustc, rustfmt, rustdoc, rustup and rust-analyzer are small commands
 that set Rust up (the stable toolchain, through rustup) the first time any of
 them is used, and say plainly when there is no network. Nothing personal
-goes in the image.
+goes in the image. It also lets the person at the screen use development boards
+(ESP32, Arduino, Raspberry Pi Pico, STM32, J-Link and the common USB serial
+bridges) as soon as they are plugged in.
 
 %prep
 
@@ -82,6 +86,7 @@ for n in cargo rustc rust-analyzer rustfmt rustdoc rustup; do
     install -Dpm 0755 %{SOURCE2} %{buildroot}%{_bindir}/$n
 done
 install -Dpm 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/profile.d/nisse-rust.sh
+install -Dpm 0644 %{SOURCE4} %{buildroot}%{_udevrulesdir}/60-nisse-boards.rules
 
 %files
 %license licenses/LICENSE
@@ -93,7 +98,11 @@ install -Dpm 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/profile.d/nisse-rust.sh
 %{_bindir}/rustdoc
 %{_bindir}/rustup
 %config(noreplace) %{_sysconfdir}/profile.d/nisse-rust.sh
+%{_udevrulesdir}/60-nisse-boards.rules
 
 %changelog
+* Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
+- udev rules for development boards: the person at the screen gets access (uaccess) and ModemManager leaves them alone (N-514)
+
 * Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-1
 - Initial package: the dev toolchain of docs/dev-toolchain.md as one requirement list, and the first-use Rust setup through six small commands: cargo, rustc, rustfmt, rustdoc, rustup and rust-analyzer (N-513)

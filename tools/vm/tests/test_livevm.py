@@ -79,3 +79,10 @@ def test_with_no_iso_the_machine_boots_from_its_disk_alone():
 def test_no_disks_keeps_the_old_command_line():
     old = livevm.qemu_command("x.iso", "vars.fd", 1, 2, 4096)
     assert not any("qcow2" in a for a in old)
+
+
+def test_extra_qemu_arguments_go_last_and_by_default_there_are_none():
+    base = livevm.qemu_command("x.iso", "vars.fd", 1, 2, 4096)
+    more = livevm.qemu_command("x.iso", "vars.fd", 1, 2, 4096, extra_args=["-device", "usb-serial,id=u0"])
+    assert more[: len(base)] == base
+    assert more[len(base):] == ["-device", "usb-serial,id=u0"]

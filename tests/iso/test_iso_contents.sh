@@ -294,6 +294,8 @@ done
 grep -q 'nisse-rust-setup' "$root/usr/bin/cargo" || fail "cargo in the image is not the first-use shim (N-513)"
 [ ! -d "$root/usr/lib/rustlib" ] && [ ! -d "$root/usr/lib64/rustlib" ] || fail "the image ships Rust itself (N-513)"
 [ -f "$root/etc/profile.d/nisse-rust.sh" ] || fail "the Rust profile snippet is not in the image (N-513)"
+[ -f "$root/usr/lib/udev/rules.d/60-nisse-boards.rules" ] || fail "the board udev rules are not in the image (N-514)"
+grep -q 'UserGroups=.*dialout' "$root/etc/xdg/nissesetuprc" || fail "the wizard does not add the first user to dialout (N-514)"
 echo "ok   the dev toolchain is in the image (meta package, the tools, the first-use Rust shims) and Rust itself is not"
 echo "ok   the options menu is in the image (command, six-option catalog, choice before the taskbar pins, page), its keys are there, and nothing it offers ships"
 

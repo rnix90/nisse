@@ -18,7 +18,7 @@
 
 Name:           nisse-setup
 Version:        0.1
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        nisse's first-boot setup wizard (a fork of KDE Plasma Setup)
 License:        (GPL-2.0-or-later or GPL-3.0-or-later) and GPL-2.0-or-later and GPL-3.0-or-later and (LGPL-2.0-or-later or LGPL-3.0-or-later) and (LGPL-2.1-or-later or LGPL-3.0-or-later) and LGPL-2.1-or-later and BSD-2-Clause and CC0-1.0
 URL:            https://github.com/rnix90/nisse
@@ -123,6 +123,9 @@ cp -p %{_vpath_srcdir}/LICENSES/* licenses/
 %{_datadir}/nisse-setup/
 
 %changelog
+* Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-5
+- The first user the wizard creates joins dialout as well as wheel, so development boards on serial ports work in every kind of session (N-514)
+
 * Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-4
 - The proprietary and third-party options page (org.nisse.setup.extras, weight 160, after the choices page and before the taskbar page): a checkbox per option from `nisse-extras list` with its source, license and terms, an Accept dialog for the ones that carry a license, an Install Selected button that applies the answer in the background, and a progress list (N-507d); the taskbar page lists only the taskbar pins choice
 

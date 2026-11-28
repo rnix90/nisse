@@ -31,10 +31,10 @@ extra="$(printf '%s\n' "$reqs" | grep -v -E '^(rpmlib|config)\(' | grep -v -x -E
 echo "ok   and nothing else"
 
 files="$(rpm -qlp "$rpm_path")"
-for f in /usr/bin/nisse-rust-setup /usr/bin/cargo /usr/bin/rustc /usr/bin/rust-analyzer /usr/bin/rustfmt /usr/bin/rustdoc /usr/bin/rustup /etc/profile.d/nisse-rust.sh; do
+for f in /usr/bin/nisse-rust-setup /usr/bin/cargo /usr/bin/rustc /usr/bin/rust-analyzer /usr/bin/rustfmt /usr/bin/rustdoc /usr/bin/rustup /etc/profile.d/nisse-rust.sh /usr/lib/udev/rules.d/60-nisse-boards.rules; do
     printf '%s\n' "$files" | grep -qxF "$f" || fail "nisse-devtools lacks $f"
 done
-echo "ok   the helper, the six shims and the profile snippet are in the package"
+echo "ok   the helper, the six shims, the profile snippet and the board rules are in the package"
 
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
@@ -45,6 +45,12 @@ for n in cargo rustc rust-analyzer rustfmt rustdoc rustup; do
 done
 cmp -s <(tail -n +2 "$scratch/usr/bin/nisse-rust-setup") <(tail -n +2 packaging/rpm/nisse-devtools/nisse-rust-setup) || fail "nisse-rust-setup differs from its source"
 echo "ok   the shims and the helper are the sources"
+
+cmp -s "$scratch/usr/lib/udev/rules.d/60-nisse-boards.rules" packaging/rpm/nisse-devtools/60-nisse-boards.rules || fail "the board rules differ from their source"
+if command -v udevadm >/dev/null 2>&1; then
+    v="$(udevadm verify "$scratch/usr/lib/udev/rules.d/60-nisse-boards.rules" 2>&1)" || fail "udevadm verify refuses the board rules: $v"
+    echo "ok   udevadm verify accepts the board rules"
+fi
 
 conf="$(rpm -qp --conflicts "$rpm_path")"
 for c in rust cargo rust-analyzer rustfmt; do

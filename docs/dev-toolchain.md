@@ -46,6 +46,30 @@ installed unless ticked.
 
 USB permissions (udev rules and the group) for all families are N-514.
 
+## USB access for boards (N-514)
+
+`60-nisse-boards.rules` (in `nisse-devtools`) tags each device below `uaccess` (whoever is at the screen gets access when the board is plugged in)
+and sets `ID_MM_DEVICE_IGNORE` and `ID_MM_PORT_IGNORE` so ModemManager leaves it alone. The first user created by the wizard is in `dialout`
+(Fedora's group for serial ports, 0660), which covers SSH sessions and containers; the group list is `UserGroups=wheel,dialout` in the fork's
+`nissesetuprc`. Every ID below is in PlatformIO's upstream udev rules; the vendors that the machine's USB registry (hwdata, October 2026) names
+are marked "registry".
+
+| Family | Matched | IDs |
+|---|---|---|
+| ESP32 | the whole vendor Espressif | 303a (not in the hwdata copy; Espressif's USB-Serial/JTAG is 303a:1001, in PlatformIO's rules) |
+| Arduino | the whole vendors | 2341 Arduino SA (registry), 2a03 dog hunter AG (registry), 239a Adafruit (registry) |
+| Raspberry Pi Pico | the whole vendor | 2e8a (not in the hwdata copy; in PlatformIO's rules as `2e8a:[01]*`) |
+| STM32 and ST-Link | the whole vendor | 0483 STMicroelectronics (registry; the boot loader, ST-Link V1 to V3 and Nucleo boards, as in Fedora's `stlink` and `openocd` rules) |
+| J-Link | the whole vendor | 1366 SEGGER (registry) |
+| Serial bridges | exact IDs | 10c4:ea60 CP210x (registry), 1a86:7523 CH340 (registry), 1a86:55d3 and 1a86:55d4 CH9102 (PlatformIO), 0403:6001 FT232, 0403:6010 FT2232, 0403:6011 FT4232H, 0403:6014 FT232H, 0403:6015 FT-X (registry) |
+
+Proof: `tools/vm/tests/test_board_rules.py` (the shape of every rule, the IDs against this table, the first user in dialout),
+`udevadm verify`, and `tools/vm/boards_check.py` (a virtual USB serial adapter, an FTDI FT232 0403:6001, in a QEMU guest on the old live ISO:
+before the rules the live user cannot write to `/dev/ttyUSB0`; after them the uaccess ACL is there on the serial port and the raw USB node and
+ModemManager is told to ignore it; a device the rules do not name gets neither; 8 of 8). QEMU cannot make a virtual adapter claim another maker's
+IDs (`usb-serial` has no vendorid or productid property, and a hot-plugged or null-backed adapter did not enumerate), so the other vendors are
+covered by the table test. Real boards are N-911.
+
 ## Size
 
 No ceiling (Bert, 2026-11-25). The ISO size is recorded at every build (3.2 GB on the 2026-11-21 build, before the app changes of N-507

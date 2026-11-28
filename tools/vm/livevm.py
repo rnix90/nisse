@@ -74,7 +74,7 @@ def clean(t):
 RTC_BASE = "2026-11-14T03:00:00"
 
 
-def qemu_command(iso, vars_file, mon_port, serial_port, mem, rtc_base=RTC_BASE, disks=(), tablet=False):
+def qemu_command(iso, vars_file, mon_port, serial_port, mem, rtc_base=RTC_BASE, disks=(), tablet=False, extra_args=()):
     """The QEMU command line. `disks` are qcow2 files attached as virtio drives (an install target); with no `iso` the
     machine boots from the first disk (N-303: the installed system)."""
     media = ["-cdrom", str(iso), "-boot", "d"] if iso else ["-boot", "c"]
@@ -91,11 +91,12 @@ def qemu_command(iso, vars_file, mon_port, serial_port, mem, rtc_base=RTC_BASE, 
         "-display", "none",
         # an absolute pointer (N-415a): the HMP mouse_move of the default PS/2 mouse is relative and unreliable for a precise click
         *(["-device", "qemu-xhci", "-device", "usb-tablet"] if tablet else []),
+        *extra_args,
     ]
 
 
 class Vm:
-    def __init__(self, iso, out, mem=6144, rtc_base=RTC_BASE, disks=(), fresh_vars=True, tablet=False):
+    def __init__(self, iso, out, mem=6144, rtc_base=RTC_BASE, disks=(), fresh_vars=True, tablet=False, extra_args=()):
         self.out = Path(out)
         self.out.mkdir(parents=True, exist_ok=True)
         self.buf = ""
@@ -106,7 +107,7 @@ class Vm:
         if fresh_vars or not vars_file.exists():   # an installed disk keeps the firmware boot entries its installer wrote
             vars_file.write_bytes((QEMU_DIR / "share" / "edk2-i386-vars.fd").read_bytes())
         self.tablet = tablet
-        cmd = qemu_command(iso, vars_file, self.mon_port, self.serial_port, mem, rtc_base, disks, tablet)
+        cmd = qemu_command(iso, vars_file, self.mon_port, self.serial_port, mem, rtc_base, disks, tablet, extra_args)
         self.proc = subprocess.Popen(cmd, creationflags=0x08000000)
         self.sock = self._connect(self.serial_port)
         threading.Thread(target=self._reader, daemon=True).start()
