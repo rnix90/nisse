@@ -1,0 +1,9 @@
+Sunshine With Software Encoders
+
+What it is: the Sunshine game streaming host, built by its authors (LizardByte) and published on Fedora's COPR service. It replaces the Sunshine that nisse builds itself, which leaves out the processor-based H.264 and HEVC encoders (x264 and x265).
+
+License: Sunshine is GPL-3.0-only. COPR builds are made by the project's authors, not by Fedora or nisse, and the package is signed with their key, which nisse checks against a fingerprint it already knows before trusting it.
+
+Patents: H.264 and HEVC are covered by patents in some countries. In a country where those patents apply, using the encoders may require a license from the patent holders. You are responsible for deciding whether that applies to you.
+
+What this changes: your Sunshine settings and paired devices are kept. Unticking this option puts nisse's own Sunshine back.

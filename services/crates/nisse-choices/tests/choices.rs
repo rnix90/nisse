@@ -212,7 +212,7 @@ fn rig(name: &str) -> Rig {
     fs::write(
         &script,
         format!(
-            "#!/bin/sh\ncase \"$1\" in\n  status) cat '{d}/current' 2>/dev/null || echo unset ;;\n  fail) echo 'it went wrong' >&2; exit 3 ;;\n  slow) sleep 30 ;;\n  env) env | sort > '{d}/env.txt' ;;\n  noop) echo \"$@\" >> '{d}/log' ;;\n  *) echo \"$@\" >> '{d}/log'; echo \"$2\" > '{d}/current' ;;\nesac\n",
+            "#!/bin/sh\ncase \"$1\" in\n  status) cat '{d}/current' 2>/dev/null || echo unset ;;\n  fail) echo 'it went wrong' >&2; exit 3 ;;\n  slow) sleep 30 ;;\n  nap) sleep 1 ;;\n  env) env | sort > '{d}/env.txt' ;;\n  noop) echo \"$@\" >> '{d}/log' ;;\n  *) echo \"$@\" >> '{d}/log'; echo \"$2\" > '{d}/current' ;;\nesac\n",
             d = dir.display()
         ),
     )
@@ -376,6 +376,45 @@ fn a_missing_program_and_a_command_that_hangs_are_failures() {
         out[0].status
     );
     assert!(started.elapsed() < Duration::from_secs(5));
+}
+
+// ---- a longer time for a command that is slow on purpose (N-507d: installing from a repository takes minutes)
+
+#[test]
+fn an_apply_timeout_is_a_number_of_seconds_in_range() {
+    let with = |n: &str| bool_manifest("x", 1).replace("[apply]\n", &format!("[apply]\ntimeout_secs = {n}\n"));
+    assert_eq!(
+        parse_manifest(&with("1800")).unwrap().apply_timeout,
+        Some(Duration::from_secs(1800))
+    );
+    assert_eq!(parse_manifest(&bool_manifest("x", 1)).unwrap().apply_timeout, None);
+    for bad in ["0", "9", "7201", "-5"] {
+        let err = parse_manifest(&with(bad)).unwrap_err();
+        assert!(err.contains("timeout_secs"), "{bad}: {err}");
+    }
+}
+
+#[test]
+fn a_manifest_timeout_lets_a_slow_apply_finish_where_the_default_would_kill_it() {
+    let r = rig("nap");
+    let manifest = |extra: &str| {
+        format!(
+            "id = \"n\"\ntitle = \"T\"\ndescription = \"D\"\nstage = \"firstboot\"\norder = 1\nkind = \"bool\"\ndefault = true\n\n[apply]\n{extra}command = [\"{}\", \"nap\", \"{{value}}\"]\n",
+            r.tool()
+        )
+    };
+    let engine = || {
+        Engine::open(&r.manifests, &r.state)
+            .unwrap()
+            .with_timeout(Duration::from_millis(300))
+    };
+    fs::write(r.manifests.join("10-n.toml"), manifest("")).unwrap();
+    assert!(
+        matches!(&engine().apply(&ApplyOptions::default())[0].status, Status::Failed(w) if w.contains("timed out"))
+    );
+    fs::write(r.manifests.join("10-n.toml"), manifest("timeout_secs = 30\n")).unwrap();
+    let out = engine().apply(&ApplyOptions::default());
+    assert!(matches!(out[0].status, Status::Applied), "{:?}", out[0].status);
 }
 
 #[test]

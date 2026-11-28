@@ -20,6 +20,8 @@ ecm_add_qml_module(plasmasetup_choicesutil
         choiceslisting.h
         launcherlisting.cpp
         launcherlisting.h
+        extraslisting.cpp
+        extraslisting.h
         ${logging_SRCS}
 )
 

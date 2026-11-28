@@ -82,4 +82,16 @@ New files are nisse's own (GPL-2.0-or-later, `SPDX-FileCopyrightText: 2026 nisse
 | `modules/choicesutil/choiceslisting.cpp` | N-508c: reads a multi choice (a list of strings) | the taskbar pins choice |
 | `modules/choicesutil/choicesutil.cpp` | N-508c: `launchers()` for the taskbar page; a multi answer is kept as a list | the taskbar pins choice |
 | `src/auth/choiceset.cpp` | N-508c: an empty value and up to 4096 characters are passed on to the engine, which validates strictly | a list of pins and an empty list |
+| `modules/choicesutil/extraslisting.h` | new (N-507d): `parseExtras` and `parseProgress`, what the options page reads | the options page's data |
+| `modules/choicesutil/extraslisting.cpp` | new (N-507d): reads `nisse-extras list` and the progress file; a bad listing gives no options and a reason | the options page's data |
+| `modules/choicesutil/choicesutil.h` | N-507d: `extras`, `busy`, `applyChoice` (an answer applied in the background), `reloadExtras`, `extrasProgress` | the options page, whose answer installs software for minutes |
+| `modules/choicesutil/choicesutil.cpp` | N-507d: runs `nisse-extras list`, reads its progress file, and applies an answer without blocking the window (with an hour for the helper to answer) | the options page |
+| `modules/extras/CMakeLists.txt` | new (N-507d): the options page's QML module | follows the page |
+| `modules/extras/metadata.json` | new (N-507d): a KDE/PlasmaSetup page `org.nisse.setup.extras`, weight 160 (after the choices page, before the taskbar page) | what it installs must be there when the taskbar page lists apps |
+| `modules/extras/metadata.json.license` | new (N-507d): licence of the metadata | REUSE convention |
+| `modules/extras/contents/ui/main.qml` | new (N-507d): the page: a checkbox per option with its source, license and terms, an Accept dialog for the ones that carry a license, Install Selected and a progress list | the proprietary options menu |
+| `modules/extras/contents/ui/extras.js` | new (N-507d): the page's logic (the answer in catalog order, ticks, progress counts), kept out of the QML so it can be tested | the proprietary options menu |
+| `modules/taskbar/contents/ui/main.qml` | N-507d: only the taskbar pins choice is a taskbar list (the options choice is a list too) | the options page |
+| `tests/extraslisting_test.cpp` | new (N-507d): QtTest checks of the options parsers | nisse's tests |
+| `tests/tst_extras.qml` | new (N-507d): QtTest checks of `extras.js`, run by `tests/e2e/test_nisse_setup_extras_page.sh` | nisse's tests |
 | `CMakeLists.txt` | the minimum versions are the release repository's Qt 6.10 and Frameworks 6.25 (upstream: 6.11 and 6.30) | the image is Fedora 44 release only; it builds and links on those (2026-11-19). Re-check the first-boot run at the ISO gate |

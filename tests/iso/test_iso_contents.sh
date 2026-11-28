@@ -261,6 +261,26 @@ fi
 if strings -a "$root/usr/bin/sunshine" | grep -qiE 'libx264|libx265|x264 |x265 |openh264'; then fail "Sunshine in the image carries x264, x265 or OpenH264 (N-507a)"; fi
 echo "ok   Moonlight and Sunshine are in the image; Sunshine is off, its ports are closed (zone public, no zone has its service) and it carries no software H.264 or HEVC encoder"
 
+# The menu of proprietary and third-party options (N-507d, docs/proprietary-options.md): the command, the catalog and the choice (ordered before
+# the taskbar pins) are in the image, its wizard page comes after the choices page and before the taskbar page, the keys it relies on are
+# there, and NOTHING it offers ships: no third-party repository file and none of the packages.
+[ -x "$root/usr/bin/nisse-extras" ] || fail "nisse-extras is not in the image (N-507d)"
+[ -f "$root/usr/share/nisse/choices.d/80-extras.toml" ] || fail "the extras choice is not in the image (N-507d)"
+o="$(sed -n 's/^order = \([0-9]*\)/\1/p' "$root/usr/share/nisse/choices.d/80-extras.toml")"
+[ -n "$o" ] && [ "$o" -lt 90 ] || fail "the extras choice does not come before the taskbar pins (N-507d)"
+NISSE_EXTRAS_DIR="$root/usr/share/nisse/extras.d" "$root/usr/bin/nisse-extras" validate | grep -q '6 options' || fail "the catalog in the image does not validate (N-507d)"
+[ -f "$root/usr/share/plasma/packages/org.nisse.setup.extras/contents/ui/main.qml" ] || fail "the options page is not in the image (N-507d)"
+for k in rpmfusion/RPM-GPG-KEY-rpmfusion-free-fedora-44 rpmfusion/RPM-GPG-KEY-rpmfusion-nonfree-fedora-44; do
+    [ -f "$root/usr/share/distribution-gpg-keys/$k" ] || fail "the signing key $k is not in the image (N-507d)"
+done
+[ -x "$root/usr/bin/gpg" ] && [ -x "$root/usr/bin/curl" ] || fail "gpg or curl is missing: nisse-extras checks a downloaded key with them (N-507d)"
+if ls "$root"/etc/yum.repos.d/ 2>/dev/null | grep -qiE 'rpmfusion|google|lizardbyte|nisse-extras'; then fail "a third-party repository file ships in the image (N-507d)"; fi
+for p in google-chrome-stable steam akmod-nvidia xorg-x11-drv-nvidia libavcodec-freeworld mesa-va-drivers-freeworld Sunshine openh264; do
+    if rpm --root "$root" -q "$p" >/dev/null 2>&1; then fail "the image ships $p, which is an option to tick (N-507d)"; fi
+done
+[ ! -e "$root/var/lib/nisse/extras/state.json" ] || fail "the image ships an options state file, so something would count as installed (N-507d)"
+echo "ok   the options menu is in the image (command, six-option catalog, choice before the taskbar pins, page), its keys are there, and nothing it offers ships"
+
 # Every approved art asset (N-415): the path-by-path check of the whole manifest against the image.
 art_n=0
 while read -r path pkg task opts; do

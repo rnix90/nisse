@@ -27,7 +27,7 @@ PlasmaSetupComponents.SetupModule {
     /** The apps offered (maps with id, name, icon, pseudo), read again whenever the page opens. */
     property var apps: []
 
-    readonly property var lists: ChoicesUtil.choices.filter(c => c.kind === "multi")
+    readonly property var lists: ChoicesUtil.choices.filter(c => c.kind === "multi" && c.id === "taskbar-pins")
 
     available: lists.length > 0
 

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# RPM Fusion nonfree. Its signing keys ship in Fedora's distribution-gpg-keys package, so no key is downloaded.
+id = "rpmfusion-nonfree"
+name = "RPM Fusion for Fedora $releasever - Nonfree"
+baseurl = "https://download1.rpmfusion.org/nonfree/fedora/releases/$releasever/Everything/$basearch/os/"
+key_file = "/usr/share/distribution-gpg-keys/rpmfusion/RPM-GPG-KEY-rpmfusion-nonfree-fedora-$releasever"

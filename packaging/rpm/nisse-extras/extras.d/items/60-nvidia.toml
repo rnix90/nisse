@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+id = "nvidia"
+title = "NVIDIA Graphics Driver"
+summary = "NVIDIA's own driver for GeForce and other NVIDIA cards, including video encoding for Sunshine. The driver is built for your kernel here, which takes a few minutes, and the computer needs a restart afterward."
+source = "RPM Fusion nonfree"
+license = "NVIDIA proprietary license (redistributable, no modification permitted)"
+accept = true
+order = 60
+repos = ["rpmfusion-nonfree"]
+packages = ["akmod-nvidia", "xorg-x11-drv-nvidia-cuda"]
+post = [["akmods", "--force"], ["dracut", "--force"]]
+reboot = true
+# akmods builds this on the machine; dnf did not install it, and it is what keeps the driver packages in place
+remove_also = ["kmod-nvidia*"]
+warning = "On a computer with Secure Boot turned on, the driver will not load until its key is enrolled, which nisse does not do yet. Leave this off if you use Secure Boot, or turn Secure Boot off in the firmware settings."

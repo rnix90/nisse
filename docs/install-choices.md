@@ -92,6 +92,7 @@ description = "..."
 [apply]
 command = ["/usr/sbin/nisse-sudo-mode", "{value}"]   # absolute program; the element "{value}" is replaced by the answer
 status = ["/usr/sbin/nisse-sudo-mode", "status"]     # optional: prints the current value; equal to the answer means nothing to do
+timeout_secs = 3600                                  # optional, 10 to 7200: how long the apply command may run (default 120); for installs
 ```
 
 ### The answers file (`/var/lib/nisse/choices/answers.toml`)
@@ -115,6 +116,12 @@ For a choice whose candidates are not known in advance (the taskbar pins: every 
 The answers file holds a TOML array (`taskbar-pins = ["applications:a.desktop", "preferred://browser"]`), `nisse-choices set ID a,b,c` takes
 the items joined by commas (an empty string is the empty list), and the apply command's `{value}` and the status command's output are the
 items joined by commas. The first multi choice is `taskbar-pins` (`docs/taskbar-pins-spike.md`).
+
+### The options page (N-507d)
+
+The `extras` choice (a multi choice, order 80) is the list of proprietary and third-party options the person ticked; its own page in the wizard
+(`org.nisse.setup.extras`, between the choices page and the taskbar page) shows them and applies the answer in the background, because an install
+takes minutes. The catalog, the command and the proof are in `docs/proprietary-options.md`.
 
 ### The taskbar page (N-508c)
 

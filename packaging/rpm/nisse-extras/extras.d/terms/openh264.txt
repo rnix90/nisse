@@ -1,0 +1,7 @@
+Cisco OpenH264
+
+What it is: a free H.264 video codec library. nisse installs Cisco's own build, repackaged by the Fedora Project, from Fedora's openh264 repository.
+
+License: the source code is BSD-2-Clause. Cisco says it pays the H.264 patent license fees for the binary it builds, as long as the binary is used as Cisco distributes it. This option installs that binary and does not modify it.
+
+What this changes: apps that use Fedora's video libraries, such as Moonlight, can then play H.264 video. Nothing is installed until you finish setup, and unticking it later removes the package.

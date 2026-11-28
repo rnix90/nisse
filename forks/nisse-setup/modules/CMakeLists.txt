@@ -16,6 +16,11 @@ add_subdirectory(choicesutil)
 add_subdirectory(choices)
 kpackage_install_package(choices org.nisse.setup.choices packages plasma)
 
+# nisse's proprietary and third-party options page (N-507d): after the choices page and BEFORE the taskbar page, whose list of apps is built
+# when it opens and so includes what this page installed
+add_subdirectory(extras)
+kpackage_install_package(extras org.nisse.setup.extras packages plasma)
+
 # nisse's taskbar page (N-508c): after the choices page, so the list of apps includes what the earlier choices installed
 add_subdirectory(taskbar)
 kpackage_install_package(taskbar org.nisse.setup.taskbar packages plasma)

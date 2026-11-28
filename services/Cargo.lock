@@ -472,6 +472,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nisse-extras"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "nisse-guard"
 version = "0.1.0"
 dependencies = [

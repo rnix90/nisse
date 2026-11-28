@@ -1,0 +1,9 @@
+NVIDIA Graphics Driver
+
+What it is: NVIDIA's proprietary Linux driver, packaged by RPM Fusion, a community repository that is separate from Fedora and from nisse. It is closed source. RPM Fusion lists its license as redistributable, with no modification permitted. The license text is installed with the package in /usr/share/licenses.
+
+What this changes: the driver's kernel module is compiled on this computer for your kernel, which takes several minutes while setup waits. The computer needs a restart before the driver is used. It also adds NVIDIA's video encoding libraries, which Sunshine can use. The open source nouveau driver is turned off while the NVIDIA driver is installed.
+
+Secure Boot: with Secure Boot turned on, the kernel refuses a module that is not signed with a key it trusts, so the driver will not load. nisse does not enroll a key yet. If you use Secure Boot, leave this off.
+
+Updates: the RPM Fusion nonfree repository stays configured while this is ticked. Each kernel update rebuilds the module on the next boot. Unticking it removes the driver and the repository, and takes effect after a restart.

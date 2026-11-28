@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+id = "openh264"
+title = "Cisco OpenH264"
+summary = "Lets Moonlight and other apps play H.264 video, using Cisco's free build of the codec."
+source = "Fedora's own openh264 repository"
+license = "BSD-2-Clause, with Cisco's H.264 patent license for its binary"
+accept = false
+order = 10
+repos = ["fedora-cisco-openh264"]
+packages = ["openh264"]

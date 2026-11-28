@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+id = "codecs"
+title = "Video Codecs and GPU Decoding"
+summary = "Adds HEVC and the other formats Fedora leaves out of its video libraries, plus graphics driver support for fast hardware decoding."
+source = "RPM Fusion free"
+license = "GPL-2.0-or-later and GPL-3.0-or-later; patent-covered formats"
+accept = false
+order = 20
+repos = ["rpmfusion-free"]
+packages = ["libavcodec-freeworld", "mesa-va-drivers-freeworld"]

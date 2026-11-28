@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Fedora's own repository of Cisco's OpenH264 binary (the same one /etc/yum.repos.d/fedora-cisco-openh264.repo describes), signed with Fedora's key.
+id = "fedora-cisco-openh264"
+name = "Fedora $releasever openh264 (From Cisco)"
+metalink = "https://mirrors.fedoraproject.org/metalink?repo=fedora-cisco-openh264-$releasever&arch=$basearch"
+key_file = "/etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$releasever-$basearch"

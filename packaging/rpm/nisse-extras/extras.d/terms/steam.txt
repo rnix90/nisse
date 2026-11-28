@@ -1,0 +1,7 @@
+Steam
+
+What it is: Valve's game store and launcher. It is proprietary software. nisse installs the Steam package from RPM Fusion, a community repository that is separate from Fedora and from nisse, along with the 32-bit libraries it needs from Fedora.
+
+Terms: by installing and using Steam you agree to the Steam Subscriber Agreement. Read it at https://store.steampowered.com/subscriber_agreement/ before you accept. This summary is not a substitute for it. The package's own license file is installed with it in /usr/share/licenses/steam.
+
+What this changes: the RPM Fusion nonfree repository stays configured while this is ticked, so Steam's package keeps getting updates. Unticking it removes the package and the repository. Your games and Steam data in your home folder are not deleted.

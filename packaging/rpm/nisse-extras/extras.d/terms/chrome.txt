@@ -1,0 +1,7 @@
+Google Chrome
+
+What it is: Google's web browser. It is proprietary software built on the open source Chromium project, and nisse installs it from Google's own repository, signed with Google's key (nisse checks the key against a fingerprint it already knows).
+
+Terms: by installing and using Chrome you agree to the Google Chrome Terms of Service and the Google Privacy Policy. Read them at https://www.google.com/chrome/terms/ and https://policies.google.com/privacy before you accept. This summary is not a substitute for them.
+
+What this changes: Google's repository stays configured while this is ticked, so Chrome keeps getting security updates. Unticking it removes Chrome and the repository. Your browsing data in your home folder is not deleted.

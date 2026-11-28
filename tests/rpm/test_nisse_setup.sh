@@ -78,6 +78,17 @@ python3 -c 'import json,sys; d=json.loads(sys.argv[1]); c=json.loads(sys.argv[2]
     || fail "the taskbar page must come after the choices page and before Finished (200)"
 tqml="$(member usr/share/plasma/packages/org.nisse.setup.taskbar/contents/ui/main.qml)"
 grep -q 'onPageActivated' <<< "$tqml" && grep -q 'ChoicesUtil.launchers()' <<< "$tqml" || fail "the taskbar page must build its app list when it opens"
+# N-507d: the proprietary and third-party options page, AFTER the choices page and BEFORE the taskbar page (what it installs is in the taskbar list)
+for f in metadata.json contents/ui/main.qml contents/ui/extras.js; do
+    grep -qx "/usr/share/plasma/packages/org.nisse.setup.extras/$f" <<< "$files" || fail "the options page package lacks $f"
+done
+epage="$(member usr/share/plasma/packages/org.nisse.setup.extras/metadata.json)"
+python3 -c 'import json,sys; e=json.loads(sys.argv[1]); c=json.loads(sys.argv[2]); t=json.loads(sys.argv[3]); assert e["KPackageStructure"]=="KDE/PlasmaSetup" and e["X-KDE-ParentApp"]=="org.kde.plasmasetup"; assert c["X-KDE-Weight"] < e["X-KDE-Weight"] < t["X-KDE-Weight"], (c["X-KDE-Weight"], e["X-KDE-Weight"], t["X-KDE-Weight"])' "$epage" "$page" "$tpage" \
+    || fail "the options page must come after the choices page and before the taskbar page"
+eqml="$(member usr/share/plasma/packages/org.nisse.setup.extras/contents/ui/main.qml)"
+grep -q 'ChoicesUtil.applyChoice' <<< "$eqml" || fail "the options page must apply its answer in the background (applyChoice), not block the window"
+grep -q 'Read Terms' <<< "$eqml" && grep -q 'Accept' <<< "$eqml" || fail "the options page must show the terms and ask for acceptance"
+grep -q 'ChoicesUtil.extras' <<< "$eqml" || fail "the options page must read its options from the engine's listing"
 cqml="$(member usr/share/plasma/packages/org.nisse.setup.choices/contents/ui/main.qml)"
 grep -q 'multi' <<< "$cqml" || fail "the choices page must leave the multi choices to the taskbar page"
 grep -q 'action id="org.nisse.setup.setchoice"' <<< "$policy" || fail "the helper does not declare org.nisse.setup.setchoice"

@@ -5,7 +5,7 @@
 
 Name:           nisse-choices
 Version:        0.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        nisse install choices: manifests, answers and one engine that applies them
 License:        GPL-2.0-or-later
 BuildRequires:  cargo
@@ -57,6 +57,9 @@ install -dm 0755 %{buildroot}%{_sharedstatedir}/nisse/choices
 %dir %{_sharedstatedir}/nisse/choices
 
 %changelog
+* Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-3
+- A manifest may give its apply command more time: `[apply] timeout_secs` (10 to 7200 seconds, default 120), for commands that are slow on purpose such as installing software (N-507d)
+
 * Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
 - A new kind of choice, multi: a list of values (a TOML array in the answers file, the items joined by commas as the apply argument), for choices whose candidates are not known in advance, such as the taskbar pins (N-508c)
 

@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# LizardByte's COPR (the Sunshine authors' own build). The key is fetched and must match this fingerprint (read from the live key, N-507d spike).
+id = "lizardbyte"
+name = "LizardByte Sunshine (stable)"
+baseurl = "https://download.copr.fedorainfracloud.org/results/lizardbyte/stable/fedora-$releasever-$basearch/"
+key_url = "https://download.copr.fedorainfracloud.org/results/lizardbyte/stable/pubkey.gpg"
+key_fingerprint = "1827C306E9944D99DF4CACF143B84301E4F68234"

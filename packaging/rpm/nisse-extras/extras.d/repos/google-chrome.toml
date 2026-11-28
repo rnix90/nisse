@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Google's own Chrome repository. The key is fetched and must match this fingerprint (Google's "Linux Packages Signing Authority" key, N-507d spike).
+id = "google-chrome"
+name = "Google Chrome"
+baseurl = "https://dl.google.com/linux/chrome/rpm/stable/x86_64"
+key_url = "https://dl.google.com/linux/linux_signing_key.pub"
+key_fingerprint = "EB4C1BFD4F042F6DDDCCEC917721F63BD38B4796"

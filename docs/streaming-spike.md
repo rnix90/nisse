@@ -135,7 +135,7 @@ has none and never overwrites one. Changes after setup are made in Sunshine's ow
 ### Moved to N-507d
 
 The codec and encoder pieces (Cisco's OpenH264 for Moonlight, RPM Fusion's drivers, LizardByte's full-codec Sunshine, the NVIDIA driver) became a
-menu of proprietary options of its own (Bert: "a whole menu of proprietary options, including and beyond the codec and encoder stuff").
+menu of proprietary options of its own (Bert: "a whole menu of proprietary options, including and beyond the codec and encoder stuff"). Done: `docs/proprietary-options.md`.
 
 ### KDE Connect rides the same home zone (N-507c follow-up, Bert 2026-11-27)
 

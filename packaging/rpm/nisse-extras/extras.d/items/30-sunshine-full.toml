@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+id = "sunshine-full"
+title = "Sunshine With Software Encoders"
+summary = "Replaces nisse's Sunshine with the authors' own build, which can encode H.264 and HEVC on the processor when there is no graphics encoder."
+source = "LizardByte's COPR repository"
+license = "GPL-3.0-only; patent-covered formats"
+accept = false
+order = 30
+repos = ["lizardbyte"]
+packages = ["Sunshine"]
+replaces = ["sunshine"]
+warning = "The authors' build may need a newer Qt than Fedora 44 has at the moment. If it cannot be installed, setup says so and keeps nisse's own Sunshine."

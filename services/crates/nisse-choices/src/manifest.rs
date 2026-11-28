@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +14,9 @@ pub const TEXT_MAX_DEFAULT: usize = 64;
 pub const MULTI_MAX_DEFAULT: usize = 64;
 pub const MULTI_MAX_LIMIT: usize = 256;
 pub const MULTI_ITEM_MAX: usize = 80;
+/// The range a manifest's `[apply] timeout_secs` may take: ten seconds to two hours.
+pub const APPLY_TIMEOUT_MIN: i64 = 10;
+pub const APPLY_TIMEOUT_MAX: i64 = 7200;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -87,6 +91,9 @@ pub struct Manifest {
     pub apply: Vec<String>,
     /// Prints the current value; equal to the wanted one means there is nothing to do.
     pub status: Option<Vec<String>>,
+    /// How long the apply command may run before it is killed; none means the engine's default (two minutes). For a command that is slow on
+    /// purpose, such as installing packages.
+    pub apply_timeout: Option<Duration>,
 }
 
 #[derive(Deserialize)]
@@ -130,6 +137,7 @@ struct RawMulti {
 struct RawApply {
     command: Vec<String>,
     status: Option<Vec<String>>,
+    timeout_secs: Option<i64>,
 }
 
 fn word_ok(s: &str, first_letter_only: bool) -> bool {
@@ -275,6 +283,16 @@ pub fn parse_manifest(text: &str) -> Result<Manifest, String> {
         }
     }
 
+    let apply_timeout = match raw.apply.timeout_secs {
+        None => None,
+        Some(n) if (APPLY_TIMEOUT_MIN..=APPLY_TIMEOUT_MAX).contains(&n) => Some(Duration::from_secs(n as u64)),
+        Some(_) => {
+            return Err(format!(
+                "apply timeout_secs must be between {APPLY_TIMEOUT_MIN} and {APPLY_TIMEOUT_MAX}"
+            ))
+        }
+    };
+
     let mut manifest = Manifest {
         id: raw.id,
         title: raw.title,
@@ -288,6 +306,7 @@ pub fn parse_manifest(text: &str) -> Result<Manifest, String> {
         multi_max_items,
         apply: raw.apply.command,
         status: raw.apply.status,
+        apply_timeout,
     };
     manifest.default = match (&manifest.kind, &raw.default) {
         (Kind::Bool, toml::Value::Boolean(b)) => Value::Bool(*b),

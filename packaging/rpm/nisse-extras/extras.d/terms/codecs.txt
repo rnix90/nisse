@@ -1,0 +1,7 @@
+Video Codecs and GPU Decoding
+
+What it is: the full codec libraries and graphics driver pieces from RPM Fusion, a community repository that is separate from Fedora and from nisse. They are built from open source code (GPL-2.0-or-later and GPL-3.0-or-later).
+
+Patents: formats such as HEVC (H.265) and H.264 are covered by patents in some countries. Fedora leaves them out for that reason. In a country where those patents apply, using them may require a license from the patent holders. You are responsible for deciding whether that applies to you.
+
+What this changes: adds the HEVC decoder to the video libraries and the hardware video decoding drivers for AMD and Intel graphics. The RPM Fusion repository stays configured while this is ticked, so the packages keep getting updates, and it is removed when you untick it.

@@ -1,0 +1,16 @@
+{
+    "KPackageStructure": "KDE/PlasmaSetup",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "nisse"
+            }
+        ],
+        "Description": "Offer proprietary and third-party software (Chrome, Steam, the NVIDIA driver, extra codecs) as options to tick, with where each comes from and what the person agrees to.",
+        "Id": "org.nisse.setup.extras",
+        "License": "GPL-2.0-or-later",
+        "Name": "Proprietary and Third-Party Options"
+    },
+    "X-KDE-ParentApp": "org.kde.plasmasetup",
+    "X-KDE-Weight": 160
+}

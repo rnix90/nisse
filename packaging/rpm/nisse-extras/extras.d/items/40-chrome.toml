@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+id = "chrome"
+title = "Google Chrome"
+summary = "The Chrome web browser, installed from Google's own repository so that it keeps updating."
+source = "Google's own repository (dl.google.com)"
+license = "Google Chrome Terms of Service (proprietary)"
+accept = true
+order = 40
+repos = ["google-chrome"]
+packages = ["google-chrome-stable"]
+
+# Chrome's own install script adds a second repository definition (google-chrome.repo) unless this file says not to, and leaves it behind when
+# Chrome is removed. nisse writes its own pinned one, so this keeps the package from adding another.
+[[files]]
+path = "/etc/default/google-chrome"
+contents = "repo_add_once=\"false\"\n"

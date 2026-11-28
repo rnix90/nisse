@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+id = "steam"
+title = "Steam"
+summary = "Valve's game store and launcher, installed from RPM Fusion with the 32-bit libraries it needs."
+source = "RPM Fusion nonfree"
+license = "Steam License Agreement (proprietary)"
+accept = true
+order = 50
+repos = ["rpmfusion-nonfree"]
+packages = ["steam"]

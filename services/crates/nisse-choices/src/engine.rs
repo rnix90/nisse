@@ -423,7 +423,7 @@ impl Engine {
                     .iter()
                     .map(|a| if a == "{value}" { wanted.clone() } else { a.clone() })
                     .collect();
-                let result = match run(&argv, self.timeout) {
+                let result = match run(&argv, m.apply_timeout.unwrap_or(self.timeout)) {
                     Ok(ran) if ran.code == Some(0) => Ok(()),
                     Ok(ran) => {
                         let said = ran

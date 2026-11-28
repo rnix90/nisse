@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The menu of proprietary and third-party options (ledger N-507d, docs/proprietary-options.md). The answer is the list of option ids the
+# person ticked; the catalog in /usr/share/nisse/extras.d says what each one is. It comes BEFORE the taskbar pins (order 90) because what it
+# installs (Chrome, Steam) has a launcher the pins page lists, and its answer is applied at once so the install has finished when that page opens.
+id = "extras"
+title = "Proprietary and Third-Party Options"
+description = "Software that is not part of nisse or Fedora: Chrome, Steam, the NVIDIA driver, and extra video codecs. Nothing is installed unless you tick it, and each one tells you where it comes from and what you agree to. Installing needs an internet connection."
+stage = "firstboot"
+order = 80
+kind = "multi"
+default = []
+
+[multi]
+max_items = 16
+
+[apply]
+command = ["/usr/bin/nisse-extras", "apply", "{value}"]
+status = ["/usr/bin/nisse-extras", "status"]
+timeout_secs = 3600
