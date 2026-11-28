@@ -15,6 +15,23 @@ the build VM on that day. Nothing personal goes in the image (settings, tokens, 
 | Containers | podman, distrobox | rootless; no Docker |
 | Editors | Kate (N-507) and neovim | VS Code is not shipped; it can be fetched later from Microsoft's repository |
 
+### What N-513 built (2026-11-27)
+
+`nisse-devtools` 0.1-1 (noarch) is one requirement list: the table above, package by package, plus ESP-IDF's prerequisites that belong on the
+image (`wget flex bison gperf ccache libffi-devel`; esptool, picocom, dfu-util and libusb1 are in the table). Facts found when it was built:
+
+- Fedora 44's `rustup` ships only `/usr/bin/rustup-init`, not `rustup`, `cargo` or `rustc`. So `cargo`, `rustc`, `rustfmt`, `rustdoc`, `rustup` and `rust-analyzer` are one small
+  shim (`/usr/bin/cargo` and the other five names): the first use runs `nisse-rust-setup` (`rustup-init -y --profile minimal --default-toolchain
+  stable --no-modify-path -c rust-analyzer -c clippy -c rustfmt`, after a look at rust-lang.org that says plainly when there is no network), then
+  every use runs the real tool in `~/.cargo/bin`. `/etc/profile.d/nisse-rust.sh` puts `~/.cargo/bin` on the PATH once it exists (for `cargo install`).
+  The package conflicts with Fedora's `rust`, `cargo`, `rust-analyzer` and `rustfmt`, whose files the shims take the names of.
+- `node`, `npm` and `npx` are owned by `nodejs24-bin` and `nodejs24-npm-bin` (an alternatives pair), not by `nodejs24` and `nodejs24-npm`; all four are
+  required.
+- Proof: `tests/rpm/test_devtools_rust.sh` (the helper and shims with stand-ins: online, offline, a failing installer, arguments with spaces),
+  `tests/rpm/test_nisse_devtools.sh` (the package against the list), and `tools/vm/devtools_check.sh` (installs it into a clean release-only install
+  root, runs every tool's version command, and does the real first-use Rust setup against rust-lang.org).
+- ISO size: recorded at the rebuild (the build log prints it); 3.2 GB on 2026-11-21, before N-507, N-513 and the options menu.
+
 ## Board families (first-setup checkboxes, N-514a)
 
 The first-setup page offers one checkbox per family; ticking one installs its tooling. ESP32 is ticked by default. Nothing here is

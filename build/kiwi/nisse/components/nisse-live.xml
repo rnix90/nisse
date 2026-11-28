@@ -47,6 +47,7 @@
     <package name="nisse-choices"/>
     <package name="nisse-streaming"/>
     <package name="nisse-extras"/>
+    <package name="nisse-devtools"/>
     <package name="nisse-setup"/>
     <package name="nisse-avatars"/>
     <package name="nisse-firstboot"/>

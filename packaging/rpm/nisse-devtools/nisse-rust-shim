@@ -1,0 +1,14 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Installed as /usr/bin/cargo, rustc, rustfmt, rustdoc, rustup and rust-analyzer (ledger N-513): the first use sets Rust up (nisse-rust-setup), every use
+# then runs the real tool rustup put in the home folder. Editors and Claude Code find these on the PATH like any other command.
+tool="$(basename "$0")"
+real="${CARGO_HOME:-$HOME/.cargo}/bin/$tool"
+if [ ! -x "$real" ]; then
+    nisse-rust-setup || exit 1
+fi
+if [ ! -x "$real" ]; then
+    echo "nisse: $tool is still missing after the setup. Run nisse-rust-setup and read what it says." >&2
+    exit 1
+fi
+exec "$real" "$@"

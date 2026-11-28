@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# rpmlint filter for the nisse-devtools test: this is a requirements package, so it names libraries and development packages on purpose
+# (ESP-IDF's installer compiles Python extensions against libffi and talks to boards through libusb), and its description names tools.
+addFilter(r"explicit-lib-dependency (libffi-devel|libusb1)")
+addFilter(r"devel-dependency libffi-devel")
+addFilter(r"spelling-error .*(toolchain|uv|neovim|rustup)")

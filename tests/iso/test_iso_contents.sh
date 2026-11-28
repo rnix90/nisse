@@ -285,6 +285,16 @@ case "$state" in enabled | enabled-runtime) ;; *) fail "nisse-extras-retry.servi
 if grep -q 'display-manager' "$root/usr/lib/systemd/system/nisse-extras-retry.service"; then fail "the options retry service is ordered around the display manager (N-507e)"; fi
 grep -q 'ExecStart=/usr/bin/nisse-choices apply --boot' "$root/usr/lib/systemd/system/nisse-choices-apply.service" || fail "the boot apply service does not pass --boot (N-507e)"
 [ ! -e "$root/var/lib/nisse/extras/state.json" ] || fail "the image ships an options state file, so something would count as installed (N-507d)"
+# The dev toolchain (N-513, docs/dev-toolchain.md): the meta package is installed, its tools run, the Rust commands are the first-use shims (Rust itself is
+# not on the image), and nothing personal is in the image.
+case "$(rpmq -q nisse-devtools 2>/dev/null)" in nisse-devtools-*) ;; *) fail "nisse-devtools is not installed in the image (N-513)" ;; esac
+for t in git gcc g++ make cmake ninja gdb clang clangd rg jq curl python3 uv node npm podman distrobox nvim esptool dfu-util picocom rustup-init nisse-rust-setup cargo rustc rust-analyzer; do
+    [ -x "$root/usr/bin/$t" ] || fail "$t is not in the image (N-513)"
+done
+grep -q 'nisse-rust-setup' "$root/usr/bin/cargo" || fail "cargo in the image is not the first-use shim (N-513)"
+[ ! -d "$root/usr/lib/rustlib" ] && [ ! -d "$root/usr/lib64/rustlib" ] || fail "the image ships Rust itself (N-513)"
+[ -f "$root/etc/profile.d/nisse-rust.sh" ] || fail "the Rust profile snippet is not in the image (N-513)"
+echo "ok   the dev toolchain is in the image (meta package, the tools, the first-use Rust shims) and Rust itself is not"
 echo "ok   the options menu is in the image (command, six-option catalog, choice before the taskbar pins, page), its keys are there, and nothing it offers ships"
 
 # Every approved art asset (N-415): the path-by-path check of the whole manifest against the image.
