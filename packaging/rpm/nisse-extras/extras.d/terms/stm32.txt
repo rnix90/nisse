@@ -1,0 +1,7 @@
+STM32 and Other ARM Chips
+
+What it is: the ARM bare metal compiler, openocd (debugging and flashing through ST-Link and other probes) and the ST-Link tools, all from Fedora.
+
+License: the licenses of those Fedora packages, which are GPL and BSD licenses.
+
+What this changes: it needs a network only if the packages are not already on this computer. Unticking it later removes what it installed.

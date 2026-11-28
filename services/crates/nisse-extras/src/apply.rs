@@ -110,12 +110,25 @@ struct Entry {
     /// Name patterns of packages to remove too (see the catalog), looked up when the item goes.
     #[serde(default)]
     also_remove: Vec<String>,
+    /// The menu the item is on, so applying one menu leaves the other alone.
+    #[serde(default = "extras_group")]
+    group: String,
+    /// Every package the item lists, installed by it or already there: a package another item wants too is handed over, not removed.
+    #[serde(default)]
+    wanted: Vec<String>,
+    /// Folders and files its post commands made, removed with it.
+    #[serde(default)]
+    remove_paths: Vec<String>,
     /// Files nisse wrote for this item (absolute paths), removed with it.
     #[serde(default)]
     files: Vec<String>,
     reboot: bool,
     /// False while the item's `post` commands have not all succeeded; such an item is not counted as done, so the next apply finishes it.
     post_done: bool,
+}
+
+fn extras_group() -> String {
+    "extras".to_string()
 }
 
 fn load_state(paths: &Paths) -> State {
@@ -154,13 +167,18 @@ pub fn reboot_needed(paths: &Paths) -> bool {
     load_state(paths).reboot
 }
 
-/// The finished items in catalog order, joined by commas: what `nisse-choices` compares with the answer.
+/// The finished items of the extras group, in catalog order, joined by commas: what `nisse-choices` compares with the answer.
 pub fn status(cat: &Catalog, paths: &Paths) -> String {
+    status_group(cat, paths, "extras")
+}
+
+/// The same for one group (the extras, or the board families).
+pub fn status_group(cat: &Catalog, paths: &Paths, group: &str) -> String {
     let state = load_state(paths);
     let done: Vec<&str> = cat
         .items()
         .iter()
-        .filter(|i| state.installed.get(&i.id).is_some_and(|e| e.post_done))
+        .filter(|i| i.group == group && state.installed.get(&i.id).is_some_and(|e| e.post_done))
         .map(|i| i.id.as_str())
         .collect();
     done.join(",")
@@ -388,6 +406,9 @@ fn install_item(
             repos: item.repos.clone(),
             replaced,
             also_remove: item.remove_also.clone(),
+            group: item.group.clone(),
+            remove_paths: item.remove_paths.clone(),
+            wanted: item.packages.clone(),
             files: written,
             reboot: item.reboot,
             post_done: false,
@@ -416,7 +437,21 @@ fn remove_item(id: &str, paths: &Paths, runner: &mut dyn Runner, state: &mut Sta
         .get(id)
         .cloned()
         .ok_or_else(|| format!("{id} is not installed"))?;
-    let mut doomed = entry.packages.clone();
+    // a package that another installed item lists too stays: the first of them to ask for it now owns it, so the last to go takes it
+    let mut doomed: Vec<String> = Vec::new();
+    for p in &entry.packages {
+        let heir = state.installed.iter().find(|(k, e)| k.as_str() != id && e.wanted.contains(p)).map(|(k, _)| k.clone());
+        match heir {
+            Some(h) => {
+                if let Some(e) = state.installed.get_mut(&h) {
+                    if !e.packages.contains(p) {
+                        e.packages.push(p.clone());
+                    }
+                }
+            }
+            None => doomed.push(p.clone()),
+        }
+    }
     for pattern in &entry.also_remove {
         if let Ok(found) = runner.run(&s(&["rpm", "-qa", "--qf", "%{NAME}\n", pattern])) {
             doomed.extend(found.lines().map(str::trim).filter(|n| !n.is_empty()).map(String::from));
@@ -433,6 +468,14 @@ fn remove_item(id: &str, paths: &Paths, runner: &mut dyn Runner, state: &mut Sta
     state.installed.remove(id);
     for f in &entry.files {
         let _ = fs::remove_file(paths.under_root(f));
+    }
+    for p in &entry.remove_paths {
+        let target = paths.under_root(p);
+        if target.is_dir() {
+            let _ = fs::remove_dir_all(&target);
+        } else {
+            let _ = fs::remove_file(&target);
+        }
     }
     for r in &entry.repos {
         if !state.installed.values().any(|e| e.repos.contains(r)) {
@@ -451,8 +494,13 @@ fn remove_item(id: &str, paths: &Paths, runner: &mut dyn Runner, state: &mut Sta
 /// Make the machine match `want` (item ids). Err only when the request itself is invalid; a failure of one item is in the outcome and does not
 /// stop the others.
 pub fn apply(cat: &Catalog, paths: &Paths, runner: &mut dyn Runner, want: &[String]) -> Result<Outcome, String> {
+    apply_group(cat, paths, runner, want, "extras")
+}
+
+/// The same for one group: only that group's items are installed or removed, the others are left as they are.
+pub fn apply_group(cat: &Catalog, paths: &Paths, runner: &mut dyn Runner, want: &[String], group: &str) -> Result<Outcome, String> {
     for id in want {
-        if cat.item(id).is_none() {
+        if !cat.item(id).is_some_and(|i| i.group == group) {
             return Err(format!("unknown option: {id}"));
         }
     }
@@ -460,7 +508,7 @@ pub fn apply(cat: &Catalog, paths: &Paths, runner: &mut dyn Runner, want: &[Stri
     let done_ids: Vec<String> = state
         .installed
         .iter()
-        .filter(|(_, e)| e.post_done)
+        .filter(|(_, e)| e.post_done && e.group == group)
         .map(|(k, _)| k.clone())
         .collect();
     let to_add: Vec<&Item> = cat
@@ -468,7 +516,12 @@ pub fn apply(cat: &Catalog, paths: &Paths, runner: &mut dyn Runner, want: &[Stri
         .iter()
         .filter(|i| want.contains(&i.id) && !done_ids.contains(&i.id))
         .collect();
-    let mut to_remove: Vec<String> = state.installed.keys().filter(|k| !want.contains(k)).cloned().collect();
+    let mut to_remove: Vec<String> = state
+        .installed
+        .iter()
+        .filter(|(k, e)| e.group == group && !want.contains(k))
+        .map(|(k, _)| k.clone())
+        .collect();
     to_remove.sort_by_key(|id| std::cmp::Reverse(cat.item(id).map(|i| i.order).unwrap_or(i64::MAX)));
 
     let mut progress = Progress {

@@ -21,6 +21,10 @@ kpackage_install_package(choices org.nisse.setup.choices packages plasma)
 add_subdirectory(extras)
 kpackage_install_package(extras org.nisse.setup.extras packages plasma)
 
+# the development board families (N-514a): the same page component with another choice, between the choices page and the options page
+add_subdirectory(boards)
+kpackage_install_package(boards org.nisse.setup.boards packages plasma)
+
 # nisse's taskbar page (N-508c): after the choices page, so the list of apps includes what the earlier choices installed
 add_subdirectory(taskbar)
 kpackage_install_package(taskbar org.nisse.setup.taskbar packages plasma)

@@ -13,7 +13,7 @@ namespace NisseChoices
 /**
  * Reads the output of `nisse-extras list` (docs/proprietary-options.md in the nisse repository) into what the wizard's options page shows:
  * a map with `items` (maps with `id`, `title`, `summary`, `source`, `license`, `terms`, `accept`, `warning` (empty when there is none),
- * `reboot` and `installed`, in the catalog's order) and `reboot`.
+ * `reboot`, `installed` and `group` ("extras" or "boards", the menu it is on), in the catalog's order) and `reboot`.
  *
  * A listing with any problem gives no items at all and a reason in `error`: the page would rather show nothing than guess.
  */

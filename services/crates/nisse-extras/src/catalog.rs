@@ -68,6 +68,10 @@ pub struct Item {
     /// Name patterns (a `*` allowed) of packages that appear on the machine because of this item but that dnf never installed, such as the
     /// kernel module akmods builds. Removed with the item.
     pub remove_also: Vec<String>,
+    /// Which menu it is on: "extras" (the proprietary options) or "boards" (the development board families).
+    pub group: String,
+    /// Folders and files the `post` commands fetched or built, removed with the item (absolute, under /opt or /usr/local).
+    pub remove_paths: Vec<String>,
     /// Commands run as root after the packages install (the NVIDIA module build).
     pub post: Vec<Vec<String>>,
     pub reboot: bool,
@@ -113,6 +117,9 @@ struct RawItem {
     replaces: Vec<String>,
     #[serde(default)]
     remove_also: Vec<String>,
+    group: Option<String>,
+    #[serde(default)]
+    remove_paths: Vec<String>,
     #[serde(default)]
     post: Vec<Vec<String>>,
     #[serde(default)]
@@ -143,6 +150,24 @@ fn valid_package(p: &str) -> bool {
         && !p.starts_with('-')
         && !p.starts_with('.')
         && p.bytes().all(|b| b.is_ascii_alphanumeric() || b"._+-".contains(&b))
+}
+
+/// What an untick may delete as a whole: something under /opt, or something at least two levels under /usr/local (bin/tool, share/tool), never a
+/// top folder, never a pattern.
+fn valid_remove_path(p: &str) -> bool {
+    if !p.is_ascii() || p.ends_with('/') || p.contains("//") || p.contains('*') || p.contains(char::is_whitespace) {
+        return false;
+    }
+    if p.split('/').any(|c| c == ".." || c == ".") {
+        return false;
+    }
+    if let Some(rest) = p.strip_prefix("/opt/") {
+        return !rest.is_empty();
+    }
+    if let Some(rest) = p.strip_prefix("/usr/local/") {
+        return rest.split('/').count() >= 2;
+    }
+    false
 }
 
 fn check_ascii(what: &str, s: &str) -> Result<(), Error> {
@@ -251,6 +276,15 @@ fn parse_item(path: &Path, terms_dir: &Path) -> Result<Item, Error> {
             return bad(here(&format!("not a valid package name: {p}")));
         }
     }
+    let group = raw.group.unwrap_or_else(|| "extras".to_string());
+    if !valid_id(&group) {
+        return bad(here("the group must be lowercase letters, digits and dashes"));
+    }
+    for p in &raw.remove_paths {
+        if !valid_remove_path(p) {
+            return bad(here(&format!("not a valid remove path (a file or folder under /opt, or deeper than /usr/local/bin): {p}")));
+        }
+    }
     for p in &raw.remove_also {
         if !valid_package(&p.replace('*', "x")) {
             return bad(here(&format!("not a valid package name pattern: {p}")));
@@ -307,6 +341,8 @@ fn parse_item(path: &Path, terms_dir: &Path) -> Result<Item, Error> {
         packages: raw.packages,
         replaces: raw.replaces,
         remove_also: raw.remove_also,
+        group,
+        remove_paths: raw.remove_paths,
         post: raw.post,
         reboot: raw.reboot,
         files,

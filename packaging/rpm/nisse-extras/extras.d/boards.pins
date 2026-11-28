@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# What the board families fetch (ledger N-514a, docs/dev-toolchain.md): each is pinned to a git commit or a sha256, checked by nisse-fetch-board
+# before anything runs. Read from the publishers on 2026-11-27: the commits with `git ls-remote` (tags peeled to commits), the checksum from
+# Arduino's own 1.6.0-checksums.txt. To update one, change the tag, the commit and nothing else here, then run the family's live check.
+ESP_IDF_URL=https://github.com/espressif/esp-idf
+ESP_IDF_TAG=v5.5.6
+ESP_IDF_COMMIT=880a203ae603d08a94d06aa01e0d6761958e5e9e
+ARDUINO_CLI_URL=https://github.com/arduino/arduino-cli/releases/download/v1.6.0/arduino-cli_1.6.0_Linux_64bit.tar.gz
+ARDUINO_CLI_SHA256=321ee249f44c78053234fec0f36101092bc6021bf24939e15e0cc2449c5ed250
+PICO_SDK_URL=https://github.com/raspberrypi/pico-sdk
+PICO_SDK_TAG=2.3.1
+PICO_SDK_COMMIT=079c6f39023649b154152db30f1d781e884879bc
+PICOTOOL_URL=https://github.com/raspberrypi/picotool
+PICOTOOL_TAG=2.3.1
+PICOTOOL_COMMIT=2041936441b48a3cc53ae3da9e805229fe8f4e18

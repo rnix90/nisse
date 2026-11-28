@@ -1,0 +1,16 @@
+{
+    "KPackageStructure": "KDE/PlasmaSetup",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "nisse"
+            }
+        ],
+        "Description": "Offer the toolchains of the development board families (ESP32, Arduino, Raspberry Pi Pico, STM32) as options to tick.",
+        "Id": "org.nisse.setup.boards",
+        "License": "GPL-2.0-or-later",
+        "Name": "Development Boards"
+    },
+    "X-KDE-ParentApp": "org.kde.plasmasetup",
+    "X-KDE-Weight": 155
+}

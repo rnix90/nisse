@@ -14,18 +14,18 @@ files="$(rpm -qlp "$rpm_path")"
 for f in /usr/bin/nisse-extras /usr/share/nisse/choices.d/80-extras.toml; do
     printf '%s\n' "$files" | grep -qxF "$f" || fail "nisse-extras lacks $f"
 done
-for f in /usr/libexec/nisse/nisse-extras-retry /usr/lib/systemd/system/nisse-extras-retry.service /usr/lib/systemd/system-preset/85-nisse-extras.preset; do
-    printf '%s
+for f in /usr/libexec/nisse/nisse-extras-retry /usr/lib/systemd/system/nisse-extras-retry.service /usr/lib/systemd/system-preset/85-nisse-extras.preset /usr/libexec/nisse/nisse-fetch-board /usr/share/nisse/choices.d/70-boards.toml /etc/profile.d/nisse-boards.sh /usr/share/nisse/extras.d/boards.pins; do
+    printf '%s'$'
 ' "$files" | grep -qxF "$f" || fail "nisse-extras lacks $f"
 done
-for id in openh264 codecs sunshine-full chrome steam nvidia; do
+for id in openh264 codecs sunshine-full chrome steam nvidia esp32 arduino pico stm32; do
     printf '%s\n' "$files" | grep -qE "^/usr/share/nisse/extras.d/items/[0-9]+-$id\.toml$" || fail "no item manifest for $id"
     printf '%s\n' "$files" | grep -qxF "/usr/share/nisse/extras.d/terms/$id.txt" || fail "no terms text for $id"
 done
 for r in fedora-cisco-openh264 rpmfusion-free rpmfusion-nonfree lizardbyte google-chrome; do
     printf '%s\n' "$files" | grep -qxF "/usr/share/nisse/extras.d/repos/$r.toml" || fail "no repo manifest for $r"
 done
-echo "ok   the command, the choice manifest, six items with terms and five repositories are in the package"
+echo "ok   the command, the choice manifest, ten items with terms and five repositories are in the package"
 
 # what the package needs at run time
 reqs="$(rpm -qp --requires "$rpm_path")"
@@ -35,7 +35,7 @@ done
 echo "ok   it requires dnf, rpm, curl, gnupg2, distribution-gpg-keys, runuser and notify-send"
 
 # nothing third-party is shipped in the package itself: only manifests and the command
-bad="$(printf '%s\n' "$files" | grep -v -E '^/usr/(bin/nisse-extras|share/(nisse/(choices|extras)\.d(/.*)?|licenses/.*))$|^/var/lib/nisse(/extras)?$|^/usr/share/nisse$|^/usr/libexec/nisse(/nisse-extras-retry)?$|^/usr/lib/systemd/system/nisse-extras-retry.service$|^/usr/lib/systemd/system-preset/85-nisse-extras.preset$' || true)"
+bad="$(printf '%s\n' "$files" | grep -v -E '^/usr/(bin/nisse-extras|share/(nisse/(choices|extras)\.d(/.*)?|licenses/.*))$|^/var/lib/nisse(/extras)?$|^/usr/share/nisse$|^/usr/libexec/nisse(/nisse-extras-retry)?$|^/usr/lib/systemd/system/nisse-extras-retry.service$|^/usr/lib/systemd/system-preset/85-nisse-extras.preset$|^/usr/libexec/nisse/nisse-fetch-board$|^/etc/profile.d/nisse-boards.sh$' || true)"
 [ -z "$bad" ] || fail "unexpected files in the package: $bad"
 echo "ok   the package holds only the command and manifests"
 
@@ -46,7 +46,7 @@ rpm2cpio "$rpm_path" | (cd "$scratch" && cpio -idm --quiet 2>/dev/null)
 cmp -s "$scratch/usr/share/nisse/choices.d/80-extras.toml" packaging/rpm/nisse-extras/choice-extras.toml || fail "the choice manifest differs from its source"
 
 # the installed command accepts the installed catalog, and the engine accepts the choice manifest
-NISSE_EXTRAS_DIR="$scratch/usr/share/nisse/extras.d" "$scratch/usr/bin/nisse-extras" validate | grep -q "6 options" || fail "the shipped catalog does not validate"
+NISSE_EXTRAS_DIR="$scratch/usr/share/nisse/extras.d" "$scratch/usr/bin/nisse-extras" validate | grep -q "10 options" || fail "the shipped catalog does not validate"
 echo "ok   the installed command validates the installed catalog"
 engine="$(ls services/target/debug/nisse-choices services/target/release/nisse-choices 2>/dev/null | head -1 || true)"
 if [ -n "$engine" ]; then
@@ -58,6 +58,10 @@ fi
 
 # the choice sits before the taskbar pins, whose page lists what this installs
 order="$(sed -n 's/^order = //p' "$scratch/usr/share/nisse/choices.d/80-extras.toml")"
+border="$(sed -n 's/^order = //p' "$scratch/usr/share/nisse/choices.d/70-boards.toml")"
+[ "$border" -lt "$order" ] || fail "the boards choice (order $border) must come before the options choice ($order)"
+cmp -s "$scratch/usr/share/nisse/choices.d/70-boards.toml" packaging/rpm/nisse-extras/choice-boards.toml || fail "the boards manifest differs from its source"
+cmp -s <(tail -n +2 "$scratch/usr/libexec/nisse/nisse-fetch-board") <(tail -n +2 packaging/rpm/nisse-extras/nisse-fetch-board) || fail "nisse-fetch-board differs from its source"
 [ "$order" -lt 90 ] || fail "the extras choice (order $order) must come before the taskbar pins (90)"
 echo "ok   the extras choice is ordered before the taskbar pins"
 

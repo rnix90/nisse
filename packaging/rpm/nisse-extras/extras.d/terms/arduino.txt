@@ -1,0 +1,9 @@
+Arduino
+
+What it is: avrdude, the programmer for AVR chips, from Fedora; and arduino-cli, Arduino's command line tool, downloaded from Arduino's releases on GitHub (version 1.6.0) and checked against a fixed checksum before it is installed.
+
+Where it goes: arduino-cli in /usr/local/bin.
+
+License: avrdude is GPL-2.0-or-later and arduino-cli is GPL-3.0. Arduino's boards and libraries are downloaded by arduino-cli itself when you ask it to, under their own licenses.
+
+What this changes: it needs a network. Unticking it later removes both.

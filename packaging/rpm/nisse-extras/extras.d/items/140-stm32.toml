@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+id = "stm32"
+group = "boards"
+title = "STM32 and Other ARM Chips"
+summary = "Tools for STM32 and other ARM Cortex-M chips: the ARM compiler, openocd and the ST-Link tools, all from Fedora."
+source = "Fedora"
+license = "GPL and BSD licenses of the Fedora packages"
+accept = false
+order = 140
+packages = ["arm-none-eabi-gcc-cs", "arm-none-eabi-gcc-cs-c++", "arm-none-eabi-newlib", "openocd", "stlink", "dfu-util"]

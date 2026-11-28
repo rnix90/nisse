@@ -72,7 +72,7 @@ fn validate_accepts_the_shipped_catalog() {
     let e = Env::new("validate");
     let o = e.run(&["validate"], false);
     assert!(o.status.success(), "{}", err(&o));
-    assert!(out(&o).contains("6 options"), "{}", out(&o));
+    assert!(out(&o).contains("10 options"), "{}", out(&o));
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn list_gives_json_with_terms_and_what_is_installed() {
     assert!(o.status.success(), "{}", err(&o));
     let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
     let items = v["items"].as_array().unwrap();
-    assert_eq!(items.len(), 6);
+    assert_eq!(items.len(), 10);
     assert_eq!(items[3]["id"], "chrome");
     assert_eq!(items[3]["accept"], true);
     assert!(items[3]["terms"].as_str().unwrap().contains("Terms of Service"));
@@ -147,4 +147,42 @@ fn no_command_prints_usage() {
     let o = e.run(&[], false);
     assert_eq!(o.status.code(), Some(2));
     assert!(err(&o).contains("usage"));
+}
+
+#[test]
+fn the_group_is_in_the_listing_and_in_apply_and_status() {
+    let e = Env::new("group");
+    let v: serde_json::Value = serde_json::from_str(&out(&e.run(&["list"], false))).unwrap();
+    let group_of = |id: &str| v["items"].as_array().unwrap().iter().find(|i| i["id"] == id).unwrap()["group"].clone();
+    assert_eq!(group_of("chrome"), "extras");
+    assert_eq!(group_of("stm32"), "boards");
+    // a board family: apply it with its group
+    let o = e.run(&["apply", "--group", "boards", "stm32"], false);
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(e.log().contains("dnf install -y -- arm-none-eabi-gcc-cs arm-none-eabi-gcc-cs-c++ arm-none-eabi-newlib openocd stlink dfu-util"), "{}", e.log());
+    assert_eq!(out(&e.run(&["status", "--group", "boards"], false)), "stm32");
+    assert_eq!(out(&e.run(&["status"], false)), "", "the plain status is the extras group");
+    // the other group's apply leaves it alone
+    assert!(e.run(&["apply", ""], false).status.success());
+    assert_eq!(out(&e.run(&["status", "--group", "boards"], false)), "stm32");
+    // and untick it by its own group
+    assert!(e.run(&["apply", "--group", "boards", ""], false).status.success());
+    assert!(e.log().contains("dnf remove"), "{}", e.log());
+    assert_eq!(out(&e.run(&["status", "--group", "boards"], false)), "");
+}
+
+#[test]
+fn an_option_of_another_group_or_a_bad_group_is_refused_with_exit_2() {
+    let e = Env::new("badgroup");
+    for args in [
+        vec!["apply", "--group", "extras", "stm32"],
+        vec!["apply", "--group", "boards", "chrome"],
+        vec!["apply", "--group", "Bad Group", ""],
+        vec!["apply", "--group"],
+        vec!["status", "--group"],
+    ] {
+        let o = e.run(&args, false);
+        assert_eq!(o.status.code(), Some(2), "{args:?}: {}", err(&o));
+    }
+    assert!(e.log().is_empty(), "nothing runs for a refused request");
 }

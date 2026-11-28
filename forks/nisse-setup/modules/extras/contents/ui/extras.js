@@ -56,3 +56,17 @@ function titleOf(items, id) {
     const found = items.find(i => i.id === id);
     return found ? found.title : id;
 }
+
+// The ticks a page starts from: what the answer says (the choice's default is the answer until one is given), among the options it shows.
+function initial(effective, items) {
+    const wanted = effective || [];
+    return items.filter(i => wanted.indexOf(i.id) >= 0).map(i => i.id);
+}
+
+function installedIds(items) {
+    return items.filter(i => i.installed).map(i => i.id);
+}
+
+function inGroup(items, group) {
+    return items.filter(i => i.group === group);
+}

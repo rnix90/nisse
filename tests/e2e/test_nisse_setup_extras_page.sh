@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
-# N-507d: the wizard's proprietary and third-party options page. In the Fedora build VM, after: tools/rpm/build-rpm.sh nisse-setup
+# N-507d, N-514a: the wizard's proprietary options page and development boards page (the same component). In the Fedora build VM, after: tools/rpm/build-rpm.sh nisse-setup
 # and cargo build --release -p nisse-extras (in services):
 #   1. the page's logic (extras.js) passes its QtTest unit tests (qmltestrunner);
 #   2. the page, loaded from the built RPM in a window on Qt's offscreen platform, with the REAL `nisse-extras list` over the shipped
@@ -58,7 +58,9 @@ cat > "$s/fake-engine" <<'ENGINE'
 case "$1" in
   list) cat <<'JSON'
 [{"id":"extras","title":"Proprietary and Third-Party Options","description":"Software that is not part of nisse or Fedora: Chrome, Steam, the NVIDIA driver, and extra video codecs. Nothing is installed unless you tick it, and each one tells you where it comes from and what you agree to. Installing needs an internet connection.",
-  "stage":"firstboot","order":80,"kind":"multi","options":[],"default":[],"answer":null,"effective":[],"current":"","state":null}]
+  "stage":"firstboot","order":80,"kind":"multi","options":[],"default":[],"answer":null,"effective":[],"current":"","state":null},
+ {"id":"boards","title":"Development Boards","description":"Tools for the boards you program: ESP32, Arduino, Raspberry Pi Pico and STM32 chips. Each family you tick is installed for every user on this computer. Installing needs an internet connection, and ESP32 is large and takes a while.",
+  "stage":"firstboot","order":70,"kind":"multi","options":[],"default":["esp32"],"answer":null,"effective":["esp32"],"current":"","state":null}]
 JSON
   ;;
 esac
@@ -100,4 +102,21 @@ case "$(st STATE7)" in *"reading=codecs"*"dialogVisible=true"*"tickedHasCodecs=t
 case "$(st STATE9)" in *"installing=false"*"failed=true"*"pending=false"*"next=true"*"progressItems=3"*"finished=true"*) ok "with no helper the answer fails: the page says so, shows the progress list, and lets the person go on" ;; *) bad "state 9: $(st STATE9)" ;; esac
 [ -s "$png" ] && [ -s "$terms" ] && ok "pictures were saved (out/screens/n507d-extras-page.png, n507d-extras-terms.png)" || bad "no pictures"
 
-[ "$failures" -eq 0 ] && { echo "PASS: the options page"; exit 0; } || { echo "$failures failure(s)"; exit 1; }
+# 3. the development boards page: the same component with the boards choice and menu
+bpng="$PWD/out/screens/n514a-boards-page.png"
+bpage="$s/usr/share/plasma/packages/org.nisse.setup.boards/contents/ui/main.qml"
+[ -f "$bpage" ] || bad "the boards page is not in the package"
+sed -e "s|@PAGE@|$bpage|" -e "s|@OUT@|$bpng|" tests/e2e/boards_page_harness.qml > "$s/bharness.qml"
+XDG_RUNTIME_DIR="$s/run" QT_FORCE_STDERR_LOGGING=1 QT_QPA_PLATFORM=offscreen QML_IMPORT_PATH="$s/stub:$s/usr/lib64/qt6/qml" QT_PLUGIN_PATH="$s/usr/lib64/qt6/plugins"     XDG_DATA_HOME="$s/home" NISSE_CHOICES_COMMAND="$s/fake-engine" NISSE_EXTRAS_COMMAND="$s/extras-cmd" NISSE_EXTRAS_PROGRESS="$s/progress.json"     dbus-run-session -- timeout 60 "$qmlbin" "$s/bharness.qml" > "$s/bout.txt" 2>&1
+cp "$s/bout.txt" out/screens/n514a-boards-page.log
+bt="$s/bout.txt"
+if grep -qiE 'is not a type|cannot load|referenceerror|is not defined|undefined is not|typeerror|module .* is not installed|is not installed' "$bt"; then bad "the boards page reported QML errors: $(grep -iE 'not a type|cannot|not defined|typeerror|not installed' "$bt" | head -3)"; else ok "the boards page loads (through the options page component) without a QML error"; fi
+bst() { grep "^.*$1 " "$bt" | head -1; }
+case "$(bst BSTATE1)" in *"available=true"*"options=4"*"ticked=esp32"*"pending=true"*"next=false"*"first=ESP32"*"group=boards"*"choice=boards"*"installEnabled=true"*) ok "four board families, ESP32 ticked by default (so Install Selected is on and Next waits), the boards choice and menu" ;; *) bad "boards state 1: $(bst BSTATE1)" ;; esac
+case "$(bst BSTATE2)" in *"ticked=esp32|pico"*"asking=none"*"dialogVisible=false"*) ok "ticking Raspberry Pi Pico ticks it at once, with no Accept dialog (open licenses)" ;; *) bad "boards state 2: $(bst BSTATE2)" ;; esac
+case "$(bst BSTATE3)" in *"ticked=pico"*"tickedHasEsp32=false"*) ok "unticking the default family works" ;; *) bad "boards state 3: $(bst BSTATE3)" ;; esac
+case "$(bst BSTATE4)" in *"reading=stm32"*"dialogVisible=true"*"title=STM32 and Other ARM Chips"*) ok "Read Terms shows a family's terms" ;; *) bad "boards state 4: $(bst BSTATE4)" ;; esac
+case "$(bst BSTATE5)" in *"installing=false"*"failed=true"*"pending=false"*"next=true"*) ok "with no helper the answer fails, the page says so and lets the person go on" ;; *) bad "boards state 5: $(bst BSTATE5)" ;; esac
+[ -s "$bpng" ] && ok "a picture of the boards page was saved (out/screens/n514a-boards-page.png)" || bad "no boards picture"
+
+[ "$failures" -eq 0 ] && { echo "PASS: the options and boards pages"; exit 0; } || { echo "$failures failure(s)"; exit 1; }

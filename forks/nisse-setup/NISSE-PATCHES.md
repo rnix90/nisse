@@ -94,4 +94,13 @@ New files are nisse's own (GPL-2.0-or-later, `SPDX-FileCopyrightText: 2026 nisse
 | `modules/taskbar/contents/ui/main.qml` | N-507d: only the taskbar pins choice is a taskbar list (the options choice is a list too) | the options page |
 | `tests/extraslisting_test.cpp` | new (N-507d): QtTest checks of the options parsers | nisse's tests |
 | `tests/tst_extras.qml` | new (N-507d): QtTest checks of `extras.js`, run by `tests/e2e/test_nisse_setup_extras_page.sh` | nisse's tests |
+| `modules/boards/CMakeLists.txt` | new (N-514a): the boards page's QML module | follows the page |
+| `modules/boards/metadata.json` | new (N-514a): a KDE/PlasmaSetup page `org.nisse.setup.boards`, weight 155 (after the choices page, before the options page) | the development board families |
+| `modules/boards/metadata.json.license` | new (N-514a): licence of the metadata | REUSE convention |
+| `modules/boards/contents/ui/main.qml` | new (N-514a): the options page component with the boards choice and menu | the development board families |
+| `modules/extras/contents/ui/OptionsPage.qml` | new (N-514a): the options page of N-507d as a component for one choice and one menu of the catalog (`choiceId`, `group`) | one component for both menus |
+| `modules/extras/contents/ui/main.qml` | N-514a: now only the options page component with the extras choice and menu | one component for both menus |
+| `modules/extras/contents/ui/extras.js` | N-514a: `initial`, `installedIds` and `inGroup`, so a page starts from the answer (ESP32 ticked) and shows one menu | one component for both menus |
+| `modules/choicesutil/extraslisting.cpp` | N-514a: reads the `group` of each option (extras when absent) | one component for both menus |
+| `modules/choicesutil/extraslisting.h` | N-514a: documents `group` | one component for both menus |
 | `CMakeLists.txt` | the minimum versions are the release repository's Qt 6.10 and Frameworks 6.25 (upstream: 6.11 and 6.30) | the image is Fedora 44 release only; it builds and links on those (2026-11-19). Re-check the first-boot run at the ISO gate |

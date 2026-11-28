@@ -14,6 +14,8 @@ NX="$ROOT/services/target/release/nisse-extras"
 export NISSE_EXTRAS_DIR="$ROOT/packaging/rpm/nisse-extras/extras.d"
 ITEMS=("$@")
 [ "${#ITEMS[@]}" -gt 0 ] || ITEMS=(openh264 codecs sunshine-swap sunshine-full chrome steam nvidia)
+# the board families (N-514a) are the boards menu of the same catalog: esp32 arduino pico stm32 (run them by name; esp32 downloads several GB)
+group_of() { case "$1" in esp32|arduino|pico|stm32) echo boards ;; *) echo extras ;; esac; }
 
 pass=0
 fail=0
@@ -56,6 +58,10 @@ nx() {
 installed() { rpm ${PFX:+--root "$PFX"} -q "$1" >/dev/null 2>&1; }
 
 ( cd services && cargo build --release -p nisse-extras 2>&1 | tail -1 )
+# the post commands name /usr/libexec/nisse/nisse-fetch-board and read the pins from /usr/share: put the repo's own there for the run (removed at the end)
+sudo mkdir -p /usr/libexec/nisse /usr/share/nisse/extras.d
+sudo ln -sf "$ROOT/packaging/rpm/nisse-extras/nisse-fetch-board" /usr/libexec/nisse/nisse-fetch-board
+sudo ln -sf "$ROOT/packaging/rpm/nisse-extras/extras.d/boards.pins" /usr/share/nisse/extras.d/boards.pins
 
 snapshot() { rpm ${PFX:+--root "$PFX"} -qa --qf '%{name}\n' | sort -u > "$1"; }
 snapshot /tmp/extras-before.txt
@@ -132,8 +138,9 @@ for item in "${ITEMS[@]}"; do
             ;;
     esac
     snapshot "/tmp/extras-pre-$item.txt"
-    if nx apply "$item"; then ok "$item: apply exits 0"; else bad "$item: apply failed (see above)"; fi
-    check "$item: status says $item" test "$(nx status)" = "$item"
+    g="$(group_of "$item")"
+    if nx apply --group "$g" "$item"; then ok "$item: apply exits 0"; else bad "$item: apply failed (see above)"; fi
+    check "$item: status says $item" test "$(nx status --group "$g")" = "$item"
     for r in $(sed -n 's/^repos = \[\(.*\)\]/\1/p' "$NISSE_EXTRAS_DIR"/items/*-"$item".toml | tr -d '", '); do
         check "$item: repo file for $r exists with gpgcheck=1" grep -q '^gpgcheck=1' "$PFX/etc/yum.repos.d/nisse-extras-$r.repo"
     done
@@ -154,6 +161,29 @@ for item in "${ITEMS[@]}"; do
         steam)
             check "steam: its launcher is in the package" sh -c "rpm ${PFX:+--root $PFX} -ql steam | grep -qx /usr/bin/steam"
             ;;
+        esp32)
+            check "esp32: ESP-IDF is in /opt/esp-idf at the pinned commit's tree" test -f /opt/esp-idf/export.sh
+            check "esp32: its tools are in /opt/espressif" test -d /opt/espressif/tools
+            check "esp32: no git folder is left in ESP-IDF" sh -c '[ -z "$(find /opt/esp-idf -name .git | head -1)" ]'
+            check "esp32: a user who is not root can use it (get_idf, idf.py)" sudo -u nobody env HOME=/tmp IDF_TOOLS_PATH=/opt/espressif bash -c '. /opt/esp-idf/export.sh >/dev/null 2>&1 && idf.py --version | grep -q "ESP-IDF"'
+            check "esp32: the profile snippet gives IDF_PATH and get_idf" bash -c ". $ROOT/packaging/rpm/nisse-extras/nisse-boards.sh; [ \"\$IDF_PATH\" = /opt/esp-idf ] && type get_idf >/dev/null 2>&1"
+            echo "     size: $(du -sh /opt/esp-idf /opt/espressif | tr '	' ' ' | tr '
+' ' ')"
+            ;;
+        arduino)
+            check "arduino: arduino-cli runs and says its version" sh -c '/usr/local/bin/arduino-cli version | grep -q "1.6.0"'
+            check "arduino: avrdude runs" sh -c 'avrdude -? 2>&1 | grep -qi usage'
+            ;;
+        pico)
+            check "pico: the SDK is in /opt/pico-sdk with its submodules" test -f /opt/pico-sdk/pico_sdk_init.cmake -a -d /opt/pico-sdk/lib/tinyusb/src
+            check "pico: picotool is built and runs" sh -c '/usr/local/bin/picotool version | grep -q "2.3.1"'
+            check "pico: the ARM compiler runs" sh -c 'arm-none-eabi-gcc --version | head -1 | grep -q arm-none-eabi'
+            ;;
+        stm32)
+            check "stm32: the ARM compiler runs" sh -c 'arm-none-eabi-gcc --version | head -1 | grep -q arm-none-eabi'
+            check "stm32: openocd runs" sh -c 'openocd --version 2>&1 | grep -qi "open on-chip debugger"'
+            check "stm32: the ST-Link tools run" sh -c 'st-info --version | grep -q .'
+            ;;
         nvidia)
             echo "     akmods result: $(rpm -qa 'kmod-nvidia*' | head -1)"
             check "nvidia: the kernel module package was built" sh -c 'rpm -qa "kmod-nvidia*" | grep -q .'
@@ -161,8 +191,11 @@ for item in "${ITEMS[@]}"; do
             ;;
     esac
     echo "---- $item: untick"
-    if nx apply ""; then ok "$item: untick exits 0"; else bad "$item: untick failed"; fi
-    check "$item: status is empty again" test -z "$(nx status)"
+    if nx apply --group "$g" ""; then ok "$item: untick exits 0"; else bad "$item: untick failed"; fi
+    check "$item: status is empty again" test -z "$(nx status --group "$g")"
+    for rp in $(sed -n 's/^remove_paths = \[\(.*\)\]/\1/p' "$NISSE_EXTRAS_DIR"/items/*-"$item".toml | tr -d '",'); do
+        check "$item: $rp is gone" test ! -e "$PFX$rp"
+    done
     for r in $(sed -n 's/^repos = \[\(.*\)\]/\1/p' "$NISSE_EXTRAS_DIR"/items/*-"$item".toml | tr -d '", '); do
         check "$item: repo file for $r is gone" test ! -e "$PFX/etc/yum.repos.d/nisse-extras-$r.repo"
         check "$item: key file for $r is gone" test ! -e "$PFX/etc/pki/rpm-gpg/nisse-extras-$r"
@@ -177,6 +210,6 @@ for item in "${ITEMS[@]}"; do
     ls /etc/yum.repos.d/ | grep -i -E "google|lizard|fusion" | sed 's/^/     repo file still there: /'
 done
 
-sudo rm -f /etc/yum.repos.d/zz-nisse-standin.repo
+sudo rm -f /etc/yum.repos.d/zz-nisse-standin.repo /usr/libexec/nisse/nisse-fetch-board /usr/share/nisse/extras.d/boards.pins
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -266,9 +266,12 @@ echo "ok   Moonlight and Sunshine are in the image; Sunshine is off, its ports a
 # there, and NOTHING it offers ships: no third-party repository file and none of the packages.
 [ -x "$root/usr/bin/nisse-extras" ] || fail "nisse-extras is not in the image (N-507d)"
 [ -f "$root/usr/share/nisse/choices.d/80-extras.toml" ] || fail "the extras choice is not in the image (N-507d)"
+# the board families (N-514a): their choice comes before the options choice, the fetch script and its pins are there, and none of what they fetch ships
+[ -f "$root/usr/share/nisse/choices.d/70-boards.toml" ] && [ -x "$root/usr/libexec/nisse/nisse-fetch-board" ] && [ -f "$root/usr/share/nisse/extras.d/boards.pins" ] || fail "the board families are not in the image (N-514a)"
+[ ! -e "$root/opt/esp-idf" ] && [ ! -e "$root/opt/pico-sdk" ] && [ ! -e "$root/usr/local/bin/arduino-cli" ] && [ ! -e "$root/usr/local/bin/picotool" ] || fail "the image ships a board toolchain that is an option to tick (N-514a)"
 o="$(sed -n 's/^order = \([0-9]*\)/\1/p' "$root/usr/share/nisse/choices.d/80-extras.toml")"
 [ -n "$o" ] && [ "$o" -lt 90 ] || fail "the extras choice does not come before the taskbar pins (N-507d)"
-NISSE_EXTRAS_DIR="$root/usr/share/nisse/extras.d" "$root/usr/bin/nisse-extras" validate | grep -q '6 options' || fail "the catalog in the image does not validate (N-507d)"
+NISSE_EXTRAS_DIR="$root/usr/share/nisse/extras.d" "$root/usr/bin/nisse-extras" validate | grep -q '10 options' || fail "the catalog in the image does not validate (N-507d)"
 [ -f "$root/usr/share/plasma/packages/org.nisse.setup.extras/contents/ui/main.qml" ] || fail "the options page is not in the image (N-507d)"
 for k in rpmfusion/RPM-GPG-KEY-rpmfusion-free-fedora-44 rpmfusion/RPM-GPG-KEY-rpmfusion-nonfree-fedora-44; do
     [ -f "$root/usr/share/distribution-gpg-keys/$k" ] || fail "the signing key $k is not in the image (N-507d)"
@@ -297,7 +300,7 @@ grep -q 'nisse-rust-setup' "$root/usr/bin/cargo" || fail "cargo in the image is 
 [ -f "$root/usr/lib/udev/rules.d/60-nisse-boards.rules" ] || fail "the board udev rules are not in the image (N-514)"
 grep -q 'UserGroups=.*dialout' "$root/etc/xdg/nissesetuprc" || fail "the wizard does not add the first user to dialout (N-514)"
 echo "ok   the dev toolchain is in the image (meta package, the tools, the first-use Rust shims) and Rust itself is not"
-echo "ok   the options menu is in the image (command, six-option catalog, choice before the taskbar pins, page), its keys are there, and nothing it offers ships"
+echo "ok   the options menu is in the image (command, ten-option catalog, choice before the taskbar pins, page), its keys are there, and nothing it offers ships"
 
 # Every approved art asset (N-415): the path-by-path check of the whole manifest against the image.
 art_n=0

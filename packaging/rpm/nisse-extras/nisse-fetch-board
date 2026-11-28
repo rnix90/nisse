@@ -1,0 +1,90 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Fetches what a board family needs that Fedora does not ship (ledger N-514a, docs/dev-toolchain.md): run as root by the post step of the family's
+# item in the nisse-extras catalog, system-wide because the first user does not exist yet while setup runs.
+#   nisse-fetch-board esp-idf       ESP-IDF into /opt/esp-idf and its tools (ESP-IDF's own installer) into /opt/espressif
+#   nisse-fetch-board arduino-cli   Arduino's command line tool into /usr/local/bin
+#   nisse-fetch-board pico          the Pico SDK into /opt/pico-sdk, and picotool built and installed into /usr/local
+# Every download is pinned (a git commit, or a sha256) in extras.d/boards.pins and checked BEFORE anything is installed or run. Removal is the
+# catalog's remove_paths. NISSE_BOARDS_ROOT (a prefix for the install folders), NISSE_BOARDS_BIN (where git, curl and cmake are) and
+# NISSE_BOARDS_PINS are for tests.
+set -u
+umask 022
+root="${NISSE_BOARDS_ROOT:-}"
+bin="${NISSE_BOARDS_BIN:-/usr/bin}"
+pins="${NISSE_BOARDS_PINS:-/usr/share/nisse/extras.d/boards.pins}"
+work=""
+cleanup() { [ -z "$work" ] || rm -rf "$work"; }
+trap cleanup EXIT
+
+pin() { sed -n "s/^$1=//p" "$pins" | head -1; }
+die() { echo "nisse: $*" >&2; exit 1; }
+
+# git clone of a pinned tag with its submodules into DEST, its commit checked, its git folders removed (Espressif's own release archives have none,
+# and without them a user who is not root cannot trip over git's ownership check in a folder root owns)
+fetch_repo() { # url tag commit dest
+    local url="$1" tag="$2" commit="$3" dest="$4" part="$4.partial" head
+    rm -rf "$part" "$dest"
+    mkdir -p "$(dirname "$dest")"
+    "$bin/git" clone --depth 1 --branch "$tag" --recursive --shallow-submodules "$url" "$part" >&2 || { rm -rf "$part"; die "could not download $url. Check the network connection and try again."; }
+    head="$("$bin/git" -C "$part" rev-parse HEAD)"
+    if [ "$head" != "$commit" ]; then
+        rm -rf "$part"
+        die "$url at $tag is commit $head, which does not match the pinned $commit: refusing it."
+    fi
+    find "$part" -name .git -prune -exec rm -rf {} + 2>/dev/null
+    mv "$part" "$dest"
+}
+
+esp_idf() {
+    local dest="$root/opt/esp-idf" tools="$root/opt/espressif"
+    fetch_repo "$(pin ESP_IDF_URL)" "$(pin ESP_IDF_TAG)" "$(pin ESP_IDF_COMMIT)" "$dest"
+    mkdir -p "$tools"
+    echo "nisse: installing ESP-IDF's tools (compilers, debugger, Python packages). This takes a while." >&2
+    if ! IDF_TOOLS_PATH="$tools" "$dest/install.sh" >&2; then
+        rm -rf "$dest" "$tools"
+        die "ESP-IDF's own installer failed. Check the messages above and the network connection, then try again."
+    fi
+}
+
+arduino_cli() {
+    local url sha file
+    url="$(pin ARDUINO_CLI_URL)"; sha="$(pin ARDUINO_CLI_SHA256)"
+    work="$(mktemp -d)"
+    file="$work/arduino-cli.tar.gz"
+    "$bin/curl" -fsSL --max-time 300 -o "$file" "$url" || die "could not download arduino-cli from $url. Check the network connection and try again."
+    if [ "$(sha256sum "$file" | cut -d' ' -f1)" != "$sha" ]; then
+        die "the arduino-cli download's checksum does not match the pinned one: refusing it."
+    fi
+    tar -xzf "$file" -C "$work" arduino-cli || die "the arduino-cli download is not what it should be."
+    install -Dm755 "$work/arduino-cli" "$root/usr/local/bin/arduino-cli"
+}
+
+pico() {
+    local sdk="$root/opt/pico-sdk" src
+    fetch_repo "$(pin PICO_SDK_URL)" "$(pin PICO_SDK_TAG)" "$(pin PICO_SDK_COMMIT)" "$sdk"
+    work="$(mktemp -d)"
+    src="$work/picotool"
+    if ! "$bin/git" clone --depth 1 --branch "$(pin PICOTOOL_TAG)" "$(pin PICOTOOL_URL)" "$src" >&2; then
+        rm -rf "$sdk"
+        die "could not download $(pin PICOTOOL_URL). Check the network connection and try again."
+    fi
+    if [ "$("$bin/git" -C "$src" rev-parse HEAD)" != "$(pin PICOTOOL_COMMIT)" ]; then
+        rm -rf "$sdk"
+        die "picotool at $(pin PICOTOOL_TAG) is a different commit than the pinned $(pin PICOTOOL_COMMIT), which does not match the pin: refusing it."
+    fi
+    echo "nisse: building picotool." >&2
+    if ! "$bin/cmake" -S "$src" -B "$work/build" -DPICO_SDK_PATH="$sdk" -DCMAKE_INSTALL_PREFIX="$root/usr/local" -DCMAKE_BUILD_TYPE=Release >&2 \
+        || ! "$bin/cmake" --build "$work/build" -j "$(nproc 2>/dev/null || echo 2)" >&2 \
+        || ! "$bin/cmake" --install "$work/build" >&2; then
+        rm -rf "$sdk"
+        die "picotool could not be built. Check the messages above, then try again."
+    fi
+}
+
+case "${1-}" in
+    esp-idf) esp_idf ;;
+    arduino-cli) arduino_cli ;;
+    pico) pico ;;
+    *) echo "usage: nisse-fetch-board esp-idf | arduino-cli | pico" >&2; exit 2 ;;
+esac

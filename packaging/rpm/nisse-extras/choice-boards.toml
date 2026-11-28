@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The board families of the first setup (ledger N-514a, docs/dev-toolchain.md): one tick per family, ESP32 ticked by default. The same catalog and
+# command as the proprietary options (nisse-extras, group boards), a menu of its own. Before the options page (order 80) and the taskbar pins (90).
+id = "boards"
+title = "Development Boards"
+description = "Tools for the boards you program: ESP32, Arduino, Raspberry Pi Pico and STM32 chips. Each family you tick is installed for every user on this computer. Installing needs an internet connection, and ESP32 is large and takes a while."
+stage = "firstboot"
+order = 70
+kind = "multi"
+default = ["esp32"]
+
+[multi]
+max_items = 8
+
+[apply]
+command = ["/usr/bin/nisse-extras", "apply", "--group", "boards", "{value}"]
+status = ["/usr/bin/nisse-extras", "status", "--group", "boards"]
+timeout_secs = 7200
+boot = false

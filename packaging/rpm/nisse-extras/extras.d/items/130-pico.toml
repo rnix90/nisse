@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+id = "pico"
+group = "boards"
+title = "Raspberry Pi Pico"
+summary = "Tools for Raspberry Pi Pico boards (RP2040 and RP2350): the ARM compiler from Fedora, the Pico SDK and picotool from Raspberry Pi."
+source = "Fedora, and Raspberry Pi's pico-sdk and picotool on GitHub"
+license = "BSD-3-Clause for the Pico SDK and picotool, with the licenses of the compiler packages"
+accept = false
+order = 130
+packages = ["arm-none-eabi-gcc-cs", "arm-none-eabi-gcc-cs-c++", "arm-none-eabi-newlib", "cmake", "gcc-c++", "make", "libusb1-devel", "pkgconf-pkg-config"]
+post = [["/usr/libexec/nisse/nisse-fetch-board", "pico"]]
+remove_paths = ["/opt/pico-sdk", "/usr/local/bin/picotool", "/usr/local/share/picotool"]

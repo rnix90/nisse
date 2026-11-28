@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+id = "arduino"
+group = "boards"
+title = "Arduino"
+summary = "Tools for Arduino and AVR boards: avrdude from Fedora and the arduino-cli command from Arduino."
+source = "Fedora, and Arduino's releases on GitHub"
+license = "GPL-2.0-or-later for avrdude, GPL-3.0 for arduino-cli"
+accept = false
+order = 120
+packages = ["avrdude"]
+post = [["/usr/libexec/nisse/nisse-fetch-board", "arduino-cli"]]
+remove_paths = ["/usr/local/bin/arduino-cli"]

@@ -1,0 +1,9 @@
+Raspberry Pi Pico
+
+What it is: the ARM compiler from Fedora, plus the Pico SDK (version 2.3.1) and picotool (version 2.3.1) from Raspberry Pi's repositories on GitHub. Each is downloaded and checked against a fixed commit before anything runs, and picotool is built on this computer.
+
+Where it goes: the Pico SDK in /opt/pico-sdk (the PICO_SDK_PATH variable points to it for every user) and picotool in /usr/local/bin.
+
+License: the Pico SDK and picotool are BSD-3-Clause. The compiler packages carry their own open source licenses.
+
+What this changes: it needs a network and takes a few minutes. Unticking it later removes both, and the build tools that were installed only for this.

@@ -5,7 +5,7 @@
 
 Name:           nisse-extras
 Version:        0.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        The menu of proprietary and third-party options in the first-boot wizard
 License:        GPL-2.0-or-later
 URL:            https://github.com/rnix90/nisse
@@ -17,6 +17,10 @@ Requires:       dnf
 Requires:       rpm
 Requires:       curl
 Requires:       gnupg2
+# the board families fetch with git and unpack with tar; ESP-IDF's own installer needs Python
+Requires:       git
+Requires:       tar
+Requires:       python3
 # the signing keys of RPM Fusion ship here, so none is downloaded for them
 Requires:       distribution-gpg-keys
 # the manifest key `boot` and `apply --boot` arrive in nisse-choices 0.1-4
@@ -30,6 +34,9 @@ Source1:        choice-extras.toml
 Source2:        nisse-extras-retry
 Source3:        nisse-extras-retry.service
 Source4:        85-nisse-extras.preset
+Source5:        nisse-fetch-board
+Source6:        choice-boards.toml
+Source7:        nisse-boards.sh
 
 %description
 Software that is not part of nisse or Fedora, offered as a list of options the
@@ -59,6 +66,10 @@ for sub in items repos terms; do
         install -pm 0644 "$f" %{buildroot}%{_datadir}/nisse/extras.d/$sub/
     done
 done
+install -pm 0644 %{nisse_root}/packaging/rpm/nisse-extras/extras.d/boards.pins %{buildroot}%{_datadir}/nisse/extras.d/boards.pins
+install -Dpm 0755 %{SOURCE5} %{buildroot}%{_libexecdir}/nisse/nisse-fetch-board
+install -Dpm 0644 %{SOURCE6} %{buildroot}%{_datadir}/nisse/choices.d/70-boards.toml
+install -Dpm 0644 %{SOURCE7} %{buildroot}%{_sysconfdir}/profile.d/nisse-boards.sh
 install -dm 0755 %{buildroot}%{_sharedstatedir}/nisse/extras
 install -Dpm 0755 %{SOURCE2} %{buildroot}%{_libexecdir}/nisse/nisse-extras-retry
 install -Dpm 0644 %{SOURCE3} %{buildroot}%{_unitdir}/nisse-extras-retry.service
@@ -81,10 +92,16 @@ install -Dpm 0644 %{SOURCE4} %{buildroot}%{_presetdir}/85-nisse-extras.preset
 %dir %{_sharedstatedir}/nisse/extras
 %dir %{_libexecdir}/nisse
 %{_libexecdir}/nisse/nisse-extras-retry
+%{_libexecdir}/nisse/nisse-fetch-board
+%{_datadir}/nisse/choices.d/70-boards.toml
+%config(noreplace) %{_sysconfdir}/profile.d/nisse-boards.sh
 %{_unitdir}/nisse-extras-retry.service
 %{_presetdir}/85-nisse-extras.preset
 
 %changelog
+* Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-3
+- The board families (ESP32, Arduino, Raspberry Pi Pico, STM32) as a second menu in the catalog (group boards), with the choice `boards` and a fetch script that checks every download against a pinned commit or checksum; ESP-IDF and the Pico SDK go in /opt, arduino-cli and picotool in /usr/local (N-514a)
+
 * Fri Nov 27 2026 Bert <266182601+rnix90@users.noreply.github.com> - 0.1-2
 - The options are no longer applied at boot (the extras choice says boot = false): a service that runs once the network is online, never before the login screen, applies them and sends a notice to whoever is at the screen when it is done or could not finish (N-507e)
 

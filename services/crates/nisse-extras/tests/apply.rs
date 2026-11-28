@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 
-use nisse_extras::apply::{apply, installed, reboot_needed, status, Paths, Runner};
+use nisse_extras::apply::{apply, apply_group, installed, reboot_needed, status, status_group, Paths, Runner};
 use nisse_extras::catalog::Catalog;
 
 const GOOD_FP: &str = "EB4C1BFD4F042F6DDDCCEC917721F63BD38B4796";
@@ -72,6 +72,20 @@ impl Runner for Fake {
                     Err("not installed".into())
                 }
             }
+            "dnf" => {
+                // what dnf did to the package database, so the next `rpm -q` tells the truth
+                if let Some(dash) = argv.iter().position(|a| a == "--") {
+                    let pkgs = &argv[dash + 1..];
+                    if argv.contains(&"install".to_string()) && !argv.contains(&"--downloadonly".to_string()) {
+                        self.rpm_has.extend(pkgs.iter().cloned());
+                    } else if argv.contains(&"remove".to_string()) {
+                        for p in pkgs {
+                            self.rpm_has.remove(p);
+                        }
+                    }
+                }
+                Ok(String::new())
+            }
             _ => Ok(String::new()),
         }
     }
@@ -102,6 +116,16 @@ fn env(name: &str) -> Env {
     };
     item("chrome", 10, true, "[\"google\"]", "[\"google-chrome-stable\"]", "");
     item("fa", 20, false, "[\"fusion\"]", "[\"pkg-a\"]", "");
+    item("s1", 70, false, "[\"fusion\"]", "[\"pkg-shared\"]", "");
+    item("s2", 71, false, "[\"fusion\"]", "[\"pkg-shared\"]", "");
+    item(
+        "ba",
+        110,
+        false,
+        "[\"fusion\"]",
+        "[\"pkg-ba\"]",
+        "group = \"boards\"\nremove_paths = [\"/opt/ba\", \"/usr/local/bin/ba-tool\"]\n",
+    );
     item(
         "ff",
         25,
@@ -591,6 +615,118 @@ fn removing_needs_no_network() {
     let out = apply(&e.cat, &e.paths, &mut f, &want(&[])).unwrap();
     assert!(out.failed.is_empty(), "{:?}", out.failed);
     assert!(installed(&e.paths).is_empty());
+}
+
+#[test]
+fn a_group_is_applied_on_its_own_and_leaves_the_others_alone() {
+    let e = env("groups");
+    let mut f = Fake::new();
+    apply_group(&e.cat, &e.paths, &mut f, &want(&["fa"]), "extras").unwrap();
+    // applying the boards group with nothing ticked must not remove the extras item
+    apply_group(&e.cat, &e.paths, &mut f, &want(&["ba"]), "boards").unwrap();
+    assert_eq!(installed(&e.paths), vec!["ba", "fa"]);
+    apply_group(&e.cat, &e.paths, &mut f, &want(&[]), "boards").unwrap();
+    assert_eq!(installed(&e.paths), vec!["fa"], "only the boards item went");
+    // and the other way round
+    apply_group(&e.cat, &e.paths, &mut f, &want(&["ba"]), "boards").unwrap();
+    apply_group(&e.cat, &e.paths, &mut f, &want(&[]), "extras").unwrap();
+    assert_eq!(installed(&e.paths), vec!["ba"]);
+}
+
+#[test]
+fn an_id_from_another_group_is_refused() {
+    let e = env("othergroup");
+    let mut f = Fake::new();
+    let err = apply_group(&e.cat, &e.paths, &mut f, &want(&["ba"]), "extras").unwrap_err();
+    assert!(err.contains("ba"), "{err}");
+    let err = apply_group(&e.cat, &e.paths, &mut f, &want(&["fa"]), "boards").unwrap_err();
+    assert!(err.contains("fa"), "{err}");
+    assert!(f.log.is_empty());
+}
+
+#[test]
+fn the_plain_apply_is_the_extras_group() {
+    let e = env("plain");
+    let mut f = Fake::new();
+    apply(&e.cat, &e.paths, &mut f, &want(&["fa"])).unwrap();
+    assert!(apply(&e.cat, &e.paths, &mut f, &want(&["ba"])).is_err());
+}
+
+#[test]
+fn status_is_per_group() {
+    let e = env("statusgroup");
+    let mut f = Fake::new();
+    apply_group(&e.cat, &e.paths, &mut f, &want(&["fa"]), "extras").unwrap();
+    apply_group(&e.cat, &e.paths, &mut f, &want(&["ba"]), "boards").unwrap();
+    assert_eq!(status_group(&e.cat, &e.paths, "extras"), "fa");
+    assert_eq!(status_group(&e.cat, &e.paths, "boards"), "ba");
+    assert_eq!(status(&e.cat, &e.paths), "fa");
+}
+
+#[test]
+fn paths_an_item_fetched_are_removed_with_it() {
+    let e = env("removepaths");
+    let mut f = Fake::new();
+    apply_group(&e.cat, &e.paths, &mut f, &want(&["ba"]), "boards").unwrap();
+    let dir = e.paths.under_root("/opt/ba");
+    // the post command of a real item makes this; the fake does not
+    fs::create_dir_all(dir.join("sub")).unwrap();
+    fs::write(dir.join("sub/file"), "x").unwrap();
+    let tool = e.paths.under_root("/usr/local/bin/ba-tool");
+    fs::create_dir_all(tool.parent().unwrap()).unwrap();
+    fs::write(&tool, "x").unwrap();
+    apply_group(&e.cat, &e.paths, &mut f, &want(&[]), "boards").unwrap();
+    assert!(!dir.exists(), "the folder the item fetched is gone");
+    assert!(!tool.exists(), "so is the file");
+}
+
+#[test]
+fn removing_the_paths_of_an_item_that_never_made_them_is_fine() {
+    let e = env("nopaths");
+    let mut f = Fake::new();
+    apply_group(&e.cat, &e.paths, &mut f, &want(&["ba"]), "boards").unwrap();
+    let out = apply_group(&e.cat, &e.paths, &mut f, &want(&[]), "boards").unwrap();
+    assert!(out.failed.is_empty(), "{:?}", out.failed);
+}
+
+fn removes_of(f: &Fake, pkg: &str) -> usize {
+    f.log
+        .iter()
+        .filter(|c| c[0] == "dnf" && c.contains(&"remove".to_string()) && c.contains(&pkg.to_string()))
+        .count()
+}
+
+#[test]
+fn a_package_two_installed_items_share_stays_until_the_last_of_them_goes() {
+    let e = env("shared-pkg");
+    let mut f = Fake::new();
+    apply(&e.cat, &e.paths, &mut f, &want(&["s1", "s2"])).unwrap();
+    // s1 installed it (it was not there), s2 found it there
+    apply(&e.cat, &e.paths, &mut f, &want(&["s2"])).unwrap();
+    assert_eq!(removes_of(&f, "pkg-shared"), 0, "s2 still wants it");
+    apply(&e.cat, &e.paths, &mut f, &want(&[])).unwrap();
+    assert_eq!(removes_of(&f, "pkg-shared"), 1, "it goes with the last item that wanted it");
+}
+
+#[test]
+fn the_same_when_the_item_that_did_not_install_it_goes_first() {
+    let e = env("shared-pkg2");
+    let mut f = Fake::new();
+    apply(&e.cat, &e.paths, &mut f, &want(&["s1", "s2"])).unwrap();
+    apply(&e.cat, &e.paths, &mut f, &want(&["s1"])).unwrap();
+    assert_eq!(removes_of(&f, "pkg-shared"), 0);
+    apply(&e.cat, &e.paths, &mut f, &want(&[])).unwrap();
+    assert_eq!(removes_of(&f, "pkg-shared"), 1);
+}
+
+#[test]
+fn a_shared_package_that_was_there_before_nisse_is_never_removed() {
+    let e = env("shared-pkg3");
+    let mut f = Fake::new();
+    f.rpm_has.insert("pkg-shared".into());
+    apply(&e.cat, &e.paths, &mut f, &want(&["s1", "s2"])).unwrap();
+    apply(&e.cat, &e.paths, &mut f, &want(&[])).unwrap();
+    assert_eq!(removes_of(&f, "pkg-shared"), 0);
 }
 
 #[test]

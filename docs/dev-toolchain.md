@@ -39,12 +39,40 @@ installed unless ticked.
 
 | Family | Tooling | Where it comes from |
 |---|---|---|
-| ESP32 | esptool, picocom, dfu-util, libusb1 and ESP-IDF's prerequisites on the image; ESP-IDF v5.5 cloned and installed into the user's home | Fedora RPMs, then git and ESP-IDF's own installer (about 2 GB, so never on the ISO) |
+| ESP32 | esptool, picocom, dfu-util, libusb1 and ESP-IDF's prerequisites on the image; ESP-IDF v5.5.6 in `/opt/esp-idf` with its tools in `/opt/espressif` (N-514a decision: system-wide, because the first user does not exist while setup runs) | Fedora RPMs, then git and ESP-IDF's own installer (4.6 GB measured: 524 MB of source and 4.1 GB of tools for every chip, so never on the ISO) |
 | Arduino (AVR and compatible) | avrdude (Fedora), arduino-cli | arduino-cli is not in Fedora: fetched from its publisher |
 | Raspberry Pi Pico (RP2040, RP2350) | arm-none-eabi-gcc-cs, arm-none-eabi-newlib, cmake (Fedora), the Pico SDK, picotool | the SDK and picotool are not in Fedora: fetched from their publisher |
 | STM32 and other ARM chips | arm-none-eabi-gcc-cs, arm-none-eabi-newlib, openocd | Fedora RPMs |
 
 USB permissions (udev rules and the group) for all families are N-514.
+
+### What N-514a built (2026-11-28)
+
+Bert's decision: the fetched toolchains go system-wide, installed by the wizard's root helper while the person watches a progress list (the same
+mechanism as the proprietary options, `docs/proprietary-options.md`: it is the `boards` menu of the `nisse-extras` catalog, `nisse-extras apply
+--group boards`, and the choice `boards`, order 70, default ESP32). One page, "Development Boards" (`org.nisse.setup.boards`, weight 155), is the
+options page component with that choice. Each family is an item:
+
+| Family | Installed by | Fetched | Where |
+|---|---|---|---|
+| ESP32 (ticked by default) | `esptool`, `picocom`, `dfu-util`, `libusb1` (already on the image through nisse-devtools) | ESP-IDF v5.5.6 cloned with its submodules from `github.com/espressif/esp-idf`, then ESP-IDF's own installer for the tools | `/opt/esp-idf`, `/opt/espressif` |
+| Arduino | `avrdude` | arduino-cli 1.6.0 from `github.com/arduino/arduino-cli/releases` (GPL-3.0) | `/usr/local/bin/arduino-cli` |
+| Raspberry Pi Pico | the ARM compiler packages, `cmake`, `gcc-c++`, `make`, `libusb1-devel`, `pkgconf-pkg-config` | Pico SDK 2.3.1 with its submodules and picotool 2.3.1, built here (both BSD-3-Clause, `github.com/raspberrypi`) | `/opt/pico-sdk`, `/usr/local/bin/picotool` |
+| STM32 and other ARM | `arm-none-eabi-gcc-cs`, `-c++`, `arm-none-eabi-newlib`, `openocd`, `stlink`, `dfu-util` | nothing | |
+
+Not in Fedora 44 (checked in the release repository): `arduino-cli`, `picotool`, `pico-sdk`. What is fetched is pinned in
+`packaging/rpm/nisse-extras/extras.d/boards.pins` and checked by `nisse-fetch-board` before anything is installed or run: git commits for ESP-IDF
+(v5.5.6 is `880a203a...`), the Pico SDK and picotool (read with `git ls-remote`, tags peeled), and the sha256 of the arduino-cli tarball (from
+Arduino's own `1.6.0-checksums.txt`). The git folders are removed after the check, as in Espressif's own release archives (so a user who is not root
+never hits git's ownership check in a folder root owns). `/etc/profile.d/nisse-boards.sh` sets `IDF_PATH`, `IDF_TOOLS_PATH` and defines `get_idf`
+when ESP-IDF is there, and sets `PICO_SDK_PATH` when the SDK is. Unticking removes what the family fetched (the catalog's `remove_paths`) and the
+packages it installed, except one another ticked family still lists (the ARM compiler is shared by Pico and STM32: the last to go takes it).
+
+Proof: `cargo test -p nisse-extras` (groups, remove paths, shared packages), `tests/rpm/test_fetch_board.sh` (a wrong commit or checksum is refused
+before anything is installed; a half-finished try is replaced; a failed download is said plainly), the page test (the boards page, ESP32 ticked from
+the start), and `tools/vm/extras_live_check.sh arduino stm32 pico esp32` against the real sources in the build VM: each ends installed and working
+(`arduino-cli version`, picotool built from source, openocd, and for ESP32 `idf.py --version` as a user who is not root) and an untick leaves nothing
+behind. The ESP-IDF install measured 524 MB plus 4.1 GB.
 
 ## USB access for boards (N-514)
 

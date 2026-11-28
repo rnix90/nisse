@@ -56,4 +56,22 @@ TestCase {
         compare(Extras.titleOf(full, "chrome"), "Google Chrome");
         compare(Extras.titleOf(full, "ghost"), "ghost");
     }
+
+    function test_the_page_starts_from_what_the_answer_says_among_the_options_it_shows() {
+        // the board families are ticked by default (the choice's default is the answer), the proprietary options start empty
+        const shown = [{id: "esp32"}, {id: "pico"}];
+        compare(Extras.initial(["esp32", "ghost", "chrome"], shown), ["esp32"]);
+        compare(Extras.initial([], shown), []);
+        compare(Extras.initial(undefined, shown), []);
+    }
+
+    function test_what_is_installed_is_what_the_machine_has() {
+        compare(Extras.installedIds([{id: "a", installed: true}, {id: "b", installed: false}, {id: "c", installed: true}]), ["a", "c"]);
+    }
+
+    function test_the_options_of_one_menu() {
+        const all = [{id: "chrome", group: "extras"}, {id: "esp32", group: "boards"}, {id: "steam", group: "extras"}];
+        compare(Extras.inGroup(all, "boards").map(i => i.id), ["esp32"]);
+        compare(Extras.inGroup(all, "extras").map(i => i.id), ["chrome", "steam"]);
+    }
 }

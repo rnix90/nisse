@@ -1,0 +1,9 @@
+ESP32
+
+What it is: the tools for Espressif's ESP32 family. ESP-IDF (version 5.5.6, Espressif's official framework) is downloaded from Espressif's repository on GitHub with all of its parts, and checked against a fixed commit before anything runs. Its own installer then downloads the compilers, debugger and Python packages it needs from Espressif's servers and the Python package index. The flashing tools (esptool, picocom, dfu-util) come from Fedora.
+
+Where it goes: ESP-IDF in /opt/esp-idf and its tools in /opt/espressif, for every user. Type get_idf in a terminal to use it.
+
+License: ESP-IDF is Apache-2.0. The compilers, debugger and other tools it installs carry their own open source licenses.
+
+What this changes: it needs a network and several gigabytes of disk space, and takes a while. Unticking it later removes both folders.

@@ -60,6 +60,7 @@ QVariantMap parseExtras(const QByteArray &json, QString *error)
             item.insert(key, o.value(key).toBool());
         }
         item.insert(u"reboot"_s, o.value(u"reboot"_s).toBool(false));
+        item.insert(u"group"_s, o.value(u"group"_s).isString() ? o.value(u"group"_s).toString() : u"extras"_s);
         item.insert(u"warning"_s, o.value(u"warning"_s).isString() ? o.value(u"warning"_s).toString() : QString());
         items.append(item);
     }

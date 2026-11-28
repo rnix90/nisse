@@ -341,14 +341,50 @@ fn remove_also_takes_package_name_patterns_and_refuses_options() {
 }
 
 #[test]
+fn an_item_is_in_the_extras_group_unless_it_says_another() {
+    let dir = scratch("group");
+    valid(&dir);
+    assert_eq!(Catalog::load(&dir).unwrap().item("chrome").unwrap().group, "extras");
+    fs::write(dir.join("items/40-chrome.toml"), format!("{ITEM}group = \"boards\"\n")).unwrap();
+    assert_eq!(Catalog::load(&dir).unwrap().item("chrome").unwrap().group, "boards");
+    err_with("badgroup", |d| fs::write(d.join("items/40-chrome.toml"), format!("{ITEM}group = \"Boards Now\"\n")).unwrap(), "group");
+}
+
+#[test]
+fn remove_paths_are_absolute_folders_under_opt_or_usr_local_and_never_the_top() {
+    let dir = scratch("removepaths");
+    valid(&dir);
+    fs::write(dir.join("items/40-chrome.toml"), format!("{ITEM}remove_paths = [\"/opt/esp-idf\", \"/usr/local/bin/arduino-cli\"]\n")).unwrap();
+    assert_eq!(
+        Catalog::load(&dir).unwrap().item("chrome").unwrap().remove_paths,
+        vec!["/opt/esp-idf", "/usr/local/bin/arduino-cli"]
+    );
+    for bad in ["/opt", "/opt/", "/usr/local", "/usr/local/bin", "/etc/passwd", "/opt/../etc", "opt/x", "/opt//x", "/home/x", "/usr/local/bin/*"] {
+        err_with(
+            "badpath",
+            |d| fs::write(d.join("items/40-chrome.toml"), format!("{ITEM}remove_paths = [\"{bad}\"]\n")).unwrap(),
+            "remove path",
+        );
+    }
+}
+
+#[test]
 fn the_shipped_catalog_is_valid_and_complete() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../packaging/rpm/nisse-extras/extras.d");
     let c = Catalog::load(&dir).unwrap_or_else(|e| panic!("shipped catalog: {e}"));
     let ids: Vec<&str> = c.items().iter().map(|i| i.id.as_str()).collect();
     assert_eq!(
         ids,
-        ["openh264", "codecs", "sunshine-full", "chrome", "steam", "nvidia"]
+        ["openh264", "codecs", "sunshine-full", "chrome", "steam", "nvidia", "esp32", "arduino", "pico", "stm32"]
     );
+    // the proprietary options and the board families are two menus
+    for id in ["esp32", "arduino", "pico", "stm32"] {
+        assert_eq!(c.item(id).unwrap().group, "boards");
+        assert!(!c.item(id).unwrap().accept, "{id} is open source");
+    }
+    for id in ["openh264", "codecs", "sunshine-full", "chrome", "steam", "nvidia"] {
+        assert_eq!(c.item(id).unwrap().group, "extras");
+    }
     // the three that carry a license the person agrees to need the Accept dialog
     for id in ["chrome", "steam", "nvidia"] {
         assert!(c.item(id).unwrap().accept, "{id} must need acceptance");

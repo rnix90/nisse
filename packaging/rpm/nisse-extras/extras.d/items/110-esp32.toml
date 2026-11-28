@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+id = "esp32"
+group = "boards"
+title = "ESP32"
+summary = "Tools for Espressif ESP32 boards: ESP-IDF 5.5, its compilers and debugger, and the flashing tools."
+source = "Espressif's ESP-IDF on GitHub, and Fedora"
+license = "Apache-2.0 for ESP-IDF, with the licenses of the tools it installs"
+accept = false
+order = 110
+packages = ["esptool", "picocom", "dfu-util", "libusb1"]
+post = [["/usr/libexec/nisse/nisse-fetch-board", "esp-idf"]]
+remove_paths = ["/opt/esp-idf", "/opt/espressif"]

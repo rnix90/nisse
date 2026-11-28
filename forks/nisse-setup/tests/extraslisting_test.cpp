@@ -17,7 +17,7 @@ class ExtrasListingTest : public QObject
     {
         return QByteArray(R"({"items":[
             {"id":"openh264","title":"Cisco OpenH264","summary":"Plays H.264.","source":"Fedora","license":"BSD","terms":"Terms one.\n","accept":false,"warning":null,"reboot":false,"installed":false},
-            {"id":"nvidia","title":"NVIDIA Graphics Driver","summary":"The driver.","source":"RPM Fusion","license":"NVIDIA","terms":"Terms two.\n","accept":true,"warning":"Secure Boot.","reboot":true,"installed":true}
+            {"id":"nvidia","group":"boards","title":"NVIDIA Graphics Driver","summary":"The driver.","source":"RPM Fusion","license":"NVIDIA","terms":"Terms two.\n","accept":true,"warning":"Secure Boot.","reboot":true,"installed":true}
         ],"reboot":true})");
     }
 
@@ -41,6 +41,9 @@ private Q_SLOTS:
         QCOMPARE(second.value(QStringLiteral("accept")).toBool(), true);
         QCOMPARE(second.value(QStringLiteral("installed")).toBool(), true);
         QCOMPARE(second.value(QStringLiteral("warning")).toString(), QStringLiteral("Secure Boot."));
+        // the menu an option is on: what it says, or extras when it says nothing
+        QCOMPARE(second.value(QStringLiteral("group")).toString(), QStringLiteral("boards"));
+        QCOMPARE(first.value(QStringLiteral("group")).toString(), QStringLiteral("extras"));
         QCOMPARE(map.value(QStringLiteral("reboot")).toBool(), true);
     }
 
