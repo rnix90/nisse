@@ -19,7 +19,7 @@ grep -qxE '/usr/(s)?bin/nisse-choices' <<< "$files" || fail "RPM lacks the nisse
 
 # The first-boot apply: after the wizard, before login, never on live media, applies at every boot.
 unit="$(member usr/lib/systemd/system/nisse-choices-apply.service)"
-for want in 'Type=oneshot' 'ExecStart=/usr/bin/nisse-choices apply' 'Before=display-manager.service' 'ConditionKernelCommandLine=!rd.live.image' 'WantedBy=multi-user.target'; do
+for want in 'Type=oneshot' 'ExecStart=/usr/bin/nisse-choices apply --boot' 'Before=display-manager.service' 'ConditionKernelCommandLine=!rd.live.image' 'WantedBy=multi-user.target'; do
     grep -qx "$want" <<< "$unit" || fail "nisse-choices-apply.service lacks: $want"
 done
 grep -qE '^After=.*nisse-setup.service' <<< "$unit" || fail "the apply service must run after the first-boot wizard"

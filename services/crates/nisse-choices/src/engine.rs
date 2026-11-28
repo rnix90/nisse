@@ -54,6 +54,8 @@ pub struct ApplyOptions {
     pub id: Option<String>,
     /// Run the command even if the wanted value looks already applied.
     pub force: bool,
+    /// The boot-time apply: leaves out the choices whose manifest says `boot = false`.
+    pub at_boot: bool,
 }
 
 /// One choice as a front-end sees it (`nisse-choices list --json`).
@@ -393,7 +395,11 @@ impl Engine {
         let selected: Vec<Manifest> = self
             .manifests
             .iter()
-            .filter(|m| opts.stage.is_none_or(|s| m.stage == s) && opts.id.as_ref().is_none_or(|i| &m.id == i))
+            .filter(|m| {
+                opts.stage.is_none_or(|s| m.stage == s)
+                    && opts.id.as_ref().is_none_or(|i| &m.id == i)
+                    && (m.boot || !opts.at_boot)
+            })
             .cloned()
             .collect();
         let mut outcomes = Vec::new();

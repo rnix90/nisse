@@ -7,7 +7,7 @@ ConditionKernelCommandLine=!rd.live.image
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/nisse-choices apply
+ExecStart=/usr/bin/nisse-choices apply --boot
 
 [Install]
 WantedBy=multi-user.target

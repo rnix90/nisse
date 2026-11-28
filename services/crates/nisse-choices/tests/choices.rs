@@ -417,6 +417,45 @@ fn a_manifest_timeout_lets_a_slow_apply_finish_where_the_default_would_kill_it()
     assert!(matches!(out[0].status, Status::Applied), "{:?}", out[0].status);
 }
 
+// ---- a choice that must not run at boot (N-507e: an install would hold the login screen)
+
+#[test]
+fn boot_is_true_unless_the_manifest_says_false() {
+    let with = |extra: &str| bool_manifest("x", 1).replace("[apply]\n", &format!("[apply]\n{extra}"));
+    assert!(parse_manifest(&bool_manifest("x", 1)).unwrap().boot);
+    assert!(parse_manifest(&with("boot = true\n")).unwrap().boot);
+    assert!(!parse_manifest(&with("boot = false\n")).unwrap().boot);
+    let err = parse_manifest(&with("boot = \"no\"\n")).unwrap_err();
+    assert!(err.contains("boolean"), "{err}");
+}
+
+#[test]
+fn applying_at_boot_leaves_out_the_choices_that_opt_out_and_applying_by_hand_does_not() {
+    let r = rig("boot");
+    let manifest = |id: &str, order: i64, extra: &str| {
+        format!(
+            "id = \"{id}\"\ntitle = \"T\"\ndescription = \"D\"\nstage = \"firstboot\"\norder = {order}\nkind = \"bool\"\ndefault = true\n\n[apply]\n{extra}command = [\"{}\", \"noop\", \"{id}\", \"{{value}}\"]\n",
+            r.tool()
+        )
+    };
+    fs::write(r.manifests.join("10-a.toml"), manifest("always", 10, "")).unwrap();
+    fs::write(r.manifests.join("20-b.toml"), manifest("slow", 20, "boot = false\n")).unwrap();
+    let out = r.engine().apply(&ApplyOptions {
+        at_boot: true,
+        ..ApplyOptions::default()
+    });
+    assert_eq!(out.iter().map(|o| o.id.as_str()).collect::<Vec<_>>(), ["always"]);
+    assert_eq!(r.log(), ["noop always true"], "the opt-out command did not run");
+    // the same engine, applied by hand (the wizard, the retry service), runs it
+    let out = r.engine().apply(&ApplyOptions::default());
+    assert!(
+        out.iter()
+            .any(|o| o.id == "slow" && matches!(o.status, Status::Applied)),
+        "{out:?}"
+    );
+    assert!(r.log().contains(&"noop slow true".to_string()));
+}
+
 #[test]
 fn commands_run_with_a_minimal_environment_and_no_shell() {
     let r = rig("env");

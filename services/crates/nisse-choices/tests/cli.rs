@@ -233,3 +233,26 @@ fn a_broken_manifest_directory_stops_every_command_but_validate() {
         assert!(err(&o).contains("30-bad.toml"), "{args:?}: {}", err(&o));
     }
 }
+
+#[test]
+fn apply_boot_skips_the_choices_that_opt_out() {
+    let e = Env::new("boot");
+    fs::write(
+        e.dir.join("choices.d").join("30-slow.toml"),
+        format!(
+            "id = \"slow\"\ntitle = \"T\"\ndescription = \"D\"\nstage = \"firstboot\"\norder = 30\nkind = \"bool\"\ndefault = true\n\n[apply]\nboot = false\ncommand = [\"{}\", \"slow\", \"{{value}}\"]\n",
+            e.dir.join("tool").display()
+        ),
+    )
+    .unwrap();
+    let o = e.run(&["apply", "--boot"]);
+    assert_eq!(code(&o), 0, "{}", err(&o));
+    assert!(!out(&o).contains("slow"), "{}", out(&o));
+    assert!(!e.log().iter().any(|l| l.starts_with("slow")), "{:?}", e.log());
+    // by hand, with the id, it runs
+    let o = e.run(&["apply", "--id", "slow"]);
+    assert_eq!(code(&o), 0, "{}", err(&o));
+    assert!(e.log().iter().any(|l| l.starts_with("slow")), "{:?}", e.log());
+    // the flag is in the usage text
+    assert!(err(&e.run(&["bogus"])).contains("--boot"));
+}

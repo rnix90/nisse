@@ -1,0 +1,15 @@
+[Unit]
+Description=Install the proprietary options chosen in setup, once the network is up
+# Not ordered around the display manager: an install takes minutes and the login screen must not wait for it (N-507e).
+After=network-online.target nisse-choices-apply.service
+Wants=network-online.target
+ConditionKernelCommandLine=!rd.live.image
+ConditionPathExists=/var/lib/nisse/choices/answers.toml
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nisse/nisse-extras-retry
+TimeoutStartSec=3900
+
+[Install]
+WantedBy=multi-user.target

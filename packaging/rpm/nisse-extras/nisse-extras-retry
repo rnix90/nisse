@@ -1,0 +1,58 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Run by nisse-extras-retry.service once the network is online (ledger N-507e, docs/proprietary-options.md). The proprietary options the person
+# ticked in setup are applied again here when an earlier try could not finish (no network then, a mirror down): at boot the answer is left alone
+# (its manifest says boot = false), because an install takes minutes and the login screen must not wait for it.
+#   - nothing pending: silent;
+#   - installed: a notice to each person at the screen;
+#   - failed: a notice with the reason and that it will be tried again at the next start;
+#   - failed for want of a network: the journal only, so an offline machine is not nagged at every start.
+# NISSE_RETRY_BIN is where the programs are (tests put stand-ins there).
+set -u
+bin="${NISSE_RETRY_BIN:-/usr/bin}"
+
+log() { echo "nisse-extras-retry: $*"; }
+
+if ! out="$("$bin/nisse-choices" apply --id extras 2>&1)"; then
+    status=failed
+else
+    status=ok
+fi
+line="$(printf '%s\n' "$out" | grep -E '^(ok|FAIL) +extras:' | head -1)"
+if [ -z "$line" ]; then
+    log "the choices engine gave no answer for extras ($status): $(printf '%s' "$out" | head -c 200 | tr -c '[:print:]' ' ')"
+    exit 0
+fi
+
+# one plain line of ASCII, no quotes, at most 220 characters: it is put in a notice, never run
+clean() { printf '%s' "$1" | tr -c 'A-Za-z0-9 .,:;()/_+-' ' ' | tr -s ' ' | head -c 220; }
+
+# Sends a notice to every active graphical session (not a text console, not a session that is not at the screen).
+notify() { # title body
+    "$bin/loginctl" list-sessions --no-legend 2>/dev/null | while read -r id uid user _; do
+        info="$("$bin/loginctl" show-session "$id" -p Type -p Active 2>/dev/null)"
+        case "$info" in *Type=wayland*|*Type=x11*) ;; *) continue ;; esac
+        case "$info" in *Active=yes*) ;; *) continue ;; esac
+        "$bin/runuser" -u "$user" -- env "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" \
+            "$bin/notify-send" --app-name=nisse --icon=nisse "$1" "$2" >/dev/null 2>&1 || true
+    done
+}
+
+case "$line" in
+    *"already in place"*)
+        exit 0
+        ;;
+    *applied*)
+        log "the options you chose in setup are installed"
+        notify "Optional Software Installed" "The options you chose in setup are now installed."
+        ;;
+    FAIL*)
+        why="$(clean "${line#FAIL extras: }")"
+        log "could not install: $why"
+        case "$line" in
+            *"no network"*) ;;
+            *) notify "Optional Software Not Installed" "Some options you chose in setup could not be installed: $why. nisse will try again at the next start." ;;
+        esac
+        ;;
+esac
+exit 0

@@ -94,6 +94,9 @@ pub struct Manifest {
     /// How long the apply command may run before it is killed; none means the engine's default (two minutes). For a command that is slow on
     /// purpose, such as installing packages.
     pub apply_timeout: Option<Duration>,
+    /// False keeps the choice out of the boot-time apply (`nisse-choices apply --boot`): applying it takes long, and the login screen must not
+    /// wait for it. The wizard and a service that retries it name it with `--id` and are not affected.
+    pub boot: bool,
 }
 
 #[derive(Deserialize)]
@@ -138,6 +141,7 @@ struct RawApply {
     command: Vec<String>,
     status: Option<Vec<String>>,
     timeout_secs: Option<i64>,
+    boot: Option<bool>,
 }
 
 fn word_ok(s: &str, first_letter_only: bool) -> bool {
@@ -307,6 +311,7 @@ pub fn parse_manifest(text: &str) -> Result<Manifest, String> {
         apply: raw.apply.command,
         status: raw.apply.status,
         apply_timeout,
+        boot: raw.apply.boot.unwrap_or(true),
     };
     manifest.default = match (&manifest.kind, &raw.default) {
         (Kind::Bool, toml::Value::Boolean(b)) => Value::Bool(*b),

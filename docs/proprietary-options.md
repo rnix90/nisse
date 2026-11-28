@@ -60,6 +60,18 @@ source and license, a warning where there is one, and Read Terms. Pressing Insta
 stays alive, KAuth with a one hour timeout), polling the progress file; Next is off until a change has been applied; after a failed attempt
 the person may go on, and the rest is tried again at the next start. Pictures: `docs/screenshots/n507d-extras-page.png`, `n507d-extras-terms.png`.
 
+## The retry (N-507e, Bert: a system service once online)
+
+The extras manifest says `[apply] boot = false`, and `nisse-choices-apply.service` now runs `nisse-choices apply --boot`, which skips such
+choices, so boot never waits for an install. `nisse-extras-retry.service` (enabled by preset, after `network-online.target`, not ordered around the
+display manager, not on live media) runs `/usr/libexec/nisse/nisse-extras-retry` at every start: it asks the engine to apply `extras`, which is a
+no-op (and silent) when the answer is met. When it installs something it sends a notice ("Optional Software Installed") to each active graphical
+session (through `runuser` and that user's session bus); when it fails it sends "Optional Software Not Installed" with the reason, cleaned to plain
+ASCII and cut to 220 characters, and says it will try again at the next start; a failure for want of a network is journal only, so an offline
+machine is not nagged. The wizard still applies at once, by id. Proof: `tests/rpm/test_extras_retry.sh` (stand-ins), and
+`tools/vm/extras_retry_check.sh` (the real engine, command and script against RPM Fusion: boot leaves it alone, the retry installs, a second run is
+silent, 8 of 8).
+
 ## Proof
 
 - `cargo test -p nisse-extras`: 57 tests (the catalog's rules, every apply path with a recording stand-in for dnf, rpm, curl and gpg, the command),
@@ -92,8 +104,8 @@ the person may go on, and the rest is tried again at the next start. Pictures: `
 - **The Accept dialog shows nisse's plain-English summary of the terms and the address of the full text, not the legal text itself.** Google's and Valve's
   texts are theirs to publish; the packages carry their own license files. Bert chose "an Accept dialog with the terms first" and this is the
   closest that does not republish them: say so if the full text should be fetched and shown instead.
-- **A retry at a later boot runs before the login screen** (`nisse-choices-apply.service`), so a machine that was offline at setup installs
-  Chrome, Steam or the driver while it boots the first time it is online. Filed as a follow-up (a background retry with a notification).
+- **A machine that was offline at setup** installs what is pending the next time it starts online, in the background (see "The retry" below),
+  not before the login screen. If nobody is logged in when it finishes, only the journal says so.
 - Not verified: the real first boot through the wizard (KAuth with an hour of timeout, the polkit path), the NVIDIA module loading on a GPU,
   Secure Boot (the page only warns; N-518), running Steam or Chrome from the wizard's session, Flatpak, a second user. ISO-level checks are in
   `tests/iso/test_iso_contents.sh` for the next rebuild.

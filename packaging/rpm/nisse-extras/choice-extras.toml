@@ -17,3 +17,4 @@ max_items = 16
 command = ["/usr/bin/nisse-extras", "apply", "{value}"]
 status = ["/usr/bin/nisse-extras", "status"]
 timeout_secs = 3600
+boot = false

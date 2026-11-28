@@ -13,7 +13,7 @@ use nisse_choices::manifest::{load_dir, Stage};
 
 const USAGE: &str = "usage: nisse-choices list [--stage firstboot|installer] [--json]
        nisse-choices set ID VALUE | unset ID
-       nisse-choices apply [--stage S] [--id ID] [--force]
+       nisse-choices apply [--stage S] [--id ID] [--force] [--boot]
        nisse-choices export [FILE] | import FILE
        nisse-choices validate [DIR]";
 
@@ -54,6 +54,7 @@ struct Flags {
     id: Option<String>,
     json: bool,
     force: bool,
+    boot: bool,
 }
 
 fn flags(args: &[String], allowed: &[&str]) -> Option<Flags> {
@@ -62,6 +63,7 @@ fn flags(args: &[String], allowed: &[&str]) -> Option<Flags> {
         id: None,
         json: false,
         force: false,
+        boot: false,
     };
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -73,6 +75,7 @@ fn flags(args: &[String], allowed: &[&str]) -> Option<Flags> {
             "--id" => f.id = Some(it.next()?.clone()),
             "--json" => f.json = true,
             "--force" => f.force = true,
+            "--boot" => f.boot = true,
             _ => return None,
         }
     }
@@ -151,7 +154,7 @@ fn main() -> ExitCode {
             }
         }
         "apply" => {
-            let Some(f) = flags(rest, &["--stage", "--id", "--force"]) else {
+            let Some(f) = flags(rest, &["--stage", "--id", "--force", "--boot"]) else {
                 return usage();
             };
             let mut engine = match open() {
@@ -162,6 +165,7 @@ fn main() -> ExitCode {
                 stage: f.stage,
                 id: f.id,
                 force: f.force,
+                at_boot: f.boot,
             });
             let mut failed = false;
             for o in outcomes {

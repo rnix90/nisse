@@ -14,6 +14,10 @@ files="$(rpm -qlp "$rpm_path")"
 for f in /usr/bin/nisse-extras /usr/share/nisse/choices.d/80-extras.toml; do
     printf '%s\n' "$files" | grep -qxF "$f" || fail "nisse-extras lacks $f"
 done
+for f in /usr/libexec/nisse/nisse-extras-retry /usr/lib/systemd/system/nisse-extras-retry.service /usr/lib/systemd/system-preset/85-nisse-extras.preset; do
+    printf '%s
+' "$files" | grep -qxF "$f" || fail "nisse-extras lacks $f"
+done
 for id in openh264 codecs sunshine-full chrome steam nvidia; do
     printf '%s\n' "$files" | grep -qE "^/usr/share/nisse/extras.d/items/[0-9]+-$id\.toml$" || fail "no item manifest for $id"
     printf '%s\n' "$files" | grep -qxF "/usr/share/nisse/extras.d/terms/$id.txt" || fail "no terms text for $id"
@@ -25,13 +29,13 @@ echo "ok   the command, the choice manifest, six items with terms and five repos
 
 # what the package needs at run time
 reqs="$(rpm -qp --requires "$rpm_path")"
-for r in dnf rpm curl gnupg2 distribution-gpg-keys; do
+for r in dnf rpm curl gnupg2 distribution-gpg-keys util-linux /usr/bin/notify-send; do
     printf '%s\n' "$reqs" | grep -qx "$r" || fail "nisse-extras does not require $r"
 done
-echo "ok   it requires dnf, rpm, curl, gnupg2 and distribution-gpg-keys"
+echo "ok   it requires dnf, rpm, curl, gnupg2, distribution-gpg-keys, runuser and notify-send"
 
 # nothing third-party is shipped in the package itself: only manifests and the command
-bad="$(printf '%s\n' "$files" | grep -v -E '^/usr/(bin/nisse-extras|share/(nisse/(choices|extras)\.d(/.*)?|licenses/.*))$|^/var/lib/nisse(/extras)?$|^/usr/share/nisse$' || true)"
+bad="$(printf '%s\n' "$files" | grep -v -E '^/usr/(bin/nisse-extras|share/(nisse/(choices|extras)\.d(/.*)?|licenses/.*))$|^/var/lib/nisse(/extras)?$|^/usr/share/nisse$|^/usr/libexec/nisse(/nisse-extras-retry)?$|^/usr/lib/systemd/system/nisse-extras-retry.service$|^/usr/lib/systemd/system-preset/85-nisse-extras.preset$' || true)"
 [ -z "$bad" ] || fail "unexpected files in the package: $bad"
 echo "ok   the package holds only the command and manifests"
 

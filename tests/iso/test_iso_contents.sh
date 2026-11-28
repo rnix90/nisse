@@ -278,6 +278,12 @@ if ls "$root"/etc/yum.repos.d/ 2>/dev/null | grep -qiE 'rpmfusion|google|lizardb
 for p in google-chrome-stable steam akmod-nvidia xorg-x11-drv-nvidia libavcodec-freeworld mesa-va-drivers-freeworld Sunshine openh264; do
     if rpm --root "$root" -q "$p" >/dev/null 2>&1; then fail "the image ships $p, which is an option to tick (N-507d)"; fi
 done
+# N-507e: what the boot-time apply leaves out is applied by a service that runs once the network is online and is not ordered before the login screen
+[ -x "$root/usr/libexec/nisse/nisse-extras-retry" ] || fail "the options retry script is not in the image (N-507e)"
+state="$(sudo systemctl --root="$merged" is-enabled nisse-extras-retry.service 2>/dev/null || true)"
+case "$state" in enabled | enabled-runtime) ;; *) fail "nisse-extras-retry.service is '$state' after the image applies its presets, expected enabled (N-507e)" ;; esac
+if grep -q 'display-manager' "$root/usr/lib/systemd/system/nisse-extras-retry.service"; then fail "the options retry service is ordered around the display manager (N-507e)"; fi
+grep -q 'ExecStart=/usr/bin/nisse-choices apply --boot' "$root/usr/lib/systemd/system/nisse-choices-apply.service" || fail "the boot apply service does not pass --boot (N-507e)"
 [ ! -e "$root/var/lib/nisse/extras/state.json" ] || fail "the image ships an options state file, so something would count as installed (N-507d)"
 echo "ok   the options menu is in the image (command, six-option catalog, choice before the taskbar pins, page), its keys are there, and nothing it offers ships"
 
